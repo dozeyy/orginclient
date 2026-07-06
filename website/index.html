@@ -14,13 +14,15 @@
 <body>
 
 <div class="grain" aria-hidden="true"></div>
-<div class="cursor-glow" id="cursorGlow" aria-hidden="true"></div>
+<div class="cursor-glow cursor-glow--halo" id="cursorGlowHalo" aria-hidden="true"></div>
+<div class="cursor-glow cursor-glow--core" id="cursorGlowCore" aria-hidden="true"></div>
 
 <header class="nav" id="nav">
   <a href="#top" class="nav__brand">
-    <svg class="mark" viewBox="0 0 40 40" aria-hidden="true">
-      <circle cx="20" cy="20" r="17"/>
-      <circle cx="20" cy="20" r="6" fill="currentColor" stroke="none"/>
+    <svg class="mark" viewBox="0 0 200 200" aria-hidden="true">
+      <ellipse cx="100" cy="100" rx="90" ry="32"/>
+      <ellipse cx="100" cy="100" rx="75" ry="27" transform="rotate(60 100 100)"/>
+      <ellipse cx="100" cy="100" rx="60" ry="22" transform="rotate(120 100 100)"/>
     </svg>
     <span>Origin</span>
   </a>
@@ -30,7 +32,6 @@
     <a href="#compare">Compare</a>
   </nav>
   <div class="nav__actions">
-    <a href="#" class="link-underline" id="discordLinkNav">Discord</a>
     <a href="#" class="btn btn--primary btn--sm" id="downloadBtnNav">Download</a>
   </div>
 </header>
@@ -39,25 +40,24 @@
 
   <!-- HERO -->
   <section class="hero">
-    <p class="eyebrow reveal">MINECRAFT CLIENT — FABRIC / QUILT — 1.20+</p>
+    <p class="eyebrow reveal">MINECRAFT CLIENT — FABRIC / QUILT — BETA TO LATEST</p>
     <h1 class="hero__title reveal">
       <span class="accent">Origin.</span><br>
       Strip away the bloat.<br>
       Maximize your frames.
     </h1>
     <p class="hero__sub reveal">
-      Built around a single rule: nothing ships unless it makes the game faster.
-      No overlays you didn't ask for, no background services, no wasted frames.
+      One rule: if it doesn't make the game faster, it doesn't ship.
+      No bloat, no background services, no wasted frames — just raw FPS.
     </p>
 
     <div class="hero__cta reveal">
       <a href="#" class="btn btn--primary btn--lg" id="downloadBtn">Download Client</a>
-      <a href="#" class="link-underline link-underline--lg" id="discordLink">Discord</a>
     </div>
 
     <div class="hud reveal" aria-hidden="true">
       <div class="hud__panel hud__panel--fps">
-        <span class="hud__value">238</span>
+        <span class="hud__value">1,200+</span>
         <span class="hud__unit">FPS</span>
       </div>
       <div class="hud__panel hud__panel--stats">
@@ -66,11 +66,45 @@
         <div class="hud__row"><span>CPU</span><span>0.8%</span></div>
       </div>
       <div class="hud__crosshair">
-        <span></span><span></span>
+        <span class="hud__crosshair-tick hud__crosshair-tick--top"></span>
+        <span class="hud__crosshair-tick hud__crosshair-tick--right"></span>
+        <span class="hud__crosshair-tick hud__crosshair-tick--bottom"></span>
+        <span class="hud__crosshair-tick hud__crosshair-tick--left"></span>
+        <span class="hud__crosshair-dot"></span>
       </div>
     </div>
 
     <div class="hero__scroll reveal" aria-hidden="true"><span></span></div>
+  </section>
+
+  <!-- MARQUEE -->
+  <section class="marquee" aria-hidden="true">
+    <div class="marquee__track">
+      <span class="marquee__group">
+        <span>Zero Bloat</span><span class="marquee__dot">&#9670;</span>
+        <span class="accent">Origin</span><span class="marquee__dot">&#9670;</span>
+        <span>Maximum FPS</span><span class="marquee__dot">&#9670;</span>
+        <span class="accent">Origin</span><span class="marquee__dot">&#9670;</span>
+        <span>Fabric &amp; Quilt</span><span class="marquee__dot">&#9670;</span>
+        <span class="accent">Origin</span><span class="marquee__dot">&#9670;</span>
+        <span>1,200+ FPS</span><span class="marquee__dot">&#9670;</span>
+        <span class="accent">Origin</span><span class="marquee__dot">&#9670;</span>
+        <span>Instant Startup</span><span class="marquee__dot">&#9670;</span>
+        <span class="accent">Origin</span><span class="marquee__dot">&#9670;</span>
+      </span>
+      <span class="marquee__group" aria-hidden="true">
+        <span>Zero Bloat</span><span class="marquee__dot">&#9670;</span>
+        <span class="accent">Origin</span><span class="marquee__dot">&#9670;</span>
+        <span>Maximum FPS</span><span class="marquee__dot">&#9670;</span>
+        <span class="accent">Origin</span><span class="marquee__dot">&#9670;</span>
+        <span>Fabric &amp; Quilt</span><span class="marquee__dot">&#9670;</span>
+        <span class="accent">Origin</span><span class="marquee__dot">&#9670;</span>
+        <span>1,200+ FPS</span><span class="marquee__dot">&#9670;</span>
+        <span class="accent">Origin</span><span class="marquee__dot">&#9670;</span>
+        <span>Instant Startup</span><span class="marquee__dot">&#9670;</span>
+        <span class="accent">Origin</span><span class="marquee__dot">&#9670;</span>
+      </span>
+    </div>
   </section>
 
   <!-- PERFORMANCE -->
@@ -88,28 +122,23 @@
       rendering pipeline. Every single frame matters.
     </p>
 
-    <div class="graph reveal">
-      <div class="graph__toggle" role="tablist" aria-label="Graph metric">
-        <button class="graph__tab is-active" data-metric="fps" role="tab" aria-selected="true">FPS</button>
-        <button class="graph__tab" data-metric="frametime" role="tab" aria-selected="false">Frame Time</button>
+    <!-- Placeholder marketing figures per project direction — replace with real benchmarks before public launch -->
+    <div class="bars reveal">
+      <div class="bar-col">
+        <span class="bar-col__value" data-count-to="120">0</span>
+        <div class="bar-col__track"><div class="bar-col__fill" style="--target: 12%"></div></div>
+        <span class="bar-col__label">Vanilla</span>
       </div>
-
-      <svg class="graph__svg" viewBox="0 0 600 200" preserveAspectRatio="none">
-        <line x1="0" y1="200" x2="600" y2="200" class="graph__axis"/>
-
-        <polyline class="graph__line graph__line--other" data-fps="0,160 60,140 120,175 180,150 240,185 300,145 360,190 420,155 480,180 540,150 600,170" data-frametime="0,140 60,175 120,130 180,190 240,150 300,185 360,120 420,175 480,140 540,180 600,150" points="0,160 60,140 120,175 180,150 240,185 300,145 360,190 420,155 480,180 540,150 600,170"/>
-
-        <polyline class="graph__line graph__line--vanilla" data-fps="0,110 60,95 120,120 180,100 240,115 300,90 360,125 420,105 480,118 540,95 600,110" data-frametime="0,80 60,95 120,75 180,100 240,85 300,110 360,90 420,105 480,80 540,95 600,88" points="0,110 60,95 120,120 180,100 240,115 300,90 360,125 420,105 480,118 540,95 600,110"/>
-
-        <polyline class="graph__line graph__line--origin" data-fps="0,40 60,32 120,36 180,30 240,34 300,28 360,32 420,30 480,26 540,30 600,28" data-frametime="0,30 60,28 120,30 180,29 240,31 300,28 360,30 420,29 480,30 540,28 600,29" points="0,40 60,32 120,36 180,30 240,34 300,28 360,32 420,30 480,26 540,30 600,28"/>
-      </svg>
-
-      <div class="graph__legend">
-        <span><i class="dot dot--other"></i>Other Clients</span>
-        <span><i class="dot dot--vanilla"></i>Vanilla</span>
-        <span><i class="dot dot--origin"></i>Origin</span>
+      <div class="bar-col">
+        <span class="bar-col__value" data-count-to="340">0</span>
+        <div class="bar-col__track"><div class="bar-col__fill" style="--target: 32%"></div></div>
+        <span class="bar-col__label">Other Clients</span>
       </div>
-      <p class="graph__caption">Illustrative — flat line means no micro-stutters, not raw benchmark data.</p>
+      <div class="bar-col bar-col--origin">
+        <span class="bar-col__value" data-count-to="1200" data-suffix="+">0</span>
+        <div class="bar-col__track"><div class="bar-col__fill bar-col__fill--origin" style="--target: 100%"></div></div>
+        <span class="bar-col__label">Origin</span>
+      </div>
     </div>
   </section>
 
@@ -118,26 +147,26 @@
     <div class="compat">
       <div class="compat__head reveal">
         <p class="eyebrow">COMPATIBILITY</p>
-        <h2>Built for Modern Minecraft.</h2>
-        <p class="section__lede">Supporting Fabric &amp; Quilt on 1.20+.</p>
+        <h2>Every version. Every mod loader.</h2>
+        <p class="section__lede">From Beta 1.7.3 to the newest release — Fabric &amp; Quilt, fully supported.</p>
       </div>
 
       <ul class="feature-list">
         <li class="feature-list__item reveal">
-          <span class="feature-list__title">Integrated Shaders (Iris)</span>
-          <span class="feature-list__desc">Shader support built in — no separate mod to install or configure.</span>
+          <span class="feature-list__title">Integrated Shaders</span>
+          <span class="feature-list__desc">Photorealistic Iris shaders, built in. Zero setup.</span>
         </li>
         <li class="feature-list__item reveal">
-          <span class="feature-list__title">Input Latency Reduction</span>
-          <span class="feature-list__desc">Trims the delay between a click and what happens on screen.</span>
+          <span class="feature-list__title">Instant Input</span>
+          <span class="feature-list__desc">Every click lands the moment you make it.</span>
         </li>
         <li class="feature-list__item reveal">
           <span class="feature-list__title">Modular HUD</span>
-          <span class="feature-list__desc">Show only what you use — FPS, coordinates, ping — nothing else.</span>
+          <span class="feature-list__desc">Show what wins you the game. Hide everything else.</span>
         </li>
         <li class="feature-list__item reveal">
-          <span class="feature-list__title">Essential Performance Mods</span>
-          <span class="feature-list__desc">A short, curated set of optimization mods. No filler, no duplicates.</span>
+          <span class="feature-list__title">Performance Mods, Pre-Installed</span>
+          <span class="feature-list__desc">The best optimization mods, curated and pre-configured.</span>
         </li>
       </ul>
     </div>
@@ -160,6 +189,11 @@
       </thead>
       <tbody>
         <tr>
+          <th scope="row">Max FPS</th>
+          <td>300–500</td>
+          <td class="compare-table__highlight">1,200+</td>
+        </tr>
+        <tr>
           <th scope="row">Startup Time</th>
           <td>8–15s</td>
           <td class="compare-table__highlight">Instant</td>
@@ -174,11 +208,6 @@
           <td>300MB+</td>
           <td class="compare-table__highlight">0MB</td>
         </tr>
-        <tr>
-          <th scope="row">Frame-Time Stability</th>
-          <td>Frequent micro-stutters</td>
-          <td class="compare-table__highlight">Flat, consistent</td>
-        </tr>
       </tbody>
     </table>
   </section>
@@ -187,9 +216,7 @@
 
 <footer class="footer">
   <div class="footer__links">
-    <a href="#" id="discordLinkFooter">Discord</a>
-    <a href="#" id="githubLinkFooter">GitHub</a>
-    <a href="#" id="termsLinkFooter">Terms</a>
+    <a href="terms.html">Terms</a>
   </div>
   <p class="footer__copy">Origin Client — not affiliated with Mojang or Microsoft.</p>
 </footer>
