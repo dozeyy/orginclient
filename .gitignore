@@ -19,3 +19,7 @@ Thumbs.db
 
 # .NET publish output
 publish/
+
+# Font atlas generator scratch output (canonical copies live under
+# src/OriginClient.Mod/.../assets/originclient/textures/font/)
+tools/font-atlas/output/
