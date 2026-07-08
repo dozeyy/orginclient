@@ -123,31 +123,41 @@ public final class OriginButtonRenderer {
 
 		RenderSystem.enableBlend();
 		int cd = Math.min(CORNER_DISPLAY, Math.min(w, h) / 2);
+
+		// Shell -- identical to a button.
 		if (assetsOk) {
 			shaderColor(fill);
 			nineSlice(guiGraphics, fillTex, x, y, w, h, cd);
 		} else {
+			RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
 			guiGraphics.fill(x, y, x + w, y + h, fill);
 		}
+		// CRITICAL: reset the shader tint before any guiGraphics.fill() below,
+		// or the fill()s get multiplied by the shell's faint tint (which made
+		// the value bar + handle nearly invisible).
+		RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
 
-		// Value fill (inset so it stays inside the rounded shell).
-		int inset = 2;
-		int filledW = (int) Math.round((w - 2 * inset) * v);
-		if (filledW > 0) {
-			guiGraphics.fill(x + inset, y + inset, x + inset + filledW, y + h - inset,
-					enabled ? OriginTheme.lerpColor(0x10FFFFFF, 0x18FFFFFF, hv) : 0x08FFFFFF);
+		int inset = 3;
+		int handleW = 4;
+		int trackX = x + inset;
+		int trackW = w - 2 * inset - handleW;
+		int hx = trackX + (int) Math.round(trackW * v);      // handle left edge
+		int handleMid = hx + handleW / 2;
+
+		// Value fill: clearly visible progress from the left up to the handle.
+		if (handleMid > trackX) {
+			guiGraphics.fill(trackX, y + inset, handleMid, y + h - inset,
+					enabled ? OriginTheme.lerpColor(0x30FFFFFF, 0x40FFFFFF, hv) : 0x12FFFFFF);
 		}
 
-		// Handle: slim accent bar at the value position, glow ring on hover.
-		int handleW = 3;
-		int hx = x + inset + (int) Math.round((w - 2 * inset - handleW) * v);
-		if (hv > 0.01 && enabled) {
-			guiGraphics.fill(hx - 1, y + 1, hx + handleW + 1, y + h - 1,
+		// Handle: a bright white knob, with a hover glow.
+		if (enabled && hv > 0.01) {
+			guiGraphics.fill(hx - 2, y, hx + handleW + 2, y + h,
 					OriginTheme.lerpColor(0x00FFFFFF, OriginTheme.ACCENT_GLOW, hv));
 		}
-		guiGraphics.fill(hx, y + inset, hx + handleW, y + h - inset,
-				enabled ? OriginTheme.ACCENT : 0x669A9A9A);
+		guiGraphics.fill(hx, y + 1, hx + handleW, y + h - 1, enabled ? OriginTheme.ACCENT : 0x669A9A9A);
 
+		// Border on top.
 		if (assetsOk) {
 			shaderColor(border);
 			nineSlice(guiGraphics, borderTex, x, y, w, h, cd);
