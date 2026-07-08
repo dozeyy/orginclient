@@ -1439,3 +1439,39 @@ build (each independently revertable via its mixin registration):
   checkboxes, dimmed Telemetry). Also check world-select/create-world
   (background + transparent lists) and that in-game pause still shows the
   blurred world.
+
+## 2026-07-08 — The white ring on the FOV slider: focus highlight, killed via sprite override
+
+Will's screenshots showed a thick white rounded ring around the FOV slider on
+the Options screen that survived two rounds of our border changes — including
+pinning the slider shell to the resting border color. Diagnosis from evidence
+(no jar access in the remote sandbox — network policy blocks piston/gradle, so
+no javap this round):
+- Our renderSlider IS running for that widget (its groove/handle changed in
+  lockstep with our commits), so the AbstractSliderButton renderWidget cancel
+  works. Yet the ring persisted unchanged → drawn by some OTHER code path.
+- The ring is visually vanilla's `widget/slider_highlighted` focused-slider
+  sprite (rounded corners, thick white border), and the FOV slider is the
+  screen's initially-focused widget — explaining why only it ringed and why
+  our color constants never mattered. Likely mechanism: the concrete class
+  (`OptionInstance$OptionInstanceSliderButton`/`AbstractOptionSliderButton`)
+  overrides renderWidget, calls super (where our HEAD inject draws + cancels
+  only the super body), then blits its own sprite on top.
+- **Fix that works regardless of the exact call site**: override the vanilla
+  sprites with fully transparent PNGs from our mod resources
+  (`assets/minecraft/textures/gui/sprites/widget/`: slider,
+  slider_highlighted, slider_handle, slider_handle_highlighted,
+  button_highlighted) — mod assets layer above the vanilla pack, so ANY
+  uncancelled path that draws them renders nothing. If they're already dead
+  sprites, the overrides are no-ops. Deliberately did NOT blank
+  `widget/button`/`button_disabled` (an unknown vanilla-drawn button should
+  stay visible, not become an invisible click target).
+  Generator: `tools/buttons/generate_vanilla_overrides.py`, alpha verified 0.
+- If a ring still shows after this, next step is javap on
+  `net.minecraft.client.OptionInstance$OptionInstanceSliderButton` and
+  `...gui.components.AbstractOptionSliderButton` (Will's Loom cache) to find
+  the real draw site.
+- Also learned: remote gradle is blocked at the network layer (wrapper 403 on
+  services.gradle.org; maven.fabricmc.net/piston unreachable), system gradle
+  8.14.3 exists at /opt/gradle but can't fetch Loom either — so the
+  stub-compile + Will-builds loop remains the only verification path.
