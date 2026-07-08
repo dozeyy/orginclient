@@ -219,12 +219,11 @@ public final class OriginButtonRenderer {
 
 	private static void drawLabel(GuiGraphics guiGraphics, double cx, double cy, int h, Component message, int labelColor) {
 		// One text pipeline for EVERY label (Will: "every text needs to be the
-		// same"): the game font -- which the mod's font/default.json override
-		// makes Inter -- drawn without shadow. The old per-GUI-scale baked
-		// label textures were a workaround for the vanilla pixel font and were
-		// removed the day the TTF override landed: two renderers meant two
-		// subtly different looks. Trailing ellipsis/dots stripped (Will: no
-		// dots on "Options...").
+		// same"): the default game font, drawn without shadow. Baked label
+		// textures and the Inter TTF override were both tried and retired --
+		// Will settled on default Minecraft text everywhere, so consistency
+		// comes free. Trailing ellipsis/dots stripped (Will: no dots on
+		// "Options...").
 		String text = cleanLabel(message.getString());
 		Font font = Minecraft.getInstance().font;
 		int tw = font.width(text);

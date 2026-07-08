@@ -1566,3 +1566,19 @@ every label now goes through the one game font (= Inter), shadow-off,
 ellipsis-stripped. The ladder was a workaround for the pixel font; with the
 TTF provider it was pure duplication. Wordmark + loading caption textures
 stay (brand marks, not UI text).
+
+## 2026-07-08 — Font settled FOR REAL: default Minecraft text everywhere (Will's call)
+
+Will's decision after seeing Inter live: "all text back to default minecraft."
+Removed the font/default.json override + bundled inter.ttf. Because the
+baked-label pipeline was already retired, every label (buttons, sliders,
+titles, HUD) now goes through the untouched default font — consistency is
+structural, not curated. DESIGN_SYSTEM banner updated: the TTF-provider
+mechanism is PROVEN and documented for any future revisit; the hand-rolled
+glyph-rendering ban stands. The menu look (Origin background, cursor glow,
+styled widgets) is unchanged.
+Unparsed remainder of his message: "then after make the same menu with
+backround mouse affect buttons and default minecraft text for single player
+multiplayer realms and change text for options and main menu" — the
+background/glow/buttons already apply to every menu, so asked him what
+"change text for options and main menu" means before acting on it.
