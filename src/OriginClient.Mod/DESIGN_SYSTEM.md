@@ -3,7 +3,20 @@
 Source of truth: `website/index.html`, `website/css/styles.css`, `website/js/main.js`.
 Every value below was read directly out of those files, not guessed. This doc exists
 so a future implementation pass has the exact tokens plus the specific, already-paid-for
-lessons from two prior attempts — instead of re-deriving both from scratch.
+lessons from three prior attempts — instead of re-deriving both from scratch.
+
+> **Settled 2026-07-08: custom glyph rendering is off the table for now.**
+> A third attempt (bitmap atlas + forced linear texture filtering, no font-provider
+> involvement at all) still read as "bold and blocky," then actively garbled/
+> overlapping after a fix attempt, live in Will's own client. That's three different
+> techniques across three sessions all failing live despite passing every check
+> available without a running client. **Decision: use Minecraft's own vanilla font
+> for all in-game text.** All the tokens below (colors, spacing, panel styling, the
+> cursor-glow background, button motion) still apply — none of them depend on custom
+> glyph rendering. Only the Typography section and §6a/§6b (custom text rendering)
+> are superseded by this decision; don't re-attempt them without first solving the
+> live-verification gap described in §6f (a way to actually see the running client
+> during development, not just after a full round-trip through Will).
 
 ## 0. Read this first — prior attempts and why they were rolled back
 
@@ -81,15 +94,19 @@ Do not introduce a new hue anywhere in this system — every "color" in the webs
 white/gray at varying opacity. This matches the launcher's own Deskify palette
 decision (see root `CLAUDE.md` → Brand).
 
-### Typography
+### Typography — SUPERSEDED, see banner above
 
-Website font: **Inter** (400/500/600/700/800), loaded from Google Fonts. Inter is
-licensed under the **SIL Open Font License** — free to embed and redistribute inside
-the mod jar. This resolves the licensing flag raised during the Bahnschrift attempts
-(Bahnschrift is Microsoft-licensed and was never fully cleared for redistribution).
-**Use Inter, not Bahnschrift, for this component of the system.** (The WPF launcher
-can keep Bahnschrift — that's a separate, already-shipped surface; this doc is scoped
-to the in-game mod only.)
+~~Website font: Inter (400/500/600/700/800)~~ — three attempts at rendering a custom
+font in-game (Bahnschrift via `ttf` provider, a bitmap atlas via a `bitmap` provider,
+a hand-rolled bitmap-atlas-plus-forced-linear-filtering renderer) all failed live.
+**Use Minecraft's own vanilla font for all in-game text instead.** It already reads
+clean at small HUD sizes (confirmed directly in Will's own screenshots — the vanilla
+FPS/XYZ/Ping text next to every one of the failed custom-font attempts looked fine).
+
+The table below is kept for reference (weight ramp / size scale intent, letter-
+spacing, color-per-role) in case a future session solves the live-verification gap
+and revisits this — but do not build against it without re-reading the banner at the
+top of this file first.
 
 | Element | Size | Weight | Letter-spacing | Color |
 |---|---|---|---|---|
@@ -103,10 +120,10 @@ to the in-game mod only.)
 | Button label | 14px | 600 | 0.01em | contextual |
 | Small link / nav | 13–14px | 500 | 0.02em | `text-dim`, hover → `text` |
 
-Scale everything proportionally when reused at in-game HUD size — a coords/ping/cpu
-panel on a 1080p screen should read closer to the HUD row spec (11px/0.06em) than the
-hero spec, but must always come from the *same* font asset and the *same* weight
-ramp, never Minecraft's own font.
+For now: use vanilla Minecraft `Font`/`GuiGraphics.drawString`, tinted per the color
+column above, sized as close to the intent above as vanilla's fixed-size font
+reasonably allows. The panel/spacing/color/motion system around that text (§2-§5) is
+what should carry the "premium" look, not the glyphs themselves.
 
 ### Spacing / radius / motion
 
@@ -230,15 +247,25 @@ specifically.
 
 ## 6. Minecraft/Fabric implementation guidance
 
-### 6a. Why "smooth, not pixelated, at any scale" needs more than a font swap
+### 6a. Why "smooth, not pixelated, at any scale" needs more than a font swap — and why this is shelved, not being attempted right now
 
 See §0 — both a `ttf` font provider and a bitmap glyph atlas ultimately get
 composited through `GuiGraphics`'s blocky, GUI-Scale-tied virtual coordinate space.
-Swapping fonts again without addressing that ceiling risks a third round of "passes
-review, looks wrong live."
+**A third attempt confirmed this isn't just theoretical**: a hand-rolled renderer
+(bitmap atlas + `AbstractTexture.setFilter(true, false)` forcing GL_LINEAR, drawn via
+`GuiGraphics.blit`, deliberately bypassing Minecraft's own font provider entirely)
+still read as "bold and blocky" live, and a follow-up fix (baking the atlas closer to
+real display size to reduce the minification ratio) made it *worse* — visibly
+garbled/overlapping text — in a way that wasn't reproducible or debuggable from a
+sandbox with no live client access. Per Will's own call: **don't keep iterating on
+this blind.** Use vanilla Minecraft text (see the Typography section above) until
+someone can actually watch the client render while changing this code, not just
+read a screenshot after the fact each round trip.
 
-### 6b. Recommended path: a real custom rendering overlay (what "build a custom
-graphics generator" means concretely)
+### 6b. If this is ever revisited: what "build a custom graphics generator" means concretely
+
+Keeping this for whoever solves the live-verification gap someday — not a current
+task.
 
 - **Text**: bake Inter into a signed-distance-field (SDF) glyph atlas (a build-time
   step, e.g. `msdfgen` or `stb_truetype`'s SDF mode, checked into the repo as a
@@ -259,6 +286,9 @@ graphics generator" means concretely)
   engine, not a resource swap) — scope it as its own milestone, not a drive-by change
   alongside unrelated feature work, the same way the prior pass's own postmortem
   flagged it.
+- The baked Inter TTFs and a working atlas-generation pipeline already exist
+  (`tools/font-atlas/`, unused but not deleted) — the gap isn't the asset pipeline,
+  it's exclusively the live in-game rendering/verification loop.
 
 ### 6c. Interactive background implementation notes
 
@@ -276,9 +306,11 @@ graphics generator" means concretely)
 ### 6d. Buttons
 
 Carry forward `OriginMenuButton`'s real-time-based hover/press easing from the prior
-pass; add the `translateY(-2px)` hover lift and hover glow bloom (reuse the SDF/shader
-glow technique from §6b rather than a separate blur implementation) and the
-`scale(0.96)` press squash from §3.
+pass; add the `translateY(-2px)` hover lift and hover glow bloom, and the
+`scale(0.96)` press squash from §3. The glow bloom doesn't need §6b's shelved
+shader work — a precomputed radial-gradient PNG (same technique as §4's cursor
+glow) drawn as a scaled/tinted textured quad behind the button, via a normal
+alpha-blended `blit`, is enough and carries none of the custom-text-rendering risk.
 
 ### 6e. Mod-UI panel component
 
@@ -289,11 +321,17 @@ spacing colors as that one [Coords]" true by construction instead of by conventi
 
 ### 6f. Process guardrails for whoever implements this next
 
-- **Solve or accept the live-verification gap before starting.** Two rounds of
-  "correct on paper, wrong live" already happened because there was no way to
-  screenshot the running dev client. Either find a working way to capture the
-  Minecraft window, or explicitly plan the work in small, Will-reviewed increments
-  with manual screenshots — don't do another large blind pass.
+- **Solve the live-verification gap before attempting custom text rendering again —
+  don't just "accept" it and iterate blind.** Three separate rounds of "correct on
+  paper, wrong (or worse) live" have now happened across three sessions, specifically
+  on custom font rendering — including a third attempt (2026-07-08) where screenshots
+  *were* available each round and it still took two live iterations to go from "too
+  blocky" to "actively garbled," at real cost to Will's time (full rebuild + relaunch
+  + navigate a world + screenshot, each round). Screenshots-after-the-fact are much
+  better than nothing but are not the same as being able to watch the change take
+  effect — that gap is why this got shelved rather than pushed a fourth time. Some
+  way to actually observe the client live during development (not just after a full
+  round-trip) is a precondition for re-attempting this, not a nice-to-have.
 - **Never do per-pixel `fill()` loops** for glow/blur/rounded corners — the last
   attempt's "laggy as all hell" bug was exactly this (a corner-fill routine issuing
   one draw call per pixel inside the radius, blowing up to tens of thousands of calls

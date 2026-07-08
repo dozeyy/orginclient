@@ -1097,3 +1097,54 @@ Ctrl+Win+Shift+B, unrelated to this work).
 - **Not done yet, waiting on Will (round 2)**: pull, rebuild
   (`.\gradlew.bat build` — should be fast, only resource files + one small
   Java edit changed), `.\gradlew.bat runClient` again, same screenshot ask.
+
+## 2026-07-08 — Third custom-font attempt abandoned; standardizing on vanilla Minecraft text
+
+Round 2 screenshot came back *worse*, not better: the 11px/14px HUD-style lines
+(`COORDS`/`PING`, same weight+size as before) rendered clean, but the alphabet row,
+numbers/symbols row, and a 16px heading all showed visibly garbled/overlapping glyph
+shapes — worse than round 1's "bold and blocky." Working theory, not confirmed
+(no way to verify further without another live round-trip): something about dense,
+space-free strings at the new smaller baked `EM_SIZE` (32, down from 64) exposed a
+positioning/advance issue that wasn't visible in strings with natural gaps (spaces,
+punctuation) between characters — plausible candidates include `Math.round`ing the
+per-glyph pen position in atlas-em-units before the `PoseStack` scale is applied, or
+`GuiGraphics.blit`'s actual UV-sampling behavior not matching what §0/M3's memory
+entry assumed. **Not going to chase this further blind.**
+
+Will's call, and the right one: three separate techniques (real TTF via MC's font
+provider, a bitmap-provider atlas, a hand-rolled blit-based renderer bypassing MC's
+font system entirely) have now failed live across three sessions, every time only
+after passing whatever checks were possible without a running client. That's not a
+"one more fix" pattern. **Decision: use Minecraft's own vanilla font for all in-game
+text, indefinitely** — it already looks clean at HUD sizes (visible in every one of
+these screenshots, right next to the failed custom text). Effort goes into the parts
+of the design system that don't carry this risk instead: the translucent panel
+styling, the mouse-reactive cursor-glow background, button hover/press motion,
+colors/spacing — none of which depend on custom glyph rendering.
+
+- Deleted (not disabled) `OriginFont`/`OriginFontAtlas`/`OriginFontDebugOverlay` and
+  their `HudRenderCallback` registration in `OriginClientMod` — same convention as
+  the 2026-07-07 full-rewrite abandonment (delete dead code, don't leave it inert).
+  `OriginHud.java` is untouched, still plain vanilla-font text, unaffected by any of
+  this session's font work.
+- Kept `tools/font-atlas/` (fetch script, atlas generator, baked Inter TTFs/atlases)
+  in the repo, unused — the asset pipeline itself works and was self-verified clean
+  every time (viewed directly as PNGs); the failure is specifically in the live
+  Minecraft rendering/verification loop, not the font asset. No point deleting a
+  working, reusable tool over a problem it didn't cause.
+- Updated `DESIGN_SYSTEM.md` with an explicit "settled" banner and marked the
+  Typography section + §6a/6b superseded, so a future session doesn't re-attempt
+  this a fourth time without first reading why it was shelved. The real, durable
+  blocker across all three attempts: no way to observe the live client *during*
+  development, only after a full rebuild+relaunch+navigate+screenshot round-trip
+  each time. Solving that (or accepting small-increment, Will-reviewed development
+  as the permanent mode) is a precondition for ever revisiting custom text
+  rendering, not just a one-off inconvenience this session hit.
+- Also fixed in passing: `gradlew` was missing its execute bit (harmless on
+  Windows via `gradlew.bat`, would have broken `./gradlew` on Linux/macOS).
+- Next: continue the plan from M5 (HUD panel) onward, but M5 now means rebuilding
+  `OriginHud` into a styled panel using vanilla `Font`/`GuiGraphics.drawString`
+  instead of a custom renderer — same panel spec (DESIGN_SYSTEM.md §2), different
+  text-drawing call. M6a (cursor glow) and M6b (buttons + mod-menu screen) are
+  unaffected by this pivot.
