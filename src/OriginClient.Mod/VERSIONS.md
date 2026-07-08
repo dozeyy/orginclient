@@ -57,6 +57,49 @@ matching one. A single jar spanning versions is not possible at this layer.
   generators) vs version-touching (the two renderers' Minecraft calls + the
   mixins).
 
+## Pre-Fabric versions (older than 1.14)
+
+Official Fabric only exists for Minecraft 1.14+, but the product promise (and
+the website copy) is "beta to latest." Three real routes, in order of
+preference:
+
+1. **Community loader ports (the plan).** The Fabric loader has been ported
+   backwards by community projects that keep the same mixin system and expose
+   Fabric-style metadata servers the launcher can query the same way it
+   queries Fabric's:
+   - **Legacy Fabric** — Minecraft 1.3.2 → 1.13.2 (covers the two legacy
+     versions that matter commercially: **1.8.9** and **1.12.2**);
+     meta server at `meta.legacyfabric.net`.
+   - **Babric** (Beta 1.7.3) / **Ornithe** (broad historical coverage) — the
+     beta-era route.
+   Because the launcher owns the install, the player never sees any of this:
+   pick a version, and the launcher installs the right loader flavor + the
+   Origin build for that era, exactly as it installs Fabric for 1.21.x.
+2. **Java agent** (`-javaagent:` flag in the launcher-built JVM args) —
+   loader-independent class transformation that works on any version. The
+   universal fallback, but it re-implements what mixin gives us for free, so
+   it's only for a version no loader port reaches.
+3. **Local jar patching at install time** — the pre-loader-era approach.
+   Legally this must be a patch applied on the player's machine (binary
+   diffs), never a redistributed modified Mojang jar. Highest maintenance;
+   last resort only.
+
+Port tiers for the mod code itself (the design — assets, tokens, layout math —
+carries over 100%; only the drawing/mixin layer is per-era):
+
+| Tier | Versions | Loader | GUI era (port size) |
+|------|----------|--------|---------------------|
+| A | 1.20 → latest | Fabric | `GuiGraphics` — current code, per-version builds |
+| B | 1.14 → 1.19.4 | Fabric | `Screen` + `PoseStack` draws — moderate port |
+| C | 1.3.2 → 1.13.2 | Legacy Fabric | `GuiScreen`, fixed-function GL — bigger port, simpler drawing |
+| D | Beta 1.7.3 | Babric/Ornithe | oldest internals — port when demand justifies |
+
+Rollout is demand-driven: v1 ships Tier A (1.21.1). Next targets by player
+population are 1.8.9 and 1.12.2 (Tier C via Legacy Fabric). Until a tier is
+ported, the launcher still launches that version **plain vanilla** (CmlLib
+handles old manifests fine) — the "never broken" promise holds everywhere;
+Origin menus arrive per tier.
+
 ## The fail-soft contract (implemented)
 
 - **Load time**: both mixin configs are `required: false` with
