@@ -76,15 +76,25 @@ public final class OriginScreenRenderer {
 			drawGrain(guiGraphics, w, h);
 		}
 
-		// Wordmark + bar + caption as a group, roughly centered.
-		double inkH = fitInkHeight(h * 0.13, w, 0.85);
-		int wordmarkBottom = drawWordmark(guiGraphics, w / 2.0, h * 0.43, inkH);
-		int barBottom = drawProgressBar(guiGraphics, w, h, wordmarkBottom, clamped);
+		// Layout matched to the mockup (option 01), with the whole
+		// wordmark + bar + caption group centered vertically on screen.
+		double markCapH = fitInkHeight(h * 0.13, w, 0.85);
+		int barW = (int) (w * 0.44);
+		int barH = Math.max(2, (int) (h * 0.013));
+		double capH = Math.max(6.0, h * 0.024);
+		double gapMarkBar = h * 0.12;
+		double gapBarCap = Math.max(4.0, h * 0.03);
 
+		double groupH = markCapH + gapMarkBar + barH + gapBarCap + capH;
+		double groupTop = h / 2.0 - groupH / 2.0;
+		double markInkCenterY = groupTop + markCapH / 2.0;
+		int barTop = (int) Math.round(groupTop + markCapH + gapMarkBar);
+		int capTop = (int) Math.round(barTop + barH + gapBarCap);
+
+		drawWordmark(guiGraphics, w / 2.0, markInkCenterY, markCapH);
+		drawBar(guiGraphics, w / 2.0, barTop, barW, barH, clamped);
 		int pct = Math.round(clamped * 100f);
-		double capH = Math.max(7.0, h * 0.02);
-		drawCaption(guiGraphics, w / 2.0, barBottom + Math.max(8, (int) (h * 0.02)),
-				"LOADING " + pct + "%", capH, OriginTheme.MUTED);
+		drawCaption(guiGraphics, w / 2.0, capTop, "LOADING " + pct + "%", capH, OriginTheme.MUTED);
 	}
 
 	/** Main menu background: charcoal + rotating rings + grain (behind vanilla's logo/buttons). */
@@ -110,7 +120,7 @@ public final class OriginScreenRenderer {
 
 		int singleplayerTop = h / 4 + 48;        // vanilla TitleScreen first-button Y
 		double centerY = singleplayerTop / 2.0;  // midpoint between top of screen and that button
-		double inkH = fitInkHeight(h * 0.14, w, 0.82);
+		double inkH = fitInkHeight(h * 0.13, w, 0.82); // same size as the loading screen
 		drawWordmark(guiGraphics, w / 2.0, centerY, inkH);
 	}
 
@@ -205,12 +215,10 @@ public final class OriginScreenRenderer {
 		return (int) Math.round(inkCenterY + 5 * scale);
 	}
 
-	/** Draws the progress bar just below the wordmark; returns the bar's bottom Y. */
-	private static int drawProgressBar(GuiGraphics guiGraphics, int w, int h, int wordmarkBottom, float progress) {
-		int barW = Math.max(120, (int) (w * 0.22));
-		int barH = 3;
-		int bx = (w - barW) / 2;
-		int by = wordmarkBottom + Math.max(14, (int) (h * 0.05)); // right under the wordmark
+	/** Draws the progress bar centered on cx at barTop, with the given width/height. */
+	private static void drawBar(GuiGraphics guiGraphics, double cx, int barTop, int barW, int barH, float progress) {
+		int bx = (int) Math.round(cx - barW / 2.0);
+		int by = barTop;
 
 		guiGraphics.fill(bx, by, bx + barW, by + barH, OriginTheme.STROKE);       // track
 		int fillW = Math.round(barW * progress);
@@ -218,7 +226,6 @@ public final class OriginScreenRenderer {
 			guiGraphics.fill(bx - 1, by - 1, bx + fillW + 1, by + barH + 1, OriginTheme.ACCENT_GLOW); // soft glow
 			guiGraphics.fill(bx, by, bx + fillW, by + barH, OriginTheme.ACCENT);  // fill
 		}
-		return by + barH;
 	}
 
 	/** Composes a caption from the baked glyph strip, centered horizontally on centerX, tinted `color`. */
