@@ -1857,3 +1857,13 @@ Shipped to serve that:
   claude/** branches + PRs (mod gradle build + launcher publish, same shape
   as release, publishes nothing). From now on all sandbox-written code is
   machine-verified BEFORE merge — the "can't build here" era is over.
+
+## 2026-07-08 — Mod system v1 GREEN first try; shipped
+
+build-check run #4 compiled the entire mod system (config framework, HUD
+editor, Right Shift menu, 23 mods, 16 mixins, motion-blur post chain) clean
+against the real 1.21.1 jar on the FIRST attempt — zero signature misses.
+Merged to main and shipped main → release at Will's request ("wheres the new
+launcher will every update today"). Remaining live-check items for Will:
+menu feel/animation, HUD editor drag, per-feature visual checks; riskiest =
+motion blur (guarded no-op on failure) and fullbright gamma clamp.
