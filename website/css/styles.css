@@ -380,6 +380,13 @@ a { color: inherit; }
   100% { transform: translate(-50%, 14px); opacity: 0; }
 }
 
+/* On narrow screens the HUD panels fill the centre, so the default -32px
+   lift pulls the scroll indicator up into the stats panel. Drop it below
+   the HUD instead so it no longer clips. */
+@media (max-width: 520px) {
+  .hero__scroll { bottom: auto; margin-top: var(--space-4); }
+}
+
 /* ---------- Marquee ---------- */
 
 .marquee {
