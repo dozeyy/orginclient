@@ -30,25 +30,43 @@ public static class FabricApiInstaller
         return http;
     }
 
-    public static async Task InstallAsync(
-        string mcVersion, string modsFolder, IProgress<string>? progress = null, CancellationToken ct = default)
+    public static Task InstallAsync(
+        string mcVersion, string modsFolder, IProgress<string>? progress = null, CancellationToken ct = default) =>
+        InstallProjectAsync(ProjectSlug, "fabric-api-*.jar", "[\"fabric\"]",
+            "Installing Fabric API...", mcVersion, modsFolder, progress, ct);
+
+    // The legacy ecosystem's equivalent, for Legacy Fabric instances
+    // (pre-1.14, see LegacyFabricInstaller): most legacy-fabric mods depend
+    // on it the way modern mods depend on Fabric API. No loaders filter —
+    // Modrinth's loader tag for the legacy ecosystem isn't worth guessing;
+    // the game_versions filter alone pins the right builds, since the
+    // project only publishes legacy-fabric jars.
+    public static Task InstallLegacyAsync(
+        string mcVersion, string modsFolder, IProgress<string>? progress = null, CancellationToken ct = default) =>
+        InstallProjectAsync("legacy-fabric-api", "legacy-fabric-api-*.jar", null,
+            "Installing Legacy Fabric API...", mcVersion, modsFolder, progress, ct);
+
+    private static async Task InstallProjectAsync(
+        string slug, string presentGlob, string? loadersFilter, string progressText,
+        string mcVersion, string modsFolder, IProgress<string>? progress, CancellationToken ct)
     {
         Directory.CreateDirectory(modsFolder);
 
         // Skip-if-present, same idea as PerfModInstaller: no repeat network
         // call on every subsequent launch of an already-provisioned instance.
-        if (Directory.EnumerateFiles(modsFolder, "fabric-api-*.jar").Any())
+        if (Directory.EnumerateFiles(modsFolder, presentGlob).Any())
             return;
 
-        progress?.Report("Installing Fabric API...");
+        progress?.Report(progressText);
 
         // Modrinth's API rejects these query params with a 400 unless the
         // brackets/quotes are percent-encoded — confirmed against the real
         // API, a literal `?loaders=["fabric"]` is not accepted as-is.
-        var loaders = Uri.EscapeDataString("[\"fabric\"]");
         var gameVersions = Uri.EscapeDataString($"[\"{mcVersion}\"]");
-        var url = $"https://api.modrinth.com/v2/project/{ProjectSlug}/version" +
-                  $"?loaders={loaders}&game_versions={gameVersions}";
+        var url = $"https://api.modrinth.com/v2/project/{slug}/version" +
+                  $"?game_versions={gameVersions}";
+        if (loadersFilter != null)
+            url += $"&loaders={Uri.EscapeDataString(loadersFilter)}";
 
         List<ModrinthVersion>? versions;
         try
