@@ -7,7 +7,8 @@
 		"MouseHandlerMixin",
 		"EntityViewAngleMixin",
 		"LoadingOverlayMixin",
-		"TitleScreenMixin"
+		"TitleScreenMixin",
+		"AbstractButtonMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

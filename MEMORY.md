@@ -1272,3 +1272,40 @@ redirect (3-arg overload) was right. Will's next feedback batch, mostly shipped:
 - **Waiting on Will**: pull, build, runClient, screenshot the main menu + the
   loading screen (F3+T). First visual check of: caps ORIGIN, the % caption,
   spinning rings, big centered header, and no splash/version text.
+
+## 2026-07-08 — Custom menu buttons (BTN-0..2): reskin-in-place, not widget swap
+
+After the loading/menu polish landed, tackled the last vanilla piece — the menu
+buttons — as a planned sub-project (plan approved). Design (with Will): flat
+translucent-charcoal fill + hairline border, white baked-Inter labels, hover =
+border brighten + soft glow bloom + ~2px lift, all eased on wall-clock time.
+- **BTN-0 assets** (`tools/buttons/generate_buttons.py`, reuses `bake_text`):
+  rounded-rect fill + hairline border alpha masks (9-sliced + tinted in-game),
+  a soft glow, and Inter labels baked as uniform baseline-aligned cells (an
+  earlier ink-box-height sizing made "Realms" render bigger than
+  "Singleplayer" because descenders inflate the ink box — fixed by a shared
+  cellHeight). Self-verified by compositing a full menu mock (9-sliced buttons,
+  hover+normal, over the rings) and viewing — smooth corners, clean hairline,
+  readable glow. Baked "Quit Game"/"Minecraft Realms" variants too since the
+  vanilla button strings may not be "Quit"/"Realms".
+- **Approach pivot** (important): originally planned to swap each vanilla
+  `Button` for a custom `OriginButton` widget, but adding widgets needs the
+  protected/generic `Screen.addRenderableWidget`, and inherited-member access
+  already bit us once (the `removeWidget` @Shadow crash). Switched to
+  **restyle-in-place**: `AbstractButtonMixin` @Injects `renderWidget` HEAD,
+  and *only when `Minecraft.getInstance().screen instanceof TitleScreen`*
+  cancels vanilla drawing and calls `OriginButtonRenderer.render(...)`. No
+  widgets added/removed; buttons keep positions/actions/clicks. Invisible
+  buttons (the hidden language/accessibility/copyright ones) never reach
+  renderWidget, so they're excluded for free. `OriginButtonRenderer` keeps
+  per-button hover state in a `WeakHashMap` keyed by the button.
+- **Deferred to polish (BTN-3)**: press-squash (needs the click hook —
+  `playDownSound`/`onClick` — whose declaring class I haven't javap-confirmed;
+  hover-only ships first). Also any layout/spacing/size tuning from live view.
+- All targets confirmed via javap (scaling `blit` overload, Button ctor/OnPress,
+  AbstractWidget accessors); `OriginButtonRenderer` stub-compiled clean. The
+  only unverified bit is that `renderWidget` is declared on `AbstractButton`
+  (confident — it's the button-drawing method) — a wrong target fails the build
+  clearly, not silently.
+- **Waiting on Will**: pull, `.\gradlew.bat build`, `runClient`, screenshot the
+  menu + hover a button. First live look at the styled buttons.
