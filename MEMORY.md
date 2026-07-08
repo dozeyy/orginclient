@@ -1506,3 +1506,23 @@ dump pinned the real mechanism:
 - Only unverified API this round: `RenderSystem.defaultBlendFunc()` (no javap;
   ultra-stable Blaze3D method vanilla widget code itself calls — a mismatch
   fails the build loudly).
+
+## 2026-07-08 — Cursor spotlight on every menu
+
+Will: "the same lighting effect around the mouse in every menu." The
+mouse-follow glow (core + trailing halo) was title-screen-only
+(TitleScreenMixin render HEAD). Now drawn from ScreenBackgroundMixin so it
+covers the whole menu tree, exactly once per frame, always under widgets:
+- Out-of-world: inside the existing renderBackground HEAD-cancel path, right
+  after the Origin backdrop.
+- In-world (pause, in-game options): a new renderBackground TAIL inject draws
+  it over vanilla's blurred-world backdrop. TAIL never runs when HEAD
+  cancels, so the paths are exclusive by construction.
+- TitleScreen overrides renderBackground (and draws its own glow in its own
+  mixin), so no double glow there. Hover-bloom uses the same visible+hovered
+  children() test as the title screen, now shared as a mixin-local helper.
+- renderTitleCursorGlow was verified to have no title-only assumptions
+  (gui-scaled width + wall-clock statics; halo state carries smoothly across
+  screen changes, which reads as intended polish). Known acceptable gap: any
+  screen that fully overrides renderBackground without calling super gets no
+  glow -- none observed yet; fix per-screen if one shows up live.
