@@ -1,4 +1,4 @@
-package com.origin.client.client.loading;
+package com.origin.client.client.render;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
@@ -18,30 +18,27 @@ import java.util.List;
 
 import com.origin.client.client.theme.OriginTheme;
 
-// Draws the custom Origin loading screen: charcoal background, the four
-// pre-rendered orbital-ring textures (each rotating at its own speed, mirroring
-// the launcher's OriginBackground), a subtle grain tile, the "ORIGIN" wordmark
-// in Minecraft's own font (kept vanilla, per the settled font decision), and a
-// clean progress bar. Everything is centered off the live GUI-scaled window
-// size every frame, so it stays dead-center at any window size / fullscreen.
+// Shared Origin screen rendering, used by both the loading screen
+// (LoadingOverlayMixin) and the main menu (TitleScreenMixin): charcoal
+// background, the pre-rendered orbital rings (mirroring the launcher's
+// OriginBackground), subtle grain, and the "Origin" wordmark in the website's
+// Inter font (baked to a texture so it shows instantly and carries no
+// custom-glyph-rendering risk).
 //
-// Texture/blit/DynamicTexture usage here mirrors what already compiled + ran
-// clean in the M3 pass, so those APIs are confirmed. Textures are loaded via
-// the classloader (not the resource manager) so this is safe to call during
-// the earliest loading overlay, before/while resources are (re)loading.
-public final class OriginLoadingRenderer {
+// Textures load via the classloader (not the resource manager), so this is
+// safe during the earliest loading overlay while resources are still loading,
+// and degrades gracefully if any asset fails rather than crashing.
+public final class OriginScreenRenderer {
 	private static final Gson GSON = new Gson();
 	private static final int TEX = 768;
 	private static final int BG_COLOR = OriginTheme.BG;
 
 	private static boolean loaded = false;
-	private static boolean loadFailed = false;
+	private static boolean ringsFailed = false;
 	private static final List<Ring> rings = new ArrayList<>();
 	private static ResourceLocation grainId;
 
-	// Wordmark texture (baked "Origin" in the website's Inter font, so it shows
-	// instantly instead of Minecraft's not-yet-loaded font rendering tofu boxes
-	// during the first resource load). Null -> fall back to vanilla drawString.
+	// Baked "Origin" wordmark (Inter). Null -> fall back to vanilla drawString.
 	private static ResourceLocation wordmarkId;
 	private static int wmTexW, wmTexH, wmInkX, wmInkY, wmInkW, wmInkH;
 
@@ -49,28 +46,50 @@ public final class OriginLoadingRenderer {
 						double angle0, double periodSeconds, boolean reverse) {
 	}
 
-	private OriginLoadingRenderer() {
+	private OriginScreenRenderer() {
 	}
 
-	public static void render(GuiGraphics guiGraphics, float progress) {
-		ensureLoaded();
+	// ---- Public entry points ----
 
+	/** Loading screen: charcoal + grain + centered wordmark + progress bar. No rings. */
+	public static void renderLoading(GuiGraphics guiGraphics, float progress) {
+		ensureLoaded();
 		Minecraft mc = Minecraft.getInstance();
 		int w = mc.getWindow().getGuiScaledWidth();
 		int h = mc.getWindow().getGuiScaledHeight();
 
-		// Opaque charcoal base — covers whatever vanilla drew underneath.
 		guiGraphics.fill(0, 0, w, h, BG_COLOR);
+		if (!ringsFailed) {
+			drawGrain(guiGraphics, w, h);
+		}
+		int wordmarkBottom = drawWordmark(guiGraphics, w / 2.0, h / 2.0, h * 0.15);
+		drawProgressBar(guiGraphics, w, h, wordmarkBottom, Math.max(0f, Math.min(1f, progress)));
+	}
 
-		if (!loadFailed) {
+	/** Main menu background: charcoal + rotating rings + grain (behind vanilla's logo/buttons). */
+	public static void renderTitleBackground(GuiGraphics guiGraphics) {
+		ensureLoaded();
+		Minecraft mc = Minecraft.getInstance();
+		int w = mc.getWindow().getGuiScaledWidth();
+		int h = mc.getWindow().getGuiScaledHeight();
+
+		guiGraphics.fill(0, 0, w, h, BG_COLOR);
+		if (!ringsFailed) {
 			drawRings(guiGraphics, w, h);
 			drawGrain(guiGraphics, w, h);
 		}
-
-		// Wordmark ink centered on the screen center; bar sits just below it.
-		int wordmarkBottom = drawWordmark(guiGraphics, w, h);
-		drawProgressBar(guiGraphics, w, h, wordmarkBottom, Math.max(0f, Math.min(1f, progress)));
 	}
+
+	/** Main menu: draw the "Origin" wordmark where the vanilla Minecraft logo sits (top-center). */
+	public static void renderTitleWordmark(GuiGraphics guiGraphics) {
+		ensureLoaded();
+		Minecraft mc = Minecraft.getInstance();
+		int w = mc.getWindow().getGuiScaledWidth();
+		int h = mc.getWindow().getGuiScaledHeight();
+		drawWordmark(guiGraphics, w / 2.0, h * 0.18, h * 0.12);
+	}
+
+	// ---- Primitives ----
 
 	private static void drawRings(GuiGraphics guiGraphics, int w, int h) {
 		double cx = w / 2.0;
@@ -111,43 +130,37 @@ public final class OriginLoadingRenderer {
 		RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
 	}
 
-	/** Draws the wordmark with its ink box centered on the screen center. Returns the ink bottom (screen Y). */
-	private static int drawWordmark(GuiGraphics guiGraphics, int w, int h) {
-		double cx = w / 2.0;
-		double cy = h / 2.0;
-
+	/** Draws the wordmark with its ink box centered on (inkCenterX, inkCenterY), ink scaled to targetInkHeight. Returns ink bottom (screen Y). */
+	private static int drawWordmark(GuiGraphics guiGraphics, double inkCenterX, double inkCenterY, double targetInkHeight) {
 		if (wordmarkId != null) {
-			// Scale so the ink (letters, excluding the glow padding) is a set fraction of screen height.
-			float scale = (float) (h * 0.15 / wmInkH);
-			double inkCenterX = (wmInkX + wmInkW / 2.0) * scale;
-			double inkCenterY = (wmInkY + wmInkH / 2.0) * scale;
-			double topLeftX = cx - inkCenterX;
-			double topLeftY = cy - inkCenterY;
+			float scale = (float) (targetInkHeight / wmInkH);
+			double icx = (wmInkX + wmInkW / 2.0) * scale;
+			double icy = (wmInkY + wmInkH / 2.0) * scale;
 
 			PoseStack pose = guiGraphics.pose();
 			pose.pushPose();
-			pose.translate(topLeftX, topLeftY, 0);
+			pose.translate(inkCenterX - icx, inkCenterY - icy, 0);
 			pose.scale(scale, scale, 1f);
 			RenderSystem.enableBlend();
 			RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
 			guiGraphics.blit(wordmarkId, 0, 0, 0, 0, wmTexW, wmTexH, wmTexW, wmTexH);
 			pose.popPose();
 
-			return (int) Math.round(cy + (wmInkH * scale) / 2.0);
+			return (int) Math.round(inkCenterY + (wmInkH * scale) / 2.0);
 		}
 
-		// Fallback (texture missing): vanilla font, centered.
+		// Fallback (texture missing): vanilla font, centered on the point.
 		Font font = Minecraft.getInstance().font;
 		String mark = "ORIGIN";
 		float scale = 4.0f;
 		PoseStack pose = guiGraphics.pose();
 		pose.pushPose();
-		pose.translate(cx, cy, 0);
+		pose.translate(inkCenterX, inkCenterY, 0);
 		pose.scale(scale, scale, 1f);
 		int textW = font.width(mark);
 		guiGraphics.drawString(font, mark, -textW / 2, -4, OriginTheme.TEXT, false);
 		pose.popPose();
-		return (int) Math.round(cy + 5 * scale);
+		return (int) Math.round(inkCenterY + 5 * scale);
 	}
 
 	private static void drawProgressBar(GuiGraphics guiGraphics, int w, int h, int wordmarkBottom, float progress) {
@@ -164,6 +177,8 @@ public final class OriginLoadingRenderer {
 		}
 	}
 
+	// ---- Loading ----
+
 	private static synchronized void ensureLoaded() {
 		if (loaded) {
 			return;
@@ -179,7 +194,7 @@ public final class OriginLoadingRenderer {
 			for (int i = 0; i < arr.size(); i++) {
 				JsonObject r = arr.get(i).getAsJsonObject();
 				int index = r.get("index").getAsInt();
-				ResourceLocation id = registerTexture(mc, "loading_ring_" + index,
+				ResourceLocation id = registerTexture(mc, "origin_ring_" + index,
 						"/assets/originclient/textures/ui/ring-" + index + ".png");
 				rings.add(new Ring(id,
 						r.get("widthFrac").getAsDouble(),
@@ -188,14 +203,14 @@ public final class OriginLoadingRenderer {
 						r.get("periodSeconds").getAsDouble(),
 						r.get("reverse").getAsBoolean()));
 			}
-			grainId = registerTexture(mc, "loading_grain", "/assets/originclient/textures/ui/grain.png");
+			grainId = registerTexture(mc, "origin_grain", "/assets/originclient/textures/ui/grain.png");
 		} catch (Exception e) {
-			loadFailed = true;
-			com.origin.client.OriginClient.LOGGER.warn("Origin loading-screen textures failed to load; falling back to plain background", e);
+			ringsFailed = true;
+			com.origin.client.OriginClient.LOGGER.warn("Origin screen ring/grain textures failed to load; using plain background", e);
 		}
 
-		// Wordmark loads separately: if it fails, fall back to vanilla-font text
-		// without disabling the ring/grain background above.
+		// Wordmark loads separately: a failure here falls back to vanilla-font
+		// text without disabling the ring/grain background.
 		try {
 			Minecraft mc = Minecraft.getInstance();
 			JsonObject wm;
@@ -208,10 +223,10 @@ public final class OriginLoadingRenderer {
 			wmInkY = wm.get("inkY").getAsInt();
 			wmInkW = wm.get("inkWidth").getAsInt();
 			wmInkH = wm.get("inkHeight").getAsInt();
-			wordmarkId = registerTexture(mc, "loading_wordmark", "/assets/originclient/textures/ui/wordmark.png");
+			wordmarkId = registerTexture(mc, "origin_wordmark", "/assets/originclient/textures/ui/wordmark.png");
 		} catch (Exception e) {
 			wordmarkId = null;
-			com.origin.client.OriginClient.LOGGER.warn("Origin loading-screen wordmark failed to load; using vanilla font", e);
+			com.origin.client.OriginClient.LOGGER.warn("Origin wordmark failed to load; using vanilla font", e);
 		}
 	}
 
@@ -228,9 +243,9 @@ public final class OriginLoadingRenderer {
 	}
 
 	private static InputStream open(String classpathResource) throws Exception {
-		InputStream in = OriginLoadingRenderer.class.getResourceAsStream(classpathResource);
+		InputStream in = OriginScreenRenderer.class.getResourceAsStream(classpathResource);
 		if (in == null) {
-			throw new java.io.FileNotFoundException("Missing Origin loading asset: " + classpathResource);
+			throw new java.io.FileNotFoundException("Missing Origin asset: " + classpathResource);
 		}
 		return in;
 	}
