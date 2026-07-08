@@ -109,20 +109,29 @@ public partial class HomePage : UserControl
         UpdatePlayState();
     }
 
-    // Fabric where the perf-mod catalog has data, Forge otherwise — never
-    // both, so the selector only ever shows Vanilla + one of the two.
+    // Fabric wherever a Fabric-family loader exists for the version: the
+    // modern perf-catalog versions, and the pre-1.14 range via Legacy Fabric
+    // (Origin's own loader path — see VERSIONS.md). Forge is recommended only
+    // in the gap where neither applies.
     private LoaderKind RecommendedLoader(string version) =>
-        PerformanceModCatalog.RecommendsFabric(version) ? LoaderKind.Fabric : LoaderKind.Forge;
+        PerformanceModCatalog.RecommendsFabric(version) || LegacyFabricInstaller.Supports(version)
+            ? LoaderKind.Fabric
+            : LoaderKind.Forge;
 
     private void UpdateLoaderControls()
     {
         if (VersionComboBox.SelectedItem is not string version) return;
-        var fabricAvailable = PerformanceModCatalog.RecommendsFabric(version);
+        var modernFabric = PerformanceModCatalog.RecommendsFabric(version);
+        var legacyFabric = LegacyFabricInstaller.Supports(version);
         var loader = _settings.SelectedLoader ?? RecommendedLoader(version);
 
         _settingLoaderProgrammatically = true;
-        LoaderFabricToggle.Visibility = fabricAvailable ? Visibility.Visible : Visibility.Collapsed;
-        LoaderForgeToggle.Visibility = fabricAvailable ? Visibility.Collapsed : Visibility.Visible;
+        // Modern versions: Vanilla + Fabric (as before). Legacy versions
+        // (1.7.10–1.13.2): Vanilla + Fabric + Forge — Legacy Fabric is the
+        // recommended Origin path, but the existing Forge(+OptiFine) option
+        // stays one click away. The in-between gap keeps Vanilla + Forge.
+        LoaderFabricToggle.Visibility = modernFabric || legacyFabric ? Visibility.Visible : Visibility.Collapsed;
+        LoaderForgeToggle.Visibility = modernFabric ? Visibility.Collapsed : Visibility.Visible;
 
         LoaderVanillaToggle.IsChecked = loader == LoaderKind.Vanilla;
         LoaderFabricToggle.IsChecked = loader == LoaderKind.Fabric;

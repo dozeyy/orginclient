@@ -1712,3 +1712,29 @@ defined (GuiGraphics era → PoseStack era → GuiScreen/fixed-function →
 beta); design assets/tokens carry over 100%, only drawing/mixin layer is
 per-era. Rollout demand-driven (v1 = 1.21.1; next commercially = 1.8.9 +
 1.12.2); un-ported tiers still launch plain vanilla so nothing is ever broken.
+
+## 2026-07-08 — Legacy Fabric wired into the launcher (floor: 1.7.10)
+
+Will locked the route: Legacy Fabric for pre-1.14, floor 1.7.10 (beta-era
+Babric/Ornithe out of scope). Implemented launcher-side, test-at-home:
+- NEW Core/Loaders/LegacyFabricInstaller.cs: protocol-level fabric-style
+  installer against meta.legacyfabric.net/v2 (loader list → newest stable →
+  profile/json → write into instance versions/ → CmlLib installs/launches by
+  id, same mechanism as CmlLib's own modern-Fabric flow). Marker file
+  (legacyfabric.json in instance root) makes relaunches resolve offline.
+  Supports() = release 1.x with minor <= 13 (picker floor bounds the bottom).
+- VersionManager: `case LoaderKind.Fabric when LegacyFabricInstaller
+  .Supports(version)` routes legacy → loader + Legacy Fabric API; modern path
+  untouched. No Origin jar/perf catalog on legacy (menus stay VANILLA there
+  until the Tier C mod port — told Will).
+- FabricApiInstaller refactored: shared InstallProjectAsync core; new
+  InstallLegacyAsync (Modrinth slug legacy-fabric-api, no loaders filter —
+  didn't guess Modrinth's legacy loader tag; game_versions filter suffices).
+- HomePage: Fabric toggle now visible + recommended on legacy versions; Forge
+  (+OptiFine) stays available there (both toggles shown); modern versions
+  unchanged (Vanilla+Fabric); 1.14–1.16.2 gap unchanged (Vanilla+Forge).
+- CANNOT verify from sandbox: no dotnet (WPF is Windows-only anyway) and the
+  proxy 403s meta.legacyfabric.net + meta.fabricmc.net. C# written strictly
+  against API surfaces already proven in this codebase. At-home checklist in
+  VERSIONS.md (incl. 1.7.10-wants-Java-8 check via plain vanilla launch
+  first, and confirming 1.7.10 is in Legacy Fabric's game list).

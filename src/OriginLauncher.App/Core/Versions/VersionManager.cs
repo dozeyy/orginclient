@@ -111,6 +111,18 @@ public sealed class VersionManager
 
         switch (loader)
         {
+            // Pre-1.14 "Fabric" = Legacy Fabric (the community port of the
+            // same loader; official Fabric starts at 1.14). Same player-facing
+            // toggle — the launcher owning the loader flavor is the product
+            // model (VERSIONS.md). No Origin Client jar and no perf catalog
+            // here: neither targets these versions yet (menus stay vanilla on
+            // legacy versions until the Tier C port).
+            case LoaderKind.Fabric when LegacyFabricInstaller.Supports(version):
+            {
+                versionName = await LegacyFabricInstaller.InstallAsync(version, path, progress, ct);
+                await FabricApiInstaller.InstallLegacyAsync(version, modsFolder, progress, ct);
+                break;
+            }
             case LoaderKind.Fabric:
             {
                 progress?.Report("Installing Fabric loader...");
