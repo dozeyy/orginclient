@@ -1697,3 +1697,18 @@ NOT done (needs build access, honestly out of scope in this sandbox): actual
 per-version builds/ports, Sodium jar verification (Modrinth blocked by proxy
 policy — attempted, 403), any javap of non-1.21.1 versions. VERSIONS.md lists
 the known API breakpoints to verify per version.
+
+## 2026-07-08 — Pre-Fabric versions: how Origin reaches them (VERSIONS.md §)
+
+Will asked how the client reaches versions older than Fabric (official Fabric
+= 1.14+ only, website promises "beta to latest"). Added the section to
+VERSIONS.md: preferred route is the community loader ports — Legacy Fabric
+(1.3.2–1.13.2, incl. 1.8.9/1.12.2, meta.legacyfabric.net) and Babric/Ornithe
+(down to Beta 1.7.3) — same mixin system + Fabric-style meta servers, so the
+launcher installs them exactly like Fabric and the player never sees the
+difference. Fallbacks: -javaagent class transformation (any version, no
+loader) and legal local-only jar patching (last resort). Port tiers A–D
+defined (GuiGraphics era → PoseStack era → GuiScreen/fixed-function →
+beta); design assets/tokens carry over 100%, only drawing/mixin layer is
+per-era. Rollout demand-driven (v1 = 1.21.1; next commercially = 1.8.9 +
+1.12.2); un-ported tiers still launch plain vanilla so nothing is ever broken.
