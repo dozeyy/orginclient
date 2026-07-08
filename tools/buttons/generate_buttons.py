@@ -20,7 +20,7 @@ import json
 import sys
 from pathlib import Path
 
-from PIL import Image, ImageDraw
+from PIL import Image, ImageChops, ImageDraw, ImageFilter
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str((HERE / ".." / "loading-screen").resolve()))
@@ -76,23 +76,23 @@ def main():
 
     # Labels baked as uniform, baseline-aligned cells (same height for every
     # label) so they all render at the same visual size regardless of
-    # descenders -- scaling by the shared cellHeight in-game keeps them
-    # consistent (an ink-box height varies with p/g/y and looked wrong).
+    # descenders, with the wordmark's subtle glow baked in.
     #
-    # Rendered large (LABEL_CAP) for quality, then LANCZOS-downscaled to a
-    # cell height close to the actual on-screen pixel size. GL samples these
-    # linearly with no mipmaps, so a big draw-time minification ratio aliases
-    # ("not the same quality as the ORIGIN logo" -- the logo only shrinks
-    # ~1.4x at draw, the first label bake shrank ~5x). Doing the downscale
-    # here in Pillow keeps draw-time scaling near 1:1, same as the wordmark.
+    # Baked at a LADDER of cell heights, one per Minecraft GUI scale: the
+    # button label displays at ~14.4 GUI px (0.72 * the 20px button), which is
+    # 14.4 * guiScale REAL pixels. A single bake is only pixel-perfect at one
+    # GUI scale -- every other scale re-stretches it through GL_LINEAR and
+    # softens/aliases ("sharpness in all GUI scaling should be perfect").
+    # The in-game renderer picks the rung matching the current GUI scale and
+    # draws it at exactly 1:1 texture-texel-to-screen-pixel.
     font = load_font("../font-atlas/fonts/Inter-500.ttf", LABEL_CAP)
     ascent, descent = font.getmetrics()
-    pad = 4
+    pad = 14  # room for the glow around the ink
     cell_h = ascent + descent + 2 * pad
     baseline = pad + ascent
     ls = 0.02 * LABEL_CAP
-    target_cell_h = 32
-    scale = target_cell_h / cell_h
+    display_gui_px = 14.4  # label cell height on screen, in GUI units
+    ladder = [round(display_gui_px * gs) for gs in range(1, 7)]  # GUI scales 1..6
     labels = {}
     for text in LABELS:
         positions = []
@@ -105,14 +105,21 @@ def main():
         draw = ImageDraw.Draw(layer)
         for ch, px in positions:
             draw.text((pad + px, baseline), ch, fill=255, font=font, anchor="ls")
-        small = layer.resize((max(1, round(layer.width * scale)), target_cell_h), Image.LANCZOS)
-        slug = "".join(c if c.isalnum() else "_" for c in text.lower())
-        fname = "label_" + slug + ".png"
-        _to_rgba(small).save(OUT / fname)
-        labels[text] = {"file": fname, "width": small.width}
-        print(f"label '{text}': {small.width}x{target_cell_h} -> {fname}")
+        glow = layer.filter(ImageFilter.GaussianBlur(9)).point(lambda a: int(a * 0.18))
+        master = ImageChops.lighter(layer, glow)
 
-    (OUT / "labels.json").write_text(json.dumps({"cellHeight": target_cell_h, "labels": labels}, indent=2))
+        slug = "".join(c if c.isalnum() else "_" for c in text.lower())
+        cells = {}
+        for target in ladder:
+            scale = target / cell_h
+            small = master.resize((max(1, round(master.width * scale)), target), Image.LANCZOS)
+            fname = f"label_{slug}_{target}.png"
+            _to_rgba(small).save(OUT / fname)
+            cells[str(target)] = {"file": fname, "width": small.width}
+        labels[text] = cells
+        print(f"label '{text}': cells {ladder} -> label_{slug}_*.png")
+
+    (OUT / "labels.json").write_text(json.dumps({"cells": ladder, "labels": labels}, indent=2))
 
 
 if __name__ == "__main__":

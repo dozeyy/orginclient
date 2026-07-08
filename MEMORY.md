@@ -1343,3 +1343,23 @@ Will's live feedback on the first styled-buttons build, all addressed:
 - **Waiting on Will**: pull/build/runClient — check the mouse-follow light
   (trailing halo, bloom over buttons), Options label now Inter without dots,
   and label crispness vs the wordmark.
+
+## 2026-07-08 — Glow shrunk 60%; labels re-baked per GUI scale for pixel-perfect sharpness
+
+Will confirmed responsiveness is right; two fixes from his next look:
+- **Mouse glow too big** — shrunk both layers to 40% of the website-proportional
+  sizes (halo 0.35w→0.14w, core 0.081w→0.032w; blooms scaled likewise). The
+  1:1 CSS translation was correct math but wrong feel in-game.
+- **Labels still not wordmark-sharp** — root cause this round: a single 32px
+  bake is only pixel-perfect at GUI scale 2. At scale 3/4 it *up*-scales
+  (soft), at scale 1 it minifies (aliased). Fix: bake each label at a ladder
+  of cell heights (one per GUI scale 1..6 = round(14.4·gs) real px, subtle
+  wordmark-style glow baked in), and at draw time pick the rung matching
+  `Window.getGuiScale()` and draw it at exactly 1:1 texels-to-screen-pixels
+  (pose-scale 1/gs to escape integer GUI units). Verified rungs at true 1:1
+  in-sandbox — crisp at both 29px (scale 2) and 43px (scale 3).
+- **One unverified API this round**: `Window.getGuiScale()` (double) — very
+  stable API but not javap-confirmed; a mismatch fails the build loudly, and
+  the fallback fix is deriving scale from framebuffer/gui width.
+- Buttons stay clickable exactly as before — nothing about the in-place
+  restyle changed, only how the label texture is chosen/drawn.

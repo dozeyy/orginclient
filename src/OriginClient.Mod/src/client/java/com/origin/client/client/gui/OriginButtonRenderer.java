@@ -4,6 +4,7 @@ import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.mojang.blaze3d.platform.NativeImage;
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
@@ -43,13 +44,17 @@ public final class OriginButtonRenderer {
 
 	private static boolean loaded = false;
 	private static boolean assetsOk = false;
-	private static int TEX, CORNER, cellHeight;
+	private static int TEX, CORNER;
 	private static ResourceLocation fillTex, borderTex;
-	private static final Map<String, LabelInfo> LABELS = new HashMap<>();
+	// text -> (baked cell height -> texture). One bake per GUI scale; the
+	// renderer picks the rung matching the current scale and draws it at
+	// exactly 1:1 texels-to-screen-pixels, so labels stay wordmark-sharp at
+	// every GUI scale instead of being pixel-perfect at only one.
+	private static final Map<String, Map<Integer, LabelInfo>> LABELS = new HashMap<>();
 
 	private static final Map<AbstractButton, State> STATE = new WeakHashMap<>();
 
-	private record LabelInfo(ResourceLocation tex, int width) {
+	private record LabelInfo(ResourceLocation tex, int width, int cellH) {
 	}
 
 	private static final class State {
@@ -103,15 +108,31 @@ public final class OriginButtonRenderer {
 		// (Will: no dots), falling back to vanilla font only if the cleaned
 		// string has no baked label at all.
 		String text = cleanLabel(message.getString());
-		LabelInfo li = LABELS.get(text);
-		if (li != null) {
-			double scale = (h * 0.62) / cellHeight;
-			double dw = li.width() * scale;
-			double dh = cellHeight * scale;
+		Map<Integer, LabelInfo> rungs = LABELS.get(text);
+		if (rungs != null && !rungs.isEmpty()) {
+			// Pick the bake whose cell height is closest to the label's REAL
+			// pixel height at the current GUI scale, then draw it 1:1 (the
+			// pose scale converts real pixels back to GUI units), so GL never
+			// resamples it -- pixel-perfect at every GUI scale.
+			double gs = Math.max(1.0, Minecraft.getInstance().getWindow().getGuiScale());
+			double targetReal = h * 0.72 * gs;
+			LabelInfo best = null;
+			for (LabelInfo li : rungs.values()) {
+				if (best == null || Math.abs(li.cellH() - targetReal) < Math.abs(best.cellH() - targetReal)) {
+					best = li;
+				}
+			}
+			double dwGui = best.width() / gs;
+			double dhGui = best.cellH() / gs;
+			PoseStack pose = guiGraphics.pose();
+			pose.pushPose();
+			pose.translate(cx - dwGui / 2.0, cy - dhGui / 2.0, 0);
+			pose.scale((float) (1.0 / gs), (float) (1.0 / gs), 1f);
 			shaderColor(LABEL_COLOR);
-			guiGraphics.blit(li.tex(), (int) (cx - dw / 2.0), (int) (cy - dh / 2.0), (int) dw, (int) dh,
-					0f, 0f, li.width(), cellHeight, li.width(), cellHeight);
+			guiGraphics.blit(best.tex(), 0, 0, best.width(), best.cellH(),
+					0f, 0f, best.width(), best.cellH(), best.width(), best.cellH());
 			RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+			pose.popPose();
 		} else {
 			Font font = Minecraft.getInstance().font;
 			int tw = font.width(text);
@@ -190,13 +211,18 @@ public final class OriginButtonRenderer {
 			try (InputStream in = open("/assets/originclient/textures/ui/labels.json")) {
 				labelsRoot = GSON.fromJson(readAll(in), JsonObject.class);
 			}
-			cellHeight = labelsRoot.get("cellHeight").getAsInt();
 			JsonObject map = labelsRoot.getAsJsonObject("labels");
 			for (String key : map.keySet()) {
-				JsonObject l = map.getAsJsonObject(key);
-				String file = l.get("file").getAsString();
-				ResourceLocation id = register(mc, file.replace(".png", ""), "/assets/originclient/textures/ui/" + file);
-				LABELS.put(key, new LabelInfo(id, l.get("width").getAsInt()));
+				JsonObject rungsJson = map.getAsJsonObject(key);
+				Map<Integer, LabelInfo> rungs = new HashMap<>();
+				for (String cellKey : rungsJson.keySet()) {
+					JsonObject l = rungsJson.getAsJsonObject(cellKey);
+					int cellH = Integer.parseInt(cellKey);
+					String file = l.get("file").getAsString();
+					ResourceLocation id = register(mc, file.replace(".png", ""), "/assets/originclient/textures/ui/" + file);
+					rungs.put(cellH, new LabelInfo(id, l.get("width").getAsInt(), cellH));
+				}
+				LABELS.put(key, rungs);
 			}
 			assetsOk = true;
 		} catch (Exception e) {

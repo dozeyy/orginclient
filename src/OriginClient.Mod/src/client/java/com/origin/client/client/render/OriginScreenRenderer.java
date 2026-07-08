@@ -158,10 +158,10 @@ public final class OriginScreenRenderer {
 		haloY += (mouseY - haloY) * f;
 
 		RenderSystem.enableBlend();
-		// Halo: 560px -> 720px of a ~1600px viewport; gradient 0.35 * layer opacity 0.32 -> 0.5.
-		drawRadial(guiGraphics, haloX, haloY, w * (0.35 + 0.10 * hv), 0.112 + 0.063 * hv);
-		// Core: 130px -> 200px; gradient 0.55 * layer opacity 0.55 -> 0.85.
-		drawRadial(guiGraphics, mouseX, mouseY, w * (0.081 + 0.044 * hv), 0.30 + 0.17 * hv);
+		// Sizes are ~40% of the website's proportional values -- the 1:1
+		// translation read far too big in-game (Will: "shrink by 60% at least").
+		drawRadial(guiGraphics, haloX, haloY, w * (0.14 + 0.04 * hv), 0.112 + 0.063 * hv);
+		drawRadial(guiGraphics, mouseX, mouseY, w * (0.032 + 0.018 * hv), 0.30 + 0.17 * hv);
 		RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
 	}
 
