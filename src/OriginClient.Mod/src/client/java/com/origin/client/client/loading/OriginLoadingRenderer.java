@@ -39,6 +39,12 @@ public final class OriginLoadingRenderer {
 	private static final List<Ring> rings = new ArrayList<>();
 	private static ResourceLocation grainId;
 
+	// Wordmark texture (baked "Origin" in the website's Inter font, so it shows
+	// instantly instead of Minecraft's not-yet-loaded font rendering tofu boxes
+	// during the first resource load). Null -> fall back to vanilla drawString.
+	private static ResourceLocation wordmarkId;
+	private static int wmTexW, wmTexH, wmInkX, wmInkY, wmInkW, wmInkH;
+
 	private record Ring(ResourceLocation texture, double widthFrac, float opacity,
 						double angle0, double periodSeconds, boolean reverse) {
 	}
@@ -61,8 +67,9 @@ public final class OriginLoadingRenderer {
 			drawGrain(guiGraphics, w, h);
 		}
 
-		drawWordmark(guiGraphics, w, h);
-		drawProgressBar(guiGraphics, w, h, Math.max(0f, Math.min(1f, progress)));
+		// Wordmark ink centered on the screen center; bar sits just below it.
+		int wordmarkBottom = drawWordmark(guiGraphics, w, h);
+		drawProgressBar(guiGraphics, w, h, wordmarkBottom, Math.max(0f, Math.min(1f, progress)));
 	}
 
 	private static void drawRings(GuiGraphics guiGraphics, int w, int h) {
@@ -104,24 +111,50 @@ public final class OriginLoadingRenderer {
 		RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
 	}
 
-	private static void drawWordmark(GuiGraphics guiGraphics, int w, int h) {
+	/** Draws the wordmark with its ink box centered on the screen center. Returns the ink bottom (screen Y). */
+	private static int drawWordmark(GuiGraphics guiGraphics, int w, int h) {
+		double cx = w / 2.0;
+		double cy = h / 2.0;
+
+		if (wordmarkId != null) {
+			// Scale so the ink (letters, excluding the glow padding) is a set fraction of screen height.
+			float scale = (float) (h * 0.15 / wmInkH);
+			double inkCenterX = (wmInkX + wmInkW / 2.0) * scale;
+			double inkCenterY = (wmInkY + wmInkH / 2.0) * scale;
+			double topLeftX = cx - inkCenterX;
+			double topLeftY = cy - inkCenterY;
+
+			PoseStack pose = guiGraphics.pose();
+			pose.pushPose();
+			pose.translate(topLeftX, topLeftY, 0);
+			pose.scale(scale, scale, 1f);
+			RenderSystem.enableBlend();
+			RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+			guiGraphics.blit(wordmarkId, 0, 0, 0, 0, wmTexW, wmTexH, wmTexW, wmTexH);
+			pose.popPose();
+
+			return (int) Math.round(cy + (wmInkH * scale) / 2.0);
+		}
+
+		// Fallback (texture missing): vanilla font, centered.
 		Font font = Minecraft.getInstance().font;
 		String mark = "ORIGIN";
 		float scale = 4.0f;
 		PoseStack pose = guiGraphics.pose();
 		pose.pushPose();
-		pose.translate(w / 2.0, h / 2.0 - 18 * scale, 0);
+		pose.translate(cx, cy, 0);
 		pose.scale(scale, scale, 1f);
 		int textW = font.width(mark);
-		guiGraphics.drawString(font, mark, -textW / 2, 0, OriginTheme.TEXT, false);
+		guiGraphics.drawString(font, mark, -textW / 2, -4, OriginTheme.TEXT, false);
 		pose.popPose();
+		return (int) Math.round(cy + 5 * scale);
 	}
 
-	private static void drawProgressBar(GuiGraphics guiGraphics, int w, int h, float progress) {
-		int barW = Math.max(120, (int) (w * 0.26));
+	private static void drawProgressBar(GuiGraphics guiGraphics, int w, int h, int wordmarkBottom, float progress) {
+		int barW = Math.max(120, (int) (w * 0.22));
 		int barH = 3;
 		int bx = (w - barW) / 2;
-		int by = (int) (h / 2.0 + 40);
+		int by = wordmarkBottom + Math.max(14, (int) (h * 0.05)); // right under the wordmark
 
 		guiGraphics.fill(bx, by, bx + barW, by + barH, OriginTheme.STROKE);       // track
 		int fillW = Math.round(barW * progress);
@@ -159,6 +192,26 @@ public final class OriginLoadingRenderer {
 		} catch (Exception e) {
 			loadFailed = true;
 			com.origin.client.OriginClient.LOGGER.warn("Origin loading-screen textures failed to load; falling back to plain background", e);
+		}
+
+		// Wordmark loads separately: if it fails, fall back to vanilla-font text
+		// without disabling the ring/grain background above.
+		try {
+			Minecraft mc = Minecraft.getInstance();
+			JsonObject wm;
+			try (InputStream in = open("/assets/originclient/textures/ui/wordmark.json")) {
+				wm = GSON.fromJson(new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8), JsonObject.class);
+			}
+			wmTexW = wm.get("width").getAsInt();
+			wmTexH = wm.get("height").getAsInt();
+			wmInkX = wm.get("inkX").getAsInt();
+			wmInkY = wm.get("inkY").getAsInt();
+			wmInkW = wm.get("inkWidth").getAsInt();
+			wmInkH = wm.get("inkHeight").getAsInt();
+			wordmarkId = registerTexture(mc, "loading_wordmark", "/assets/originclient/textures/ui/wordmark.png");
+		} catch (Exception e) {
+			wordmarkId = null;
+			com.origin.client.OriginClient.LOGGER.warn("Origin loading-screen wordmark failed to load; using vanilla font", e);
 		}
 	}
 
