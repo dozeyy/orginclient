@@ -340,6 +340,13 @@ a { color: inherit; }
 .hud__crosshair-tick--left { left: 0; }
 .hud__crosshair-tick--right { right: 0; }
 
+/* On narrow screens the stats panel (min-width: 200px) grows into the middle of
+   the HUD, so a dead-centre crosshair clips into its border. Shift it into the
+   clear pocket above the stats panel and right of the FPS panel instead. */
+@media (max-width: 520px) {
+  .hud__crosshair { top: 26%; left: 78%; }
+}
+
 .hero__scroll {
   position: relative;
   bottom: var(--space-4);
