@@ -1789,3 +1789,37 @@ fixed what broke the one-click promise:
   loaders/mods all download in-app (no external pages anywhere in the flow);
   auth is the only browser hop and only on first sign-in (refresh tokens
   after).
+
+## 2026-07-08 — Push-to-update: live self-updating launcher (mandatory)
+
+Will: push to GitHub → download badge appears in the running launcher →
+click → downloads, swaps, restarts, done. Old versions must NOT work until
+updated. Implemented end to end:
+- **CI** (.github/workflows/launcher-release.yml): every push to main
+  touching src/ builds the mod jar (gradle, temurin 21) then dotnet-publishes
+  the launcher (win-x64 self-contained single-file, -p:Version=1.0.<run#>)
+  with the jar bundled, zips, and creates release launcher-v1.0.<run#> with
+  OriginLauncher-win-x64.zip. NOTE: this is also the first real CI compile of
+  ALL the mod + launcher code this session wrote — first Actions run doubles
+  as the compile verification we never had; if red, the log shows exactly
+  what to fix.
+- **Core/Updates/UpdateService.cs**: polls releases/latest (unauth, UA
+  header), parses launcher-v tag vs assembly version (Normalize pads -1
+  components). DownloadAndRestartAsync: zip → stage under
+  %LocalAppData%/OriginLauncher/updates/<ver> → apply-update.cmd (tasklist
+  wait-for-pid → robocopy stage over install dir → start exe → done),
+  Process.Start hidden, Application.Shutdown.
+- **Badge**: MainWindow top-right cluster, leftmost — new Icon.Download
+  glyph (arrow-into-tray, same 24x24 stroke-icon language) in Button.Chrome,
+  full Brush.Text; hidden until AvailableChanged. Click → disabled +
+  "Updating..." tooltip → DownloadAndRestartAsync; failure re-enables with
+  error tooltip. Poll: startup + every 10 min.
+- **Mandatory gate**: PlayButton_Click re-checks the feed live then blocks
+  with "Update required — click the update dot" when UpdateRequired.
+  Fail-open when feed unreachable (can't distinguish offline from
+  no-update; blocking offline play on a feed hiccup would be worse). Dev
+  builds (assembly 1.0.0.0, no CI stamp) see the badge but skip the gate,
+  else every local F5 would be blocked.
+- **CONSTRAINT told to Will**: unauthenticated releases API requires the
+  repo (or its releases) PUBLIC; on a private repo every check 404s → fails
+  open → no updates ever surface.

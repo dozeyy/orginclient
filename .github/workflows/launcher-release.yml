@@ -1,0 +1,81 @@
+# Push-to-update pipeline, build side. Every push to main that touches src/
+# builds the whole client (Origin Client mod jar via Gradle, then the WPF
+# launcher with that jar bundled in) and publishes a GitHub release tagged
+# launcher-v1.0.<run>. Running launchers poll the release feed
+# (Core/Updates/UpdateService.cs), light the corner download badge, and
+# self-update from the OriginLauncher-win-x64.zip asset. Updates are
+# mandatory: a launcher older than the latest release refuses to launch the
+# game until updated.
+#
+# NOTE: the launcher polls this feed UNAUTHENTICATED, which requires the
+# repository (or at least its releases) to be public.
+name: launcher-release
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "src/**"
+      - ".github/workflows/launcher-release.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: launcher-release
+  cancel-in-progress: false
+
+jobs:
+  build-and-release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      # The in-game mod, built first so the launcher build below finds
+      # build/libs/originclient-0.1.0.jar and bundles it (the csproj Content
+      # item is conditional on it existing — a fresh runner always builds it
+      # here, so releases always ship the mod).
+      - name: Build Origin Client mod
+        working-directory: src/OriginClient.Mod
+        run: .\gradlew.bat build --no-daemon
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Compute version
+        id: ver
+        shell: pwsh
+        run: echo "version=1.0.${{ github.run_number }}" >> $env:GITHUB_OUTPUT
+
+      # Single-file, self-contained: the update zip swaps cleanly as one exe
+      # (plus a couple of native satellites) with no .NET install required
+      # on the player's machine. -p:Version stamps the assembly version the
+      # updater compares against the release tag.
+      - name: Publish launcher
+        run: >
+          dotnet publish src/OriginLauncher.App/OriginLauncher.App.csproj
+          -c Release -r win-x64 --self-contained true
+          -p:PublishSingleFile=true
+          -p:IncludeNativeLibrariesForSelfExtract=true
+          -p:Version=${{ steps.ver.outputs.version }}
+          -o publish
+
+      - name: Package
+        shell: pwsh
+        run: Compress-Archive -Path publish\* -DestinationPath OriginLauncher-win-x64.zip
+
+      - name: Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: pwsh
+        run: >
+          gh release create "launcher-v${{ steps.ver.outputs.version }}"
+          OriginLauncher-win-x64.zip
+          --title "Origin Launcher ${{ steps.ver.outputs.version }}"
+          --notes "Automated build of ${{ github.sha }}"

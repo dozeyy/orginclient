@@ -7,6 +7,7 @@ using OriginLauncher.App.Core.Auth;
 using OriginLauncher.App.Core.Launch;
 using OriginLauncher.App.Core.Loaders;
 using OriginLauncher.App.Core.Models;
+using OriginLauncher.App.Core.Updates;
 using OriginLauncher.App.Core.Versions;
 
 namespace OriginLauncher.App.UI.Pages;
@@ -40,6 +41,16 @@ public partial class HomePage : UserControl
     {
         _selectedAccount = AccountStore.GetSelected(AccountStore.Load());
         UpdatePlayState();
+    }
+
+    /// <summary>Called by MainWindow when the update badge lights up, so the
+    /// status line explains why Play is about to refuse.</summary>
+    public void RefreshUpdateGate()
+    {
+        if (UpdateService.UpdateRequired && !_isLaunching)
+        {
+            StatusText.Text = "Update available — the launcher must update before playing.";
+        }
     }
 
     private void UpdatePlayState()
@@ -231,6 +242,18 @@ public partial class HomePage : UserControl
     {
         if (_isLaunching || _selectedAccount == null) return;
         if (VersionComboBox.SelectedItem is not string version) return;
+
+        // Mandatory updates (Will's rule): a launcher older than the latest
+        // published release must update before it can launch the game. The
+        // feed is re-checked right here so a just-pushed release blocks
+        // immediately rather than after the next poll; an unreachable feed
+        // fails open (see UpdateService's policy note).
+        await UpdateService.CheckAsync();
+        if (UpdateService.UpdateRequired)
+        {
+            StatusText.Text = "Update required — click the update dot in the top-right corner.";
+            return;
+        }
 
         // Newest launch action wins: replace (and cancel) any stale token
         // before starting. The overlay's Cancel button aborts this one.

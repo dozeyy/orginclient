@@ -60,6 +60,20 @@
         </PathGeometry>
     </GeometryGroup>
 
+    <!-- Arrow-into-tray download glyph, for the update badge. -->
+    <PathGeometry x:Key="Icon.Download">
+        <PathFigure StartPoint="12,4" IsClosed="False">
+            <LineSegment Point="12,15"/>
+        </PathFigure>
+        <PathFigure StartPoint="7.5,10.5" IsClosed="False">
+            <LineSegment Point="12,15"/>
+            <LineSegment Point="16.5,10.5"/>
+        </PathFigure>
+        <PathFigure StartPoint="5,19" IsClosed="False">
+            <LineSegment Point="19,19"/>
+        </PathFigure>
+    </PathGeometry>
+
     <PathGeometry x:Key="Icon.Minimize">
         <PathFigure StartPoint="6,17" IsClosed="False">
             <LineSegment Point="18,17"/>

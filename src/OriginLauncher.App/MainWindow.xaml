@@ -50,6 +50,20 @@
 
             <!-- Top-right: account avatar + minimize/close cluster -->
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="16">
+                <!-- Update badge: hidden until UpdateService finds a newer
+                     release; clicking downloads it, swaps the install, and
+                     restarts the launcher. Download glyph in the same
+                     stroke-icon language as the rest of the chrome, in full
+                     Brush.Text (not TextDim) so it reads as the one thing
+                     asking for attention. -->
+                <Button x:Name="UpdateBadge" Click="UpdateBadge_Click"
+                        Style="{StaticResource Button.Chrome}"
+                        Padding="8" Margin="0,0,4,0" Width="32" Height="32"
+                        Visibility="Collapsed"
+                        ToolTip="Update available — click to update and restart">
+                    <Path Data="{StaticResource Icon.Download}" Style="{StaticResource Icon.Base}"
+                          Width="16" Height="16" Stroke="{StaticResource Brush.Text}"/>
+                </Button>
                 <Button x:Name="AccountButton" Click="AccountButton_Click"
                         Style="{StaticResource Button.Chrome}"
                         Padding="8" Margin="0,0,4,0" Width="32" Height="32">
