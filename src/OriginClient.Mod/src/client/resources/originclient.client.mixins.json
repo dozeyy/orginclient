@@ -8,7 +8,10 @@
 		"EntityViewAngleMixin",
 		"LoadingOverlayMixin",
 		"TitleScreenMixin",
-		"AbstractButtonMixin"
+		"AbstractButtonMixin",
+		"ScreenBackgroundMixin",
+		"AbstractSliderButtonMixin",
+		"CheckboxMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

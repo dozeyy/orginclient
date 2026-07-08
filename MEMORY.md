@@ -1406,3 +1406,36 @@ pattern (no screen reimplementation, no widget-list surgery). Staged:
 - Next round-trip needs javap on: Screen (background methods for OPT-2),
   AbstractSliderButton (value field + renderWidget for OPT-3), Checkbox,
   CycleButton (confirm no renderWidget override), tab classes (OPT-4).
+
+## 2026-07-08 — OPT-2/3/4a shipped in one pass (backgrounds, sliders, checkboxes)
+
+Will's javap batch confirmed every target, so all three stages went out in one
+build (each independently revertable via its mixin registration):
+- **OPT-2 backgrounds** (`ScreenBackgroundMixin`): `Screen.renderBackground`
+  HEAD-cancel → Origin charcoal+rings+grain, gated `Minecraft.level == null`
+  so in-game screens keep vanilla's blurred-world backdrop. Also cancels the
+  static `Screen.renderMenuBackgroundTexture` (same gate) — that's the helper
+  option/selection LISTS use to tile their darker strip, so lists now sit
+  transparently on the Origin background. TitleScreen overrides
+  renderBackground, so its own path is unaffected (no double draw).
+- **OPT-3 sliders** (`AbstractSliderButtonMixin`): renderWidget HEAD-cancel →
+  `OriginButtonRenderer.renderSlider`: button shell + faint fill-to-value
+  (loading-bar read) + 3px accent handle w/ hover glow + centered label.
+  `value` read via @Shadow on a field DECLARED on the target class (the safe
+  shadow case — javap-confirmed `protected double value`; precedent:
+  LoadingOverlay.currentProgress shadow works). Drag logic untouched; value is
+  read live per frame so it's exactly as responsive as vanilla.
+- **OPT-4a checkboxes** (`CheckboxMixin`): renderWidget HEAD-cancel → rounded
+  shell + accent inner square when `selected()` (public, confirmed) + label
+  right, disabled dim like buttons.
+- CycleButton confirmed to have NO renderWidget override → OPT-1 already
+  covers every Options toggle. TabButton wasn't at
+  `components.tabs.TabButton` (class not found) — locate later (likely
+  `components.TabButton`); vanilla Options has no tabs, create-world does.
+- Refactor: hover easing unified into `hoverEase(Object,boolean)` with a
+  WeakHashMap<Object,State> shared by buttons/sliders/checkboxes.
+- **Waiting on Will**: pull/build/runClient → Options should now be fully
+  Origin (background + rings behind the list, styled toggles/sliders/
+  checkboxes, dimmed Telemetry). Also check world-select/create-world
+  (background + transparent lists) and that in-game pause still shows the
+  blurred world.

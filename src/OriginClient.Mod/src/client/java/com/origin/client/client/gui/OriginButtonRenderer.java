@@ -9,6 +9,8 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractButton;
+import net.minecraft.client.gui.components.AbstractSliderButton;
+import net.minecraft.client.gui.components.Checkbox;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -56,7 +58,8 @@ public final class OriginButtonRenderer {
 	// every GUI scale instead of being pixel-perfect at only one.
 	private static final Map<String, Map<Integer, LabelInfo>> LABELS = new HashMap<>();
 
-	private static final Map<AbstractButton, State> STATE = new WeakHashMap<>();
+	// Keyed by widget (buttons, sliders, checkboxes all share hover easing).
+	private static final Map<Object, State> STATE = new WeakHashMap<>();
 
 	private record LabelInfo(ResourceLocation tex, int width, int cellH) {
 	}
@@ -73,18 +76,7 @@ public final class OriginButtonRenderer {
 		ensureLoaded();
 		int x = button.getX(), y = button.getY(), w = button.getWidth(), h = button.getHeight();
 		boolean enabled = button.active;
-
-		State st = STATE.computeIfAbsent(button, k -> new State());
-		long now = System.nanoTime();
-		double dtMs = st.lastNanos == 0 ? 0 : (now - st.lastNanos) / 1_000_000.0;
-		st.lastNanos = now;
-		double target = (enabled && button.isHovered()) ? 1.0 : 0.0;
-		if (st.hover < target) {
-			st.hover = Math.min(target, st.hover + dtMs / HOVER_MS);
-		} else if (st.hover > target) {
-			st.hover = Math.max(target, st.hover - dtMs / HOVER_MS);
-		}
-		double hv = OriginTheme.easeOut(st.hover);
+		double hv = hoverEase(button, enabled && button.isHovered());
 
 		int drawY = (int) Math.round(y - LIFT_PX * hv);
 		double cx = x + w / 2.0;
@@ -109,6 +101,113 @@ public final class OriginButtonRenderer {
 		RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
 
 		drawLabel(guiGraphics, cx, cy, h, button.getMessage(), labelColor);
+	}
+
+	/**
+	 * Origin slider: the button shell, a faint fill up to the current value
+	 * (reads like the loading bar), a bright accent handle at the value
+	 * position, and the label ("FOV: 90") centered on top. Vanilla's
+	 * drag/click logic is untouched -- this only redraws, and reads `value`
+	 * live each frame, so dragging stays exactly as responsive as vanilla.
+	 */
+	public static void renderSlider(GuiGraphics guiGraphics, AbstractSliderButton slider, double value) {
+		ensureLoaded();
+		int x = slider.getX(), y = slider.getY(), w = slider.getWidth(), h = slider.getHeight();
+		boolean enabled = slider.active;
+		double v = Math.max(0.0, Math.min(1.0, value));
+		double hv = hoverEase(slider, enabled && slider.isHovered());
+
+		int fill = enabled ? OriginTheme.lerpColor(FILL_NORMAL, FILL_HOVER, hv) : FILL_DISABLED;
+		int border = enabled ? OriginTheme.lerpColor(BORDER_NORMAL, BORDER_HOVER, hv) : BORDER_DISABLED;
+		int labelColor = enabled ? LABEL_COLOR : LABEL_DISABLED;
+
+		RenderSystem.enableBlend();
+		int cd = Math.min(CORNER_DISPLAY, Math.min(w, h) / 2);
+		if (assetsOk) {
+			shaderColor(fill);
+			nineSlice(guiGraphics, fillTex, x, y, w, h, cd);
+		} else {
+			guiGraphics.fill(x, y, x + w, y + h, fill);
+		}
+
+		// Value fill (inset so it stays inside the rounded shell).
+		int inset = 2;
+		int filledW = (int) Math.round((w - 2 * inset) * v);
+		if (filledW > 0) {
+			guiGraphics.fill(x + inset, y + inset, x + inset + filledW, y + h - inset,
+					enabled ? OriginTheme.lerpColor(0x10FFFFFF, 0x18FFFFFF, hv) : 0x08FFFFFF);
+		}
+
+		// Handle: slim accent bar at the value position, glow ring on hover.
+		int handleW = 3;
+		int hx = x + inset + (int) Math.round((w - 2 * inset - handleW) * v);
+		if (hv > 0.01 && enabled) {
+			guiGraphics.fill(hx - 1, y + 1, hx + handleW + 1, y + h - 1,
+					OriginTheme.lerpColor(0x00FFFFFF, OriginTheme.ACCENT_GLOW, hv));
+		}
+		guiGraphics.fill(hx, y + inset, hx + handleW, y + h - inset,
+				enabled ? OriginTheme.ACCENT : 0x669A9A9A);
+
+		if (assetsOk) {
+			shaderColor(border);
+			nineSlice(guiGraphics, borderTex, x, y, w, h, cd);
+			RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+		}
+
+		drawLabel(guiGraphics, x + w / 2.0, y + h / 2.0, h, slider.getMessage(), labelColor);
+	}
+
+	/**
+	 * Origin checkbox: a small rounded shell with an accent inner square when
+	 * selected, label to the right in vanilla font. Click handling untouched.
+	 */
+	public static void renderCheckbox(GuiGraphics guiGraphics, Checkbox checkbox) {
+		ensureLoaded();
+		int x = checkbox.getX(), y = checkbox.getY(), h = checkbox.getHeight();
+		boolean enabled = checkbox.active;
+		double hv = hoverEase(checkbox, enabled && checkbox.isHovered());
+
+		int fill = enabled ? OriginTheme.lerpColor(FILL_NORMAL, FILL_HOVER, hv) : FILL_DISABLED;
+		int border = enabled ? OriginTheme.lerpColor(BORDER_NORMAL, BORDER_HOVER, hv) : BORDER_DISABLED;
+		int labelColor = enabled ? LABEL_COLOR : LABEL_DISABLED;
+
+		RenderSystem.enableBlend();
+		int box = h;
+		int cd = Math.min(4, box / 3);
+		if (assetsOk) {
+			shaderColor(fill);
+			nineSlice(guiGraphics, fillTex, x, y, box, box, cd);
+			shaderColor(border);
+			nineSlice(guiGraphics, borderTex, x, y, box, box, cd);
+			RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+		} else {
+			guiGraphics.fill(x, y, x + box, y + box, fill);
+		}
+
+		if (checkbox.selected()) {
+			int inset = Math.max(3, box / 5);
+			guiGraphics.fill(x + inset, y + inset, x + box - inset, y + box - inset,
+					enabled ? OriginTheme.ACCENT : 0x669A9A9A);
+		}
+
+		Font font = Minecraft.getInstance().font;
+		String text = cleanLabel(checkbox.getMessage().getString());
+		guiGraphics.drawString(font, text, x + box + 5, y + (box - 8) / 2 + 1, labelColor, false);
+	}
+
+	/** Shared eased hover progress (0..1) for any widget. */
+	private static double hoverEase(Object widget, boolean hovered) {
+		State st = STATE.computeIfAbsent(widget, k -> new State());
+		long now = System.nanoTime();
+		double dtMs = st.lastNanos == 0 ? 0 : (now - st.lastNanos) / 1_000_000.0;
+		st.lastNanos = now;
+		double target = hovered ? 1.0 : 0.0;
+		if (st.hover < target) {
+			st.hover = Math.min(target, st.hover + dtMs / HOVER_MS);
+		} else if (st.hover > target) {
+			st.hover = Math.max(target, st.hover - dtMs / HOVER_MS);
+		}
+		return OriginTheme.easeOut(st.hover);
 	}
 
 	private static void drawLabel(GuiGraphics guiGraphics, double cx, double cy, int h, Component message, int labelColor) {
