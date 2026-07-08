@@ -1201,3 +1201,47 @@ rings + light grain**, "just as smooth and clean as the website."
   `.\gradlew.bat runClient`. The loading screen shows at startup — watch the
   first couple seconds for the rings + filling bar; also F3+T in-world forces a
   resource reload to re-trigger it. Screenshot back.
+
+## 2026-07-08 — Loading screen worked; wordmark→Inter texture; rings moved to main menu
+
+Loading screen came out great live (rings smooth exactly like the website).
+Will's feedback drove three follow-ups, all shipped:
+- **Squares for the first ~2s** were Minecraft's own font not being loaded yet
+  during the first resource reload (drawString renders tofu). Fixed by baking
+  the wordmark as a **texture** (`generate_wordmark.py`, website's Inter font —
+  Will chose Inter over MC-pixel when asked). Shows instantly; it's one fixed
+  word as an image, not a glyph atlas for dynamic text, so none of the earlier
+  custom-font risk. Verified smooth in-sandbox (composited over the rings and
+  viewed) before shipping.
+- **Perfect centering + bar directly under**: renderer now centers the
+  wordmark's *ink box* (letters, excluding glow padding) on screen center using
+  the baked pixel dims, and places the bar just below the ink bottom.
+- **Rings off the loading screen, onto the main menu** (Will's later request).
+  Refactored `OriginLoadingRenderer` -> `OriginScreenRenderer`
+  (`client/render/`), shared by both screens: `renderLoading()` = charcoal +
+  grain + centered wordmark + bar (no rings); `renderTitleBackground()` +
+  `renderTitleWordmark()` = charcoal + rotating rings + grain + wordmark where
+  the vanilla logo sits.
+
+**TitleScreenMixin** (main menu re-skin), all targets confirmed via `javap -p`
+on the mapped 1.21.1 `TitleScreen` + `LogoRenderer` (not guessed):
+- Draw Origin background at `render()` HEAD (guaranteed-called, non-cancelling,
+  so it paints under logo/buttons).
+- Cancel **both** `renderPanorama(GuiGraphics,float)` and
+  `renderBackground(GuiGraphics,int,int,float)` at HEAD — belt-and-suspenders
+  so whichever backdrop path render() uses can't paint over ours. Both are
+  background-only on TitleScreen; widgets draw in the separate widget pass,
+  untouched. (Didn't have `javap -c` of render() to know which path it uses, so
+  cancelling both covers it in one build instead of risking a round-trip.)
+- `@Redirect` the `LogoRenderer.renderLogo(GuiGraphics,int,float)` INVOKE ->
+  draw the Origin wordmark instead of the Minecraft logo. Targeted the 3-arg
+  overload (render's likely call); the 4-arg overload also exists, so if the
+  build fails on this redirect, switch the descriptor to `(...IFI)V`.
+- Vanilla buttons + splash/version text left as-is ("keep default for now").
+- **Known v1 limitations, flagged**: wordmark ignores the title fade-in
+  (appears instantly); if the panorama still shows, render() uses a bg path I
+  didn't cancel (unlikely given both are cancelled). Loading screen's hard
+  cut (no fade) also still stands.
+- **Waiting on Will**: one build for both changes — pull, `.\gradlew.bat build`
+  (report errors verbatim, esp. the renderLogo redirect), `.\gradlew.bat
+  runClient`. Loading screen = no rings now; main menu = rings + Origin logo.

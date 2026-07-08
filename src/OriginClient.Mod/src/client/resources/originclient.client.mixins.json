@@ -6,7 +6,8 @@
 		"GameRendererMixin",
 		"MouseHandlerMixin",
 		"EntityViewAngleMixin",
-		"LoadingOverlayMixin"
+		"LoadingOverlayMixin",
+		"TitleScreenMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1
