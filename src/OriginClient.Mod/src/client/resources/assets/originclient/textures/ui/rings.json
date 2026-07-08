@@ -7,36 +7,36 @@
       "index": 0,
       "name": "A",
       "widthFrac": 0.59,
-      "opacity": 0.35,
+      "opacity": 0.48,
       "angle0": 0,
-      "periodSeconds": 16,
+      "periodSeconds": 32,
       "reverse": false
     },
     {
       "index": 1,
       "name": "B",
       "widthFrac": 0.81,
-      "opacity": 0.28,
+      "opacity": 0.4,
       "angle0": 45,
-      "periodSeconds": 24,
+      "periodSeconds": 48,
       "reverse": true
     },
     {
       "index": 2,
       "name": "C",
       "widthFrac": 1.02,
-      "opacity": 0.22,
+      "opacity": 0.3,
       "angle0": 100,
-      "periodSeconds": 33,
+      "periodSeconds": 66,
       "reverse": false
     },
     {
       "index": 3,
       "name": "D",
       "widthFrac": 1.27,
-      "opacity": 0.18,
+      "opacity": 0.24,
       "angle0": 15,
-      "periodSeconds": 44,
+      "periodSeconds": 88,
       "reverse": true
     }
   ]
