@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media.Animation;
 using OriginLauncher.App.Core.Auth;
+using OriginLauncher.App.Core.Updates;
 using OriginLauncher.App.UI.Controls;
 using OriginLauncher.App.UI.Pages;
 
@@ -27,6 +28,42 @@ public partial class MainWindow : Window
         AccountPanelHost.Content = _accountPanel;
 
         NavHome.IsChecked = true;
+
+        // Push-to-update: light the corner badge whenever a newer release
+        // appears, and start the poll loop (startup + every 10 minutes).
+        UpdateService.AvailableChanged += (_, _) => Dispatcher.Invoke(() =>
+        {
+            UpdateBadge.Visibility = Visibility.Visible;
+            _homePage.RefreshUpdateGate();
+        });
+        _ = PollForUpdatesAsync();
+    }
+
+    // Poll loop lives for the app's lifetime; process shutdown ends it.
+    private async Task PollForUpdatesAsync()
+    {
+        while (true)
+        {
+            await UpdateService.CheckAsync();
+            await Task.Delay(TimeSpan.FromMinutes(10));
+        }
+    }
+
+    private async void UpdateBadge_Click(object sender, RoutedEventArgs e)
+    {
+        UpdateBadge.IsEnabled = false;
+        UpdateBadge.ToolTip = "Updating...";
+        try
+        {
+            // Downloads + stages the new build, then shuts this process down;
+            // the swap script relaunches the updated launcher.
+            await UpdateService.DownloadAndRestartAsync();
+        }
+        catch (Exception ex)
+        {
+            UpdateBadge.IsEnabled = true;
+            UpdateBadge.ToolTip = $"Update failed: {ex.Message} — click to retry";
+        }
     }
 
     private void OpenSignInPanel()
