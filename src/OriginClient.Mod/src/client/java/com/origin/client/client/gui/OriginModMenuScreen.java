@@ -37,6 +37,18 @@ public class OriginModMenuScreen extends Screen {
 	private double scroll = 0, scrollTarget = 0;
 	private long lastFrameNanos = 0;
 
+	// settings-page (per-mod) scroll + search — long pages (Coords, Particles)
+	// must scroll, and each page has its own filter box.
+	private String settingsSearch = "";
+	private double settingsScroll = 0, settingsScrollTarget = 0;
+	private int settingsMaxScroll = 0;
+	private final java.util.List<SRow> srows = new java.util.ArrayList<>();
+
+	// one laid-out settings row: the option, its absolute y (scroll-adjusted),
+	// height, and whether it's a nested (indented) child row.
+	private record SRow(ModOption o, int y, int h, boolean indent) {
+	}
+
 	private String dragMod = null, dragKey = null;
 	private int dragTrackX0, dragTrackX1;
 	private String capMod = null, capKey = null;
@@ -73,8 +85,13 @@ public class OriginModMenuScreen extends Screen {
 		return (int) (height * 0.75);
 	}
 
-	private int cellW = 122, cellH = 96, gap = 10, cols = 4;
+	private int cellW = 118, cellH = 104, gap = 10, cols = 4;
 	private final List<Mods.Mod> filtered = new ArrayList<>();
+
+	// top-bar tab selection
+	enum Tab { MODS, SETTINGS }
+
+	private Tab tab = Tab.MODS;
 
 	private void layout() {
 		cols = Math.max(3, (pw() - 24 + gap) / (cellW + gap));
@@ -88,7 +105,7 @@ public class OriginModMenuScreen extends Screen {
 	}
 
 	private int gridTop() {
-		return py() + 42;
+		return py() + 70;
 	}
 
 	private int gridLeft() {
@@ -120,6 +137,7 @@ public class OriginModMenuScreen extends Screen {
 		double dt = lastFrameNanos == 0 ? 16.7 : Math.min(50.0, (nanos - lastFrameNanos) / 1_000_000.0);
 		lastFrameNanos = nanos;
 		scroll += (scrollTarget - scroll) * Math.min(1.0, dt / 60.0);
+		settingsScroll += (settingsScrollTarget - settingsScroll) * Math.min(1.0, dt / 60.0);
 
 		double p = OriginTheme.easeOut(Math.min(1.0, (now - openedAt) / (double) SLIDE_MS));
 		if (closingAt > 0) {
@@ -163,47 +181,55 @@ public class OriginModMenuScreen extends Screen {
 		g.drawString(font, ver, px() + pw() - 10 - font.width(ver), py() + ph() - 13, withAlpha(OriginTheme.MUTED, 0.8f), false);
 
 		pose.popPose();
+
+		// shared color picker overlay draws last, in raw screen space
+		OriginColorPicker.render(g, mouseX, mouseY);
 	}
 
 	private void renderGrid(GuiGraphics g, int mouseX, int mouseY, long now, float alpha) {
 		int hy = py() + 10;
 
-		// centered Origin mark — the HUD editing entry point
-		int mcx = px() + pw() / 2;
-		boolean markHover = Math.abs(mouseX - mcx) < 14 && mouseY >= hy - 2 && mouseY < hy + 24;
-		float mh = OriginUi.anim("markHover", markHover, 140.0);
-		if (mh > 0.01f) {
-			OriginUi.glow(g, mcx, hy + 10, (int) (48 + 10 * mh), 0.20f * mh);
-		}
-		OriginUi.mark(g, mcx, hy + 10, (int) (20 + 3 * mh), (0.75f + 0.25f * mh) * alpha);
+		// ORIGIN logo (top-left): tri-ring mark + wordmark
+		OriginUi.mark(g, px() + 22, hy + 10, 15, alpha);
+		g.drawString(font, "ORIGIN", px() + 38, hy + 5, withAlpha(OriginTheme.TEXT, alpha), false);
 
-		// search chip (left)
-		int sw = Math.min(200, pw() / 3);
-		int sx = px() + 12;
-		OriginUi.panel(g, sx, hy, sw, 20, 8, withAlpha(0x66000000, alpha), withAlpha(OriginTheme.STROKE, alpha));
-		String shown = search.isEmpty() ? "Search" : search;
-		g.drawString(font, shown, sx + 8, hy + 6, withAlpha(search.isEmpty() ? OriginTheme.MUTED : OriginTheme.TEXT, alpha), false);
-		if ((now / 530) % 2 == 0) {
-			int cw = font.width(search);
-			g.fill(sx + 8 + cw + 1, hy + 5, sx + 8 + cw + 2, hy + 15, withAlpha(OriginTheme.TEXT, alpha));
-		}
+		// MODS / SETTINGS tabs (centered)
+		renderTabs(g, mouseX, mouseY, hy, alpha);
 
-		// right chips: HUD Editor + backing visibility
-		int hbW = font.width("HUD Editor") + 16;
-		int hbX = px() + pw() - 12 - 24 - 6 - hbW;
-		boolean hbHover = in(mouseX, mouseY, hbX, hy, hbX + hbW, hy + 20);
-		OriginUi.panel(g, hbX, hy, hbW, 20, 8,
-				withAlpha(hbHover ? 0x2EFFFFFF : 0x16FFFFFF, alpha),
-				withAlpha(hbHover ? OriginTheme.STROKE_STRONG : OriginTheme.STROKE, alpha));
-		g.drawString(font, "HUD Editor", hbX + 8, hy + 6, withAlpha(OriginTheme.TEXT, alpha), false);
-
+		// right chips: panel-backing visibility + HUD Editor
 		int vbX = px() + pw() - 12 - 24;
 		boolean vbHover = in(mouseX, mouseY, vbX, hy, vbX + 24, hy + 20);
 		boolean backing = Mods.metaBool("panelBacking", true);
 		OriginUi.panel(g, vbX, hy, 24, 20, 8,
 				withAlpha(vbHover ? 0x2EFFFFFF : 0x16FFFFFF, alpha),
 				withAlpha(vbHover ? OriginTheme.STROKE_STRONG : OriginTheme.STROKE, alpha));
-		OriginUi.icon(g, "freelook", vbX + 4, hy + 2, 16, withAlpha(backing ? OriginTheme.TEXT : OriginTheme.MUTED, alpha));
+		OriginUi.icon(g, "blockoverlay", vbX + 4, hy + 2, 16, withAlpha(backing ? OriginTheme.TEXT : OriginTheme.MUTED, alpha));
+
+		int hbW = font.width("HUD Editor") + 16;
+		int hbX = vbX - 6 - hbW;
+		boolean hbHover = in(mouseX, mouseY, hbX, hy, hbX + hbW, hy + 20);
+		OriginUi.panel(g, hbX, hy, hbW, 20, 8,
+				withAlpha(hbHover ? 0x2EFFFFFF : 0x16FFFFFF, alpha),
+				withAlpha(hbHover ? OriginTheme.STROKE_STRONG : OriginTheme.STROKE, alpha));
+		g.drawString(font, "HUD Editor", hbX + 8, hy + 6, withAlpha(OriginTheme.TEXT, alpha), false);
+
+		if (tab == Tab.SETTINGS) {
+			renderSettingsTab(g, mouseX, mouseY, now, alpha);
+			return;
+		}
+
+		// search bar (below the top bar)
+		int sy = py() + 40;
+		int sw = Math.min(300, pw() - 24);
+		int sx = px() + 12;
+		OriginUi.panel(g, sx, sy, sw, 22, 8, withAlpha(0x66000000, alpha), withAlpha(OriginTheme.STROKE, alpha));
+		OriginUi.icon(g, "zoom", sx + 5, sy + 3, 15, withAlpha(OriginTheme.MUTED, alpha));
+		String shown = search.isEmpty() ? "Search mods" : search;
+		g.drawString(font, shown, sx + 24, sy + 7, withAlpha(search.isEmpty() ? OriginTheme.MUTED : OriginTheme.TEXT, alpha), false);
+		if ((now / 530) % 2 == 0 && !search.isEmpty()) {
+			int cw = font.width(search);
+			g.fill(sx + 24 + cw + 1, sy + 6, sx + 24 + cw + 2, sy + 16, withAlpha(OriginTheme.TEXT, alpha));
+		}
 
 		// grid
 		g.enableScissor(px(), gridTop(), px() + pw(), py() + ph() - 8);
@@ -212,24 +238,74 @@ public class OriginModMenuScreen extends Screen {
 			if (r[3] < gridTop() - cellH || r[1] > py() + ph()) {
 				continue;
 			}
-			Mods.Mod mod = filtered.get(i);
-			boolean hover = in(mouseX, mouseY, r[0], r[1], r[2], r[3]);
-			float hv = OriginUi.anim("cell:" + mod.id(), hover, 130.0);
-			boolean on = Mods.on(mod.id());
-
-			OriginUi.panel(g, r[0], r[1] - Math.round(hv), cellW, cellH, 8,
-					withAlpha(hover ? 0x28FFFFFF : 0x14FFFFFF, alpha),
-					withAlpha(hover ? OriginTheme.STROKE_STRONG : OriginTheme.STROKE, alpha));
-			int iy = r[1] - Math.round(hv);
-			int iconSize = 26 + Math.round(2 * hv);
-			OriginUi.icon(g, mod.id(), r[0] + (cellW - iconSize) / 2, iy + 12 - Math.round(hv), iconSize,
-					withAlpha(on ? OriginTheme.TEXT : OriginTheme.MUTED, alpha * (0.85f + 0.15f * hv)));
-			String name = font.width(mod.name()) > cellW - 12
-					? font.plainSubstrByWidth(mod.name(), cellW - 16) + "…" : mod.name();
-			g.drawString(font, name, r[0] + (cellW - font.width(name)) / 2, iy + 46, withAlpha(OriginTheme.TEXT, alpha), false);
-			OriginUi.switchAt(g, mod.id(), r[0] + (cellW - 30) / 2, iy + cellH - 26, 30, on, true);
+			renderCard(g, filtered.get(i), r, mouseX, mouseY, alpha);
 		}
 		g.disableScissor();
+	}
+
+	private void renderTabs(GuiGraphics g, int mx, int my, int hy, float alpha) {
+		String[] labels = {"MODS", "SETTINGS"};
+		Tab[] tabs = {Tab.MODS, Tab.SETTINGS};
+		int gap2 = 10, total = -gap2;
+		for (String l : labels) {
+			total += font.width(l) + 28 + gap2;
+		}
+		int tx = px() + pw() / 2 - total / 2;
+		for (int i = 0; i < labels.length; i++) {
+			int w = font.width(labels[i]) + 28;
+			boolean active = tab == tabs[i];
+			boolean hover = in(mx, my, tx, hy, tx + w, hy + 20);
+			OriginUi.panel(g, tx, hy, w, 20, 8,
+					withAlpha(active ? 0x2EFFFFFF : (hover ? 0x1EFFFFFF : 0x12FFFFFF), alpha),
+					withAlpha(active ? 0x55FFFFFF : OriginTheme.STROKE, alpha));
+			g.drawString(font, labels[i], tx + 14, hy + 6,
+					withAlpha(active ? OriginTheme.TEXT : OriginTheme.TEXT_DIM, alpha), false);
+			tx += w + gap2;
+		}
+	}
+
+	private void renderCard(GuiGraphics g, Mods.Mod mod, int[] r, int mx, int my, float alpha) {
+		boolean hover = in(mx, my, r[0], r[1], r[2], r[3]);
+		float hv = OriginUi.anim("cell:" + mod.id(), hover, 130.0);
+		boolean on = Mods.on(mod.id());
+		int cx = r[0], cy = r[1] - Math.round(hv);
+
+		OriginUi.panel(g, cx, cy, cellW, cellH, 10,
+				withAlpha(hover ? 0x24FFFFFF : 0x14FFFFFF, alpha),
+				withAlpha(on ? 0x4DFFFFFF : (hover ? OriginTheme.STROKE_STRONG : OriginTheme.STROKE), alpha));
+
+		int iconSize = 30 + Math.round(2 * hv);
+		OriginUi.icon(g, mod.id(), cx + (cellW - iconSize) / 2, cy + 12 - Math.round(hv), iconSize,
+				withAlpha(on ? OriginTheme.TEXT : OriginTheme.MUTED, alpha * (0.82f + 0.18f * hv)));
+
+		String name = font.width(mod.name()) > cellW - 12
+				? font.plainSubstrByWidth(mod.name(), cellW - 16) + "…" : mod.name();
+		g.drawString(font, name, cx + (cellW - font.width(name)) / 2, cy + 47, withAlpha(OriginTheme.TEXT, alpha), false);
+
+		int bw = cellW - 24, bx = cx + 12;
+		int oby = cy + 61;
+		boolean oHover = in(mx, my, bx, oby, bx + bw, oby + 15);
+		OriginUi.panel(g, bx, oby, bw, 15, 7,
+				withAlpha(oHover ? 0x2EFFFFFF : 0x18FFFFFF, alpha), withAlpha(OriginTheme.STROKE, alpha));
+		g.drawString(font, "OPTIONS", bx + (bw - font.width("OPTIONS")) / 2, oby + 4, withAlpha(OriginTheme.TEXT_DIM, alpha), false);
+
+		int tby = cy + 80;
+		String label = on ? "ENABLED" : "DISABLED";
+		boolean tHover = in(mx, my, bx, tby, bx + bw, tby + 15);
+		OriginUi.panel(g, bx, tby, bw, 15, 7,
+				withAlpha(on ? (tHover ? 0x33FFFFFF : 0x22FFFFFF) : (tHover ? 0x1EFFFFFF : 0x12FFFFFF), alpha),
+				withAlpha(on ? 0x66FFFFFF : OriginTheme.STROKE, alpha));
+		g.drawString(font, label, bx + (bw - font.width(label)) / 2, tby + 4,
+				withAlpha(on ? OriginTheme.TEXT : OriginTheme.MUTED, alpha), false);
+	}
+
+	private void renderSettingsTab(GuiGraphics g, int mx, int my, long now, float alpha) {
+		// Full General/Performance settings arrive in the structure phase; a
+		// clean placeholder for now so tab navigation is complete.
+		int cx = px() + pw() / 2;
+		OriginUi.mark(g, cx, py() + ph() / 2 - 16, 26, 0.5f * alpha);
+		String s = "Settings — General & Performance";
+		g.drawString(font, s, cx - font.width(s) / 2, py() + ph() / 2 + 22, withAlpha(OriginTheme.TEXT_DIM, alpha), false);
 	}
 
 	private void renderSettings(GuiGraphics g, int mouseX, int mouseY, long now, float alpha, Mods.Mod mod) {
@@ -247,22 +323,86 @@ public class OriginModMenuScreen extends Screen {
 				withAlpha(backHover ? OriginTheme.STROKE_STRONG : OriginTheme.STROKE, alpha));
 		g.drawString(font, "<", x0 + 9, hy + 6, withAlpha(OriginTheme.TEXT, alpha), false);
 
-		OriginUi.icon(g, mod.id(), x0 + 34, hy - 2, 24, withAlpha(OriginTheme.TEXT, alpha));
-		g.drawString(font, mod.name(), x0 + 64, hy + 6, withAlpha(OriginTheme.TEXT, alpha), false);
+		OriginUi.icon(g, mod.id(), x0 + 32, hy - 3, 26, withAlpha(OriginTheme.TEXT, alpha));
+		g.drawString(font, mod.name(), x0 + 64, hy + 2, withAlpha(OriginTheme.TEXT, alpha), false);
+		if (!mod.description().isEmpty()) {
+			g.drawString(font, mod.description(), x0 + 64, hy + 13, withAlpha(OriginTheme.MUTED, alpha), false);
+		}
 
 		// master enable switch, right
 		OriginUi.switchAt(g, mod.id(), x1 - 34, hy + 1, 34, Mods.on(mod.id()), true);
 
-		// rows
-		int y = hy + 36;
-		for (ModOption o : mod.options()) {
-			renderRow(g, mod.id(), o, x0, x1, y, mouseX, mouseY, alpha);
-			y += 30;
+		// options search box (below the title row)
+		int sby = hy + 34;
+		int sbw = Math.min(240, x1 - x0);
+		OriginUi.panel(g, x0, sby, sbw, 20, 8, withAlpha(0x66000000, alpha), withAlpha(OriginTheme.STROKE, alpha));
+		OriginUi.icon(g, "zoom", x0 + 4, sby + 2, 14, withAlpha(OriginTheme.MUTED, alpha));
+		String sq = settingsSearch.isEmpty() ? "Search settings" : settingsSearch;
+		g.drawString(font, sq, x0 + 22, sby + 6,
+				withAlpha(settingsSearch.isEmpty() ? OriginTheme.MUTED : OriginTheme.TEXT, alpha), false);
+
+		// scrollable content
+		layoutSettings(mod);
+		int top = hy + 62;
+		int bottom = py() + ph() - 10;
+		g.enableScissor(px(), top, px() + pw(), bottom);
+		for (SRow r : srows) {
+			if (r.y() + r.h() < top - 6 || r.y() > bottom) {
+				continue;
+			}
+			if (r.o().kind == ModOption.Kind.HEADER) {
+				g.drawString(font, r.o().label.toUpperCase(java.util.Locale.ROOT), x0 + 2, r.y() + 5,
+						withAlpha(OriginTheme.MUTED, alpha), false);
+				g.fill(x0 + 2, r.y() + 16, x1, r.y() + 17, withAlpha(OriginTheme.STROKE, alpha));
+			} else {
+				int rx0 = r.indent() ? x0 + 16 : x0;
+				renderRow(g, mod.id(), r.o(), rx0, x1, r.y(), mouseX, mouseY, alpha);
+			}
 		}
+		g.disableScissor();
+
 		if (mod.options().isEmpty()) {
 			g.drawString(font, "No additional settings — the switch is everything.",
-					x0, y + 4, withAlpha(OriginTheme.MUTED, alpha), false);
+					x0, top + 6, withAlpha(OriginTheme.MUTED, alpha), false);
 		}
+	}
+
+	// Builds the scroll-adjusted row layout shared by render + click, so hit
+	// testing always matches what's drawn. Headers add a section gap; rows
+	// nested under an off toggle are omitted; a search query flattens to matches.
+	private void layoutSettings(Mods.Mod mod) {
+		srows.clear();
+		int top = py() + 12 + 62;
+		int bottom = py() + ph() - 10;
+		int y = top + 6 - (int) Math.round(settingsScroll);
+		String q = settingsSearch.toLowerCase(java.util.Locale.ROOT);
+		boolean searching = !q.isEmpty();
+		boolean first = true;
+		for (ModOption o : mod.options()) {
+			if (o.kind == ModOption.Kind.HEADER) {
+				if (searching) {
+					continue;
+				}
+				if (!first) {
+					y += 10;
+				}
+				srows.add(new SRow(o, y, 18, false));
+				y += 22;
+				first = false;
+				continue;
+			}
+			if (o.dependsOn != null && !Mods.bool(mod.id(), o.dependsOn)) {
+				continue;
+			}
+			if (searching && !o.label.toLowerCase(java.util.Locale.ROOT).contains(q)) {
+				continue;
+			}
+			srows.add(new SRow(o, y, 26, o.dependsOn != null));
+			y += 30;
+			first = false;
+		}
+		int content = y + (int) Math.round(settingsScroll) - (top + 6);
+		settingsMaxScroll = Math.max(0, content - (bottom - top));
 	}
 
 	private void renderRow(GuiGraphics g, String modId, ModOption o, int x0, int x1, int y, int mx, int my, float alpha) {
@@ -282,12 +422,12 @@ public class OriginModMenuScreen extends Screen {
 			}
 			case COLOR -> {
 				int cur = Mods.color(modId, o.key);
-				int sw = 12, gap2 = 4;
-				int startX = x1 - 10 - o.swatches.length * (sw + gap2) + gap2;
-				for (int i = 0; i < o.swatches.length; i++) {
-					int cx = startX + i * (sw + gap2);
-					OriginUi.panel(g, cx, y + 7, sw, sw, 5, o.swatches[i], o.swatches[i] == cur ? 0xFFFFFFFF : 0x30000000);
-				}
+				String hex = String.format("#%06X", cur & 0xFFFFFF);
+				int sw = 16, cx = x1 - 10 - sw;
+				OriginUi.panel(g, cx, y + 5, sw, sw, 5, cur, 0x40FFFFFF);
+				g.drawString(font, hex, cx - 8 - font.width(hex), y + 9, withAlpha(OriginTheme.TEXT_DIM, alpha), false);
+			}
+			case HEADER -> {
 			}
 			case KEYBIND -> {
 				boolean capturing = modId.equals(capMod) && o.key.equals(capKey);
@@ -297,11 +437,14 @@ public class OriginModMenuScreen extends Screen {
 						withAlpha(capturing ? 0x40FFFFFF : 0x1EFFFFFF, alpha), withAlpha(OriginTheme.STROKE, alpha));
 				g.drawString(font, name, x1 - 10 - bw + 8, y + 9, withAlpha(OriginTheme.TEXT, alpha), false);
 			}
-			case MODE -> {
+			case DROPDOWN -> {
 				String v = Mods.mode(modId, o.key);
-				int bw = Math.max(40, font.width(v) + 16);
-				OriginUi.panel(g, x1 - 10 - bw, y + 4, bw, 18, 7, withAlpha(0x1EFFFFFF, alpha), withAlpha(OriginTheme.STROKE, alpha));
-				g.drawString(font, v, x1 - 10 - bw + 8, y + 9, withAlpha(OriginTheme.TEXT, alpha), false);
+				int bw = Math.max(70, font.width(v) + 34);
+				int bx = x1 - 10 - bw;
+				OriginUi.panel(g, bx, y + 4, bw, 18, 7, withAlpha(0x1EFFFFFF, alpha), withAlpha(OriginTheme.STROKE, alpha));
+				g.drawString(font, "<", bx + 6, y + 9, withAlpha(OriginTheme.TEXT_DIM, alpha), false);
+				g.drawString(font, v, bx + (bw - font.width(v)) / 2, y + 9, withAlpha(OriginTheme.TEXT, alpha), false);
+				g.drawString(font, ">", bx + bw - 6 - font.width(">"), y + 9, withAlpha(OriginTheme.TEXT_DIM, alpha), false);
 			}
 		}
 	}
@@ -310,6 +453,9 @@ public class OriginModMenuScreen extends Screen {
 
 	@Override
 	public boolean mouseClicked(double mx, double my, int button) {
+		if (OriginColorPicker.isOpen()) {
+			return OriginColorPicker.mouseClicked(mx, my, button);
+		}
 		if (button != 0 || closingAt > 0) {
 			return super.mouseClicked(mx, my, button);
 		}
@@ -317,16 +463,7 @@ public class OriginModMenuScreen extends Screen {
 		int hy = py() + 10;
 
 		if (page == null) {
-			// Origin mark -> HUD editor
-			int mcx = px() + pw() / 2;
-			if (Math.abs(mx - mcx) < 14 && my >= hy - 2 && my < hy + 24) {
-				Minecraft.getInstance().setScreen(new HudEditorScreen());
-				return true;
-			}
-			int hbW = font.width("HUD Editor") + 16;
-			int hbX = px() + pw() - 12 - 24 - 6 - hbW;
-			if (in(mx, my, hbX, hy, hbX + hbW, hy + 20)) {
-				Minecraft.getInstance().setScreen(new HudEditorScreen());
+			if (clickTabs(mx, my, hy)) {
 				return true;
 			}
 			int vbX = px() + pw() - 12 - 24;
@@ -334,18 +471,29 @@ public class OriginModMenuScreen extends Screen {
 				Mods.setMetaBool("panelBacking", !Mods.metaBool("panelBacking", true));
 				return true;
 			}
+			int hbW = font.width("HUD Editor") + 16;
+			int hbX = vbX - 6 - hbW;
+			if (in(mx, my, hbX, hy, hbX + hbW, hy + 20)) {
+				Minecraft.getInstance().setScreen(new HudEditorScreen());
+				return true;
+			}
+			if (tab == Tab.SETTINGS) {
+				return super.mouseClicked(mx, my, button);
+			}
 			for (int i = 0; i < filtered.size(); i++) {
 				int[] r = cellRect(i);
 				if (!in(mx, my, r[0], r[1], r[2], r[3])) {
 					continue;
 				}
 				Mods.Mod mod = filtered.get(i);
-				int tx = r[0] + (cellW - 30) / 2, ty = r[1] + cellH - 26;
-				if (in(mx, my, tx - 4, ty - 4, tx + 34, ty + 20)) {
-					Mods.setOn(mod.id(), !Mods.on(mod.id()));
+				int bx = r[0] + 12, bw = cellW - 24, tby = r[1] + 80;
+				if (in(mx, my, bx, tby, bx + bw, tby + 15)) {
+					Mods.setOn(mod.id(), !Mods.on(mod.id())); // ENABLED/DISABLED toggle
 				} else {
-					page = mod.id();
+					page = mod.id(); // OPTIONS button or card body opens the page
 					pageChangedAt = System.currentTimeMillis();
+					settingsSearch = "";
+					settingsScroll = settingsScrollTarget = 0;
 				}
 				return true;
 			}
@@ -368,14 +516,40 @@ public class OriginModMenuScreen extends Screen {
 			Mods.setOn(mod.id(), !Mods.on(mod.id()));
 			return true;
 		}
-		int y = hy + 38;
-		for (ModOption o : mod.options()) {
-			if (my >= y && my < y + 26 && clickRow(mod.id(), o, x0, x1, y, mx)) {
-				return true;
+		layoutSettings(mod);
+		int top = py() + 12 + 62;
+		int bottom = py() + ph() - 10;
+		if (my >= top && my <= bottom) {
+			for (SRow r : srows) {
+				if (r.o().kind == ModOption.Kind.HEADER) {
+					continue;
+				}
+				int rx0 = r.indent() ? x0 + 16 : x0;
+				if (my >= r.y() && my < r.y() + r.h() && clickRow(mod.id(), r.o(), rx0, x1, r.y(), mx)) {
+					return true;
+				}
 			}
-			y += 30;
 		}
 		return super.mouseClicked(mx, my, button);
+	}
+
+	private boolean clickTabs(double mx, double my, int hy) {
+		Tab[] tabs = {Tab.MODS, Tab.SETTINGS};
+		String[] labels = {"MODS", "SETTINGS"};
+		int gap2 = 10, total = -gap2;
+		for (String l : labels) {
+			total += font.width(l) + 28 + gap2;
+		}
+		int tx = px() + pw() / 2 - total / 2;
+		for (int i = 0; i < labels.length; i++) {
+			int w = font.width(labels[i]) + 28;
+			if (in(mx, my, tx, hy, tx + w, hy + 20)) {
+				tab = tabs[i];
+				return true;
+			}
+			tx += w + gap2;
+		}
+		return false;
 	}
 
 	private boolean clickRow(String modId, ModOption o, int x0, int x1, int y, double mx) {
@@ -399,15 +573,12 @@ public class OriginModMenuScreen extends Screen {
 				}
 			}
 			case COLOR -> {
-				int sw = 12, gap2 = 4;
-				int startX = x1 - 10 - o.swatches.length * (sw + gap2) + gap2;
-				for (int i = 0; i < o.swatches.length; i++) {
-					int cx = startX + i * (sw + gap2);
-					if (mx >= cx - 2 && mx <= cx + sw + 2) {
-						Mods.set(modId, o.key, o.swatches[i]);
-						return true;
-					}
+				if (mx >= x1 - 90) {
+					OriginColorPicker.open(modId, o.key, o.label);
+					return true;
 				}
+			}
+			case HEADER -> {
 			}
 			case KEYBIND -> {
 				if (mx >= x1 - 90) {
@@ -416,8 +587,11 @@ public class OriginModMenuScreen extends Screen {
 					return true;
 				}
 			}
-			case MODE -> {
-				if (mx >= x1 - 90) {
+			case DROPDOWN -> {
+				int bw = Math.max(70, font.width(Mods.mode(modId, o.key)) + 34);
+				int bx = x1 - 10 - bw;
+				if (mx >= bx && mx <= x1 - 10) {
+					int dir = mx < bx + bw / 2.0 ? -1 : 1; // left half prev, right half next
 					String cur = Mods.mode(modId, o.key);
 					int idx = 0;
 					for (int i = 0; i < o.modes.length; i++) {
@@ -425,7 +599,7 @@ public class OriginModMenuScreen extends Screen {
 							idx = i;
 						}
 					}
-					Mods.set(modId, o.key, o.modes[(idx + 1) % o.modes.length]);
+					Mods.set(modId, o.key, o.modes[(idx + dir + o.modes.length) % o.modes.length]);
 					return true;
 				}
 			}
@@ -441,6 +615,9 @@ public class OriginModMenuScreen extends Screen {
 
 	@Override
 	public boolean mouseDragged(double mx, double my, int button, double dx, double dy) {
+		if (OriginColorPicker.mouseDragged(mx, my, button)) {
+			return true;
+		}
 		if (dragMod != null) {
 			Mods.Mod m = Mods.byId(dragMod);
 			if (m != null) {
@@ -457,6 +634,9 @@ public class OriginModMenuScreen extends Screen {
 
 	@Override
 	public boolean mouseReleased(double mx, double my, int button) {
+		if (OriginColorPicker.mouseReleased()) {
+			return true;
+		}
 		dragMod = null;
 		dragKey = null;
 		return super.mouseReleased(mx, my, button);
@@ -464,14 +644,22 @@ public class OriginModMenuScreen extends Screen {
 
 	@Override
 	public boolean mouseScrolled(double mx, double my, double sx, double sy) {
+		if (OriginColorPicker.isOpen()) {
+			return true;
+		}
 		if (page == null) {
 			scrollTarget = Math.max(0, Math.min(maxScroll(), scrollTarget - sy * 30));
+		} else {
+			settingsScrollTarget = Math.max(0, Math.min(settingsMaxScroll, settingsScrollTarget - sy * 30));
 		}
 		return true;
 	}
 
 	@Override
 	public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+		if (OriginColorPicker.isOpen()) {
+			return OriginColorPicker.keyPressed(keyCode);
+		}
 		if (capMod != null) {
 			Mods.set(capMod, capKey, keyCode == GLFW.GLFW_KEY_ESCAPE ? -1 : keyCode);
 			capMod = null;
@@ -491,10 +679,17 @@ public class OriginModMenuScreen extends Screen {
 			beginClose();
 			return true;
 		}
-		if (page == null && keyCode == GLFW.GLFW_KEY_BACKSPACE && !search.isEmpty()) {
-			search = search.substring(0, search.length() - 1);
-			scrollTarget = 0;
-			return true;
+		if (keyCode == GLFW.GLFW_KEY_BACKSPACE) {
+			if (page == null && !search.isEmpty()) {
+				search = search.substring(0, search.length() - 1);
+				scrollTarget = 0;
+				return true;
+			}
+			if (page != null && !settingsSearch.isEmpty()) {
+				settingsSearch = settingsSearch.substring(0, settingsSearch.length() - 1);
+				settingsScrollTarget = 0;
+				return true;
+			}
 		}
 		return super.keyPressed(keyCode, scanCode, modifiers);
 	}
@@ -507,6 +702,11 @@ public class OriginModMenuScreen extends Screen {
 		if (page == null && chr >= 32 && search.length() < 24) {
 			search += chr;
 			scrollTarget = 0;
+			return true;
+		}
+		if (page != null && chr >= 32 && settingsSearch.length() < 24) {
+			settingsSearch += chr;
+			settingsScrollTarget = 0;
 			return true;
 		}
 		return super.charTyped(chr, modifiers);

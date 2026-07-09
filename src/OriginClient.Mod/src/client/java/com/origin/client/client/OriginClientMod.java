@@ -59,7 +59,7 @@ public class OriginClientMod implements ClientModInitializer {
 		// same key or Esc, with the reversed slide).
 		while (OriginKeyBindings.openModMenu.consumeClick()) {
 			if (client.screen == null) {
-				client.setScreen(new OriginModMenuScreen());
+				client.setScreen(new com.origin.client.client.gui.OriginQuickMenu());
 			}
 		}
 
@@ -83,7 +83,10 @@ public class OriginClientMod implements ClientModInitializer {
 
 		// Toggle Sprint / Sneak. "Hold" mode = vanilla behavior (we do
 		// nothing); "Toggle" flips on the vanilla key or the custom bind.
-		if (Mods.on("togglesprint") && Mods.mode("togglesprint", "mode").equals("Toggle")) {
+		// Toggle Sneak/Sprint is one mod now (spec §5): the "sprint"/"sneak"
+		// sub-toggles pick which the hands-free behavior applies to.
+		boolean toggleMod = Mods.on("togglesprint");
+		if (toggleMod && Mods.bool("togglesprint", "sprint")) {
 			boolean custom = client.screen == null && isRawKeyDown(Mods.keyCode("togglesprint", "key"));
 			boolean edge = custom && !sprintKeyWasDown;
 			sprintKeyWasDown = custom;
@@ -95,8 +98,8 @@ public class OriginClientMod implements ClientModInitializer {
 			FEATURES.sprintToggledOn = false;
 		}
 
-		if (Mods.on("togglesneak") && Mods.mode("togglesneak", "mode").equals("Toggle")) {
-			boolean custom = client.screen == null && isRawKeyDown(Mods.keyCode("togglesneak", "key"));
+		if (toggleMod && Mods.bool("togglesprint", "sneak")) {
+			boolean custom = client.screen == null && isRawKeyDown(Mods.keyCode("togglesprint", "key"));
 			boolean edge = custom && !sneakKeyWasDown;
 			sneakKeyWasDown = custom;
 			if (client.options.keyShift.consumeClick() || edge) {

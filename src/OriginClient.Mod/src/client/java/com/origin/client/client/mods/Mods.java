@@ -15,81 +15,351 @@ import org.lwjgl.glfw.GLFW;
 // legacy originclient.json feature flags are migrated in on first load.
 public final class Mods {
 	// A mod definition. Icon comes from the baked atlas (OriginUi) keyed on id.
-	public record Mod(String id, String name, boolean defaultOn, List<ModOption> options) {
+	// description is the one-line blurb shown under the title on the mod's page.
+	public record Mod(String id, String name, String description, boolean defaultOn, List<ModOption> options) {
 	}
 
-	// Shared overlay color swatches (white first = default, then real hues —
-	// overlays like keystrokes/block outline legitimately want color).
-	private static final int[] SWATCHES = {
+	// Shared color-picker preset palette (white first = default, then a spread
+	// of hues) — the favourites row / quick presets in the color picker.
+	public static final int[] PALETTE = {
 			0xFFFFFFFF, 0xFFE05555, 0xFF55E055, 0xFF5599FF,
 			0xFFFFD855, 0xFF55DDDD, 0xFFFF9944, 0xFFCC66FF};
 
 	public static final List<Mod> ALL = new ArrayList<>();
 
+	// Vanilla 1.21.1 particle types (net.minecraft.core.particles.ParticleTypes)
+	// — the Particle Changer builds a per-type control block from this list so
+	// coverage is exhaustive rather than a hand-picked sample.
+	private static final String[][] PARTICLE_TYPES = {
+			{"ambient_entity_effect", "Ambient Entity Effect"}, {"angry_villager", "Angry Villager"},
+			{"block", "Block"}, {"block_marker", "Block Marker"}, {"bubble", "Bubble"},
+			{"cloud", "Cloud"}, {"crit", "Crit"}, {"damage_indicator", "Damage Indicator"},
+			{"dragon_breath", "Dragon Breath"}, {"dripping_lava", "Dripping Lava"},
+			{"falling_lava", "Falling Lava"}, {"landing_lava", "Landing Lava"},
+			{"dripping_water", "Dripping Water"}, {"falling_water", "Falling Water"},
+			{"dust", "Dust"}, {"dust_color_transition", "Dust Color Transition"},
+			{"effect", "Effect"}, {"elder_guardian", "Elder Guardian"},
+			{"enchanted_hit", "Enchanted Hit"}, {"enchant", "Enchant"}, {"end_rod", "End Rod"},
+			{"entity_effect", "Entity Effect"}, {"explosion_emitter", "Explosion Emitter"},
+			{"explosion", "Explosion"}, {"gust", "Gust"}, {"small_gust", "Small Gust"},
+			{"gust_emitter_large", "Gust Emitter Large"}, {"gust_emitter_small", "Gust Emitter Small"},
+			{"sonic_boom", "Sonic Boom"}, {"falling_dust", "Falling Dust"}, {"firework", "Firework"},
+			{"fishing", "Fishing"}, {"flame", "Flame"}, {"infested", "Infested"},
+			{"cherry_leaves", "Cherry Leaves"}, {"sculk_soul", "Sculk Soul"},
+			{"sculk_charge", "Sculk Charge"}, {"sculk_charge_pop", "Sculk Charge Pop"},
+			{"soul_fire_flame", "Soul Fire Flame"}, {"soul", "Soul"}, {"flash", "Flash"},
+			{"happy_villager", "Happy Villager"}, {"composter", "Composter"}, {"heart", "Heart"},
+			{"instant_effect", "Instant Effect"}, {"item", "Item"},
+			{"vibration", "Vibration"}, {"item_slime", "Item Slime"}, {"item_cobweb", "Item Cobweb"},
+			{"item_snowball", "Item Snowball"}, {"large_smoke", "Large Smoke"}, {"lava", "Lava"},
+			{"mycelium", "Mycelium"}, {"note", "Note"}, {"poof", "Poof"}, {"portal", "Portal"},
+			{"rain", "Rain"}, {"smoke", "Smoke"}, {"white_smoke", "White Smoke"},
+			{"sneeze", "Sneeze"}, {"spit", "Spit"}, {"squid_ink", "Squid Ink"},
+			{"underwater", "Underwater"}, {"splash", "Splash"}, {"witch", "Witch"},
+			{"bubble_pop", "Bubble Pop"}, {"current_down", "Current Down"},
+			{"bubble_column_up", "Bubble Column Up"}, {"nautilus", "Nautilus"}, {"dolphin", "Dolphin"},
+			{"campfire_cosy_smoke", "Campfire Cosy Smoke"}, {"campfire_signal_smoke", "Campfire Signal Smoke"},
+			{"dripping_honey", "Dripping Honey"}, {"falling_honey", "Falling Honey"},
+			{"landing_honey", "Landing Honey"}, {"falling_nectar", "Falling Nectar"},
+			{"falling_spore_blossom", "Falling Spore Blossom"}, {"ash", "Ash"},
+			{"crimson_spore", "Crimson Spore"}, {"warped_spore", "Warped Spore"},
+			{"spore_blossom_air", "Spore Blossom Air"}, {"dripping_obsidian_tear", "Dripping Obsidian Tear"},
+			{"falling_obsidian_tear", "Falling Obsidian Tear"}, {"landing_obsidian_tear", "Landing Obsidian Tear"},
+			{"reverse_portal", "Reverse Portal"}, {"white_ash", "White Ash"},
+			{"small_flame", "Small Flame"}, {"snowflake", "Snowflake"},
+			{"dripping_dripstone_lava", "Dripping Dripstone Lava"}, {"falling_dripstone_lava", "Falling Dripstone Lava"},
+			{"dripping_dripstone_water", "Dripping Dripstone Water"}, {"falling_dripstone_water", "Falling Dripstone Water"},
+			{"glow_squid_ink", "Glow Squid Ink"}, {"glow", "Glow"}, {"wax_on", "Wax On"},
+			{"wax_off", "Wax Off"}, {"electric_spark", "Electric Spark"}, {"scrape", "Scrape"},
+			{"shriek", "Shriek"}, {"egg_crack", "Egg Crack"}, {"dust_plume", "Dust Plume"},
+			{"trial_spawner_detection", "Trial Spawner Detection"}, {"raid_omen", "Raid Omen"},
+			{"trial_omen", "Trial Omen"}, {"ominous_spawning", "Ominous Spawning"},
+			{"vault_connection", "Vault Connection"}, {"pale_oak_leaves", "Pale Oak Leaves"},
+	};
+
 	static {
-		// --- HUD readouts ---
-		add("fps", "FPS", false,
-				ModOption.slider("threshold", "Color thresholds", 0, 1, 1, 1, "%.0f"));
-		add("cps", "CPS Counter", false);
-		add("coords", "Coords", true,
-				ModOption.toggle("biome", "Show biome", true),
-				ModOption.toggle("direction", "Show direction", true));
-		add("keystrokes", "Keystrokes", false,
-				ModOption.color("color", "Key color", SWATCHES),
-				ModOption.slider("scale", "Size", 0.5, 2.0, 0.1, 1.0, "%.1fx"));
-		add("potionhud", "Potion HUD", false,
-				ModOption.slider("scale", "Size", 0.5, 2.0, 0.1, 1.0, "%.1fx"));
-		add("armorhud", "Armor HUD", false);
-		add("serveraddress", "Server IP", false);
-		add("packdisplay", "Pack Display", false);
+		// ---- HUD readouts ----
+		add("fps", "FPS", "Frames-per-second readout.", false,
+				ModOption.slider("scale", "Scale", 0.5, 2.0, 0.1, 1.0, "%.1fx"),
+				ModOption.toggle("reverseOrder", "Reverse Order", false),
+				ModOption.toggle("textShadow", "Text Shadow", true),
+				ModOption.toggle("showBrackets", "Show Brackets", false),
+				ModOption.toggle("showBackground", "Show Background", true),
+				ModOption.header("Color"),
+				ModOption.color("color", "Text Color", 0xFFFFFFFF));
 
-		// --- gameplay QoL ---
-		add("zoom", "Zoom", true,
-				ModOption.keybind("key", "Zoom key", GLFW.GLFW_KEY_C),
-				ModOption.slider("fov", "Zoom level", 10, 60, 1, 30, "%.0f"));
-		add("freelook", "Freelook", true,
-				ModOption.keybind("key", "Freelook key", GLFW.GLFW_KEY_LEFT_ALT));
-		add("togglesprint", "Toggle Sprint", false,
+		add("cps", "CPS", "Clicks per second.", false,
+				ModOption.slider("scale", "Scale", 0.5, 2.0, 0.1, 1.0, "%.1fx"),
+				ModOption.toggle("rightClick", "Right Click CPS", false),
+				ModOption.toggle("showText", "Show CPS Text", true),
+				ModOption.toggle("reverseText", "Reverse Text", false),
+				ModOption.toggle("ignoreCancelled", "Ignore Cancelled Clicks", false),
+				ModOption.toggle("textShadow", "Text Shadow", true),
+				ModOption.toggle("showBackground", "Show Background", true),
+				ModOption.header("Color"),
+				ModOption.color("color", "Text Color", 0xFFFFFFFF));
+
+		add("togglesprint", "Toggle Sneak/Sprint", "Hands-free sprint and sneak.", false,
+				ModOption.toggle("hud", "Toggle Sneak/Sprint HUD", true),
+				ModOption.toggle("sprint", "Toggle Sprint", true),
+				ModOption.toggle("sneak", "Toggle Sneak", true),
+				ModOption.toggle("doubleTap", "Double Tap", false),
+				ModOption.toggle("flyBoost", "Fly Boost", false),
+				ModOption.slider("flyBoostAmount", "Fly Boost Amount", 1, 5, 0.1, 2, "%.1fx").under("flyBoost"),
 				ModOption.keybind("key", "Sprint key", -1),
-				ModOption.mode("mode", "Mode", "Toggle", "Hold"));
-		add("togglesneak", "Toggle Sneak", false,
-				ModOption.keybind("key", "Sneak key", -1),
-				ModOption.mode("mode", "Mode", "Toggle", "Hold"));
-		add("fullbright", "FullBright", false,
-				ModOption.slider("gamma", "Brightness", 1, 16, 0.5, 16, "%.1f"));
+				ModOption.dropdown("mode", "Mode", "Toggle", "Hold"));
 
-		// --- world overlays ---
-		add("blockoverlay", "Block Overlay", false,
-				ModOption.color("color", "Outline color", SWATCHES),
-				ModOption.slider("thickness", "Thickness", 1, 3, 1, 1, "%.0f"));
-		add("chunkborders", "Chunk Borders", false,
-				ModOption.keybind("key", "Toggle key", GLFW.GLFW_KEY_F9),
-				ModOption.color("color", "Line color", SWATCHES),
-				ModOption.slider("thickness", "Thickness", 1, 3, 1, 1, "%.0f"));
-		add("hitboxes", "Hitbox Display", false);
-		add("nametags", "Nametag Tweaks", false,
-				ModOption.slider("scale", "Size", 0.5, 2.0, 0.1, 1.0, "%.1fx"));
+		add("zoom", "Zoom", "Smooth, configurable zoom.", true,
+				ModOption.keybind("key", "Zoom Key", GLFW.GLFW_KEY_C),
+				ModOption.toggle("toggleZoom", "Toggle Zoom", false),
+				ModOption.toggle("smoothCamera", "Smooth Camera Movement", true),
+				ModOption.toggle("smoothZoom", "Smooth Zoom In/Out", true),
+				ModOption.toggle("scrollZoom", "Scroll to Zoom", true),
+				ModOption.slider("scrollSpeed", "Scroll Zoom Speed", 0.1, 2.0, 0.1, 1.0, "%.1fx").under("scrollZoom"),
+				ModOption.slider("fov", "Zoom Level", 10, 60, 1, 30, "%.0f"),
+				ModOption.slider("sensitivity", "Zoomed Sensitivity", 0.1, 2.0, 0.05, 1.0, "%.2fx"));
 
-		// --- rendering / cosmetic ---
-		add("weather", "Weather Toggle", false);
-		add("customsky", "Custom Sky", false,
-				ModOption.mode("mode", "Sky", "Flat", "Vanilla"));
-		add("timechanger", "Time Changer", false,
-				ModOption.slider("time", "Time of day", 0, 24000, 500, 6000, "%.0f"));
-		add("motionblur", "Motion Blur", false,
-				ModOption.slider("amount", "Blur amount", 1, 3, 1, 2, "%.0f"));
-		add("particles", "Particles", false,
-				ModOption.mode("mode", "Particles", "All", "Reduced", "Off"));
-		add("chat", "Chat", false,
-				ModOption.slider("opacity", "Opacity", 0.1, 1.0, 0.05, 1.0, "%.0f%%"),
-				ModOption.slider("scale", "Scale", 0.5, 1.0, 0.05, 1.0, "%.0f%%"),
-				ModOption.toggle("timestamps", "Timestamps", false));
-		add("scoreboard", "Scoreboard", false,
-				ModOption.slider("scale", "Size", 0.5, 1.5, 0.05, 1.0, "%.1fx"));
+		add("armorhud", "Armor Status", "Armor pieces and durability.", false,
+				ModOption.dropdown("listMode", "List Mode", "Horizontal", "Vertical"),
+				ModOption.dropdown("durabilityPos", "Durability Position", "Right", "Left", "Below", "Hidden"),
+				ModOption.toggle("itemCount", "Item Count", true),
+				ModOption.toggle("textShadow", "Text Shadow", true),
+				ModOption.toggle("showBackground", "Show Background", true),
+				ModOption.dropdown("damageDisplay", "Damage Display Type", "Value", "Percent"),
+				ModOption.dropdown("damageThreshold", "Damage Threshold Type", "Percent", "Value"),
+				ModOption.header("Color"),
+				ModOption.color("textColor", "Text Color", 0xFFFFFFFF),
+				ModOption.color("damageColor", "Damage Color", 0xFFE05555));
+
+		add("keystrokes", "Key Strokes", "On-screen key display.", false,
+				ModOption.slider("scale", "Scale", 0.5, 2.0, 0.1, 1.0, "%.1fx"),
+				ModOption.toggle("showClicks", "Show Clicks", true),
+				ModOption.toggle("arrows", "Replace Names With Arrows", false),
+				ModOption.toggle("showMovement", "Show Movement Keys", true),
+				ModOption.toggle("showSpace", "Show Space Bar", true),
+				ModOption.toggle("textShadow", "Text Shadow", true),
+				ModOption.toggle("border", "Border", true),
+				ModOption.slider("borderThickness", "Border Thickness", 0, 4, 0.5, 1, "%.1f").under("border"),
+				ModOption.slider("boxSize", "Box Size", 0.5, 2.0, 0.1, 1.0, "%.1fx"),
+				ModOption.slider("keyFadeDelay", "Key Fade Delay", 0, 1000, 50, 200, "%.0fms"),
+				ModOption.slider("spacebarThickness", "Spacebar Thickness", 1, 10, 1, 4, "%.0f"),
+				ModOption.header("Color"),
+				ModOption.color("color", "Text Color", 0xFFFFFFFF),
+				ModOption.color("textColorPressed", "Text Color (Pressed)", 0xFF121212),
+				ModOption.color("bgColor", "Background Color", 0x99000000),
+				ModOption.color("bgColorPressed", "Background Color (Pressed)", 0xFFFFFFFF),
+				ModOption.color("borderColor", "Border Color", 0x66FFFFFF));
+
+		add("coords", "Coordinates", "Position, direction, and biome.", true,
+				ModOption.slider("scale", "Scale", 0.5, 2.0, 0.1, 1.0, "%.1fx"),
+				ModOption.toggle("x", "X Coordinate", true),
+				ModOption.toggle("y", "Y Coordinate", true),
+				ModOption.toggle("z", "Z Coordinate", true),
+				ModOption.toggle("renderers", "C (Active Renderers)", false),
+				ModOption.toggle("direction", "Direction", true),
+				ModOption.toggle("biome", "Biome", true),
+				ModOption.dropdown("listMode", "List Mode", "Vertical", "Horizontal"),
+				ModOption.toggle("textShadow", "Text Shadow", true),
+				ModOption.toggle("showWhileTyping", "Show While Typing", true),
+				ModOption.toggle("showBackground", "Show Background", true),
+				ModOption.toggle("copyClipboard", "Copy Coords To Clipboard", true),
+				ModOption.toggle("decimal", "Decimal Coordinates", false),
+				ModOption.toggle("moveIndividually", "Move each coordinate individually", false),
+				ModOption.header("Color"),
+				ModOption.color("bgColor", "Background Color", 0x99000000),
+				ModOption.color("borderColor", "Border Color", 0x66FFFFFF));
+
+		add("potionhud", "Potion Effects", "Active status effects.", false,
+				ModOption.toggle("showInInventory", "Show In Inventory", true),
+				ModOption.toggle("showWhileTyping", "Show While Typing", true),
+				ModOption.toggle("effectName", "Effect Name", true),
+				ModOption.toggle("textShadow", "Text Shadow", true),
+				ModOption.toggle("showBackground", "Show Background", true),
+				ModOption.toggle("minimal", "Minimal Mode", false),
+				ModOption.toggle("border", "Border", false),
+				ModOption.toggle("formattedDurations", "Formatted Durations", true),
+				ModOption.toggle("uppercase", "Uppercase Potion Names", false),
+				ModOption.toggle("reversedText", "Reversed Text", false),
+				ModOption.toggle("blink", "Blink", true),
+				ModOption.slider("blinkDuration", "Blink Duration", 1, 10, 0.5, 5, "%.1fs").under("blink"),
+				ModOption.toggle("excludePermanent", "Exclude Permanent Effects", false),
+				ModOption.header("Color"),
+				ModOption.color("bgColor", "Background Color", 0x99000000),
+				ModOption.toggle("colorByEffect", "Color Name Based on Effect", true),
+				ModOption.color("textColor", "Text Color", 0xFFFFFFFF),
+				ModOption.color("durationColor", "Duration Color", 0xFFB0B0B0));
+
+		add("serveraddress", "Server Address", "Current server IP.", false,
+				ModOption.slider("scale", "Scale", 0.5, 2.0, 0.1, 1.0, "%.1fx"),
+				ModOption.toggle("serverIcon", "Display Server Icon", true),
+				ModOption.toggle("textShadow", "Text Shadow", true),
+				ModOption.toggle("showBackground", "Show Background", true),
+				ModOption.header("Color"),
+				ModOption.color("color", "Text Color", 0xFFFFFFFF));
+
+		add("scoreboard", "Scoreboard", "Server scoreboard styling.", false,
+				ModOption.slider("scale", "Scale", 0.5, 1.5, 0.05, 1.0, "%.1fx"),
+				ModOption.toggle("hideNumbers", "Hide Numbers", false),
+				ModOption.toggle("hideScoreboard", "Hide Scoreboard", false),
+				ModOption.toggle("textShadow", "Text Shadow", true),
+				ModOption.slider("borderThickness", "Border Thickness", 0, 4, 0.5, 1, "%.1f"),
+				ModOption.toggle("border", "Border", true),
+				ModOption.keybind("toggleKey", "Toggle Scoreboard", -1),
+				ModOption.toggle("displayToggleMessage", "Display Toggle Message", true),
+				ModOption.header("Color"),
+				ModOption.color("bgColor", "Background Color", 0x99000000),
+				ModOption.color("headerColor", "Header Color", 0xFFFFFFFF),
+				ModOption.color("borderColor", "Border Color", 0x66FFFFFF));
+
+		// ---- gameplay / camera ----
+		add("freelook", "Freelook", "Look around without turning.", true,
+				ModOption.dropdown("listMode", "List Mode", "First Person", "Third Person"),
+				ModOption.toggle("invertPitch", "Invert Pitch", false),
+				ModOption.toggle("invertYaw", "Invert Yaw", false),
+				ModOption.toggle("toggle", "Toggle Freelook", false),
+				ModOption.toggle("smoothCamera", "Smooth Camera Movement", true),
+				ModOption.keybind("key", "Freelook Key", GLFW.GLFW_KEY_LEFT_ALT));
+
+		add("fullbright", "Lighting", "Full-bright and brightness boost.", false,
+				ModOption.toggle("fullBright", "Full Bright", true),
+				ModOption.keybind("key", "Full Bright Toggle", -1),
+				ModOption.slider("gamma", "Boost Factor", 1, 10, 0.5, 10, "%.1fx"));
+
+		// ---- world overlays ----
+		add("blockoverlay", "Block Outline", "Selection outline and overlay.", false,
+				ModOption.toggle("outline", "Block Outline", true),
+				ModOption.slider("thickness", "Block Outline Width", 1, 3, 1, 1, "%.0f").under("outline"),
+				ModOption.dropdown("outlineMode", "Block Outline Mode", "Static", "Chroma", "Rainbow").under("outline"),
+				ModOption.color("color", "Block Outline Color", 0xFFFFFFFF).under("outline"),
+				ModOption.toggle("interpolateAlpha", "Interpolate Alpha", false).under("outline"),
+				ModOption.toggle("overlay", "Block Overlay", false),
+				ModOption.dropdown("overlayMode", "Block Overlay Mode", "Static", "Chroma").under("overlay"),
+				ModOption.color("overlayColor", "Block Overlay Color", 0x55FFFFFF).under("overlay"),
+				ModOption.toggle("side", "Side", false),
+				ModOption.toggle("showHiddenFoliage", "Show Hidden Foliage", false));
+
+		add("chunkborders", "Chunk Borders", "Visualize chunk boundaries.", false,
+				ModOption.keybind("key", "Toggle Chunk Borders", GLFW.GLFW_KEY_F9),
+				ModOption.toggle("grid", "Grid", true),
+				ModOption.slider("gridSize", "Grid Size", 1, 16, 1, 16, "%.0f").under("grid"),
+				ModOption.slider("thickness", "Line Thickness", 1, 3, 1, 1, "%.0f").under("grid"),
+				ModOption.color("color", "Grid Color", 0xFF55DDDD).under("grid"),
+				ModOption.toggle("innerCorners", "Inner Corners", true),
+				ModOption.slider("innerThickness", "Line Thickness", 1, 3, 1, 1, "%.0f").under("innerCorners"),
+				ModOption.color("innerColor", "Inner Chunk Corner Color", 0xFFFFD855).under("innerCorners"),
+				ModOption.toggle("outerCorners", "Outer Corners", true),
+				ModOption.slider("outerThickness", "Line Thickness", 1, 3, 1, 1, "%.0f").under("outerCorners"),
+				ModOption.color("outerColor", "Outer Chunk Corner Color", 0xFFE05555).under("outerCorners"));
+
+		add("hitboxes", "Hitbox", "Entity hitbox rendering.", false,
+				ModOption.dropdown("linePattern", "Line Pattern", "Solid", "Dashed", "Dotted"),
+				ModOption.slider("maxDistance", "Max Showable Distance", 8, 128, 8, 64, "%.0f"),
+				ModOption.toggle("players", "Players", true),
+				ModOption.slider("lineWidth", "Line Width", 1, 4, 0.5, 1, "%.1f").under("players"),
+				ModOption.color("lineColor", "Line Color", 0xFFFFFFFF).under("players"),
+				ModOption.toggle("showHittable", "Show Hittable Color", false).under("players"),
+				ModOption.toggle("showDamaged", "Show Damaged Color", false).under("players"),
+				ModOption.toggle("showLookVector", "Show Look Vector", false).under("players"),
+				ModOption.header("Entity Types"),
+				ModOption.toggle("items", "Items", true),
+				ModOption.toggle("itemFrames", "Item Frames", true),
+				ModOption.toggle("witherSkulls", "Wither Skulls", true),
+				ModOption.toggle("fireballs", "Fireballs", true),
+				ModOption.toggle("projectiles", "Projectiles", true),
+				ModOption.toggle("passive", "Passive", true),
+				ModOption.toggle("expOrbs", "Exp Orbs", true),
+				ModOption.toggle("fireworks", "Fireworks", true),
+				ModOption.toggle("snowballs", "Snowballs", true),
+				ModOption.toggle("arrows", "Arrows", true),
+				ModOption.toggle("monsters", "Monsters", true),
+				ModOption.toggle("other", "Other Entities", true));
+
+		add("nametags", "Nametags", "Name tag rendering tweaks.", false,
+				ModOption.toggle("textShadow", "Nametag Text Shadow", true),
+				ModOption.toggle("thirdPerson", "Third Person Nametag", true),
+				ModOption.toggle("displayToggleMessage", "Display Toggle Nametags Message", true),
+				ModOption.keybind("toggleAll", "Toggle All Nametags", -1),
+				ModOption.keybind("togglePlayers", "Toggle Player Nametags Only", -1),
+				ModOption.toggle("hideInF1", "Hide Nametags in F1", true),
+				ModOption.slider("opacity", "Nametag Opacity", 0.1, 1.0, 0.05, 1.0, "%.0f%%"),
+				ModOption.toggle("replaceOwnColor", "Replace Own Nametag Color", false),
+				ModOption.slider("scale", "Scale", 0.5, 2.0, 0.1, 1.0, "%.1fx"));
+
+		add("weather", "Weather Changer", "Force a client weather mode.", false,
+				ModOption.dropdown("mode", "Weather Mode", "Clear", "Rain", "Thunder", "Snow"),
+				ModOption.toggle("thunder", "Thunder", false),
+				ModOption.toggle("playThunderSounds", "Play Thunder Sounds", true).under("thunder"),
+				ModOption.slider("lightningFrequency", "Lightning Frequency", 1, 60, 1, 10, "%.0fs").under("thunder"),
+				ModOption.slider("lightningRadius", "Lightning Radius", 8, 128, 8, 48, "%.0f").under("thunder"),
+				ModOption.slider("lightningYOffset", "Lightning Y Offset", -32, 32, 1, 0, "%.0f").under("thunder"));
+
+		add("timechanger", "Time Changer", "Set a fixed client time of day.", false,
+				ModOption.slider("time", "Time", 0, 24000, 100, 6000, "%.0f"),
+				ModOption.dropdown("skyMode", "Overworld Sky", "Default", "Clear", "Void"),
+				ModOption.slider("horizonY", "Horizon Y Level", -64, 320, 4, 63, "%.0f"),
+				ModOption.toggle("useRealTime", "Use Real Current Time", false),
+				ModOption.keybind("increaseKey", "Increase Time", GLFW.GLFW_KEY_RIGHT_BRACKET),
+				ModOption.keybind("decreaseKey", "Decrease Time", GLFW.GLFW_KEY_LEFT_BRACKET),
+				ModOption.toggle("timePassage", "Time Passage", false),
+				ModOption.slider("speed", "Speed", 0.1, 10, 0.1, 1.0, "%.1fx").under("timePassage"));
+
+		add("motionblur", "Motion Blur", "Frame-blend motion blur.", false,
+				ModOption.slider("amount", "Value", 1, 3, 1, 2, "%.0f"));
+
+		add("chat", "Chat", "Chat behavior and appearance.", false,
+				ModOption.toggle("unlimited", "Unlimited Chat", false),
+				ModOption.toggle("stackSpam", "Stack Spam Messages", true),
+				ModOption.toggle("textShadow", "Text Shadow in Chat", true),
+				ModOption.toggle("keepHistory", "Keep Chat History", true),
+				ModOption.toggle("copyChat", "Copy Chat", true),
+				ModOption.toggle("hoverImagePreview", "Hover Image Preview", false),
+				ModOption.toggle("smoothChat", "Smooth Chat", true),
+				ModOption.toggle("timestamps", "Timestamps", false),
+				ModOption.slider("opacity", "Background Opacity", 0.1, 1.0, 0.05, 1.0, "%.0f%%"),
+				ModOption.slider("inputOpacity", "Input Field Opacity", 0.1, 1.0, 0.05, 1.0, "%.0f%%"),
+				ModOption.slider("scale", "Scale", 0.5, 1.0, 0.05, 1.0, "%.0f%%"));
+
+		add("particles", "Particle Changer", "Per-particle visibility and styling.", false,
+				buildParticleOptions());
+	}
+
+	// Assembles the Particle Changer option list: global controls, then a
+	// collapsible block per vanilla particle type (spec §5 — full coverage).
+	private static ModOption[] buildParticleOptions() {
+		List<ModOption> o = new ArrayList<>();
+		o.add(ModOption.header("General"));
+		o.add(ModOption.toggle("alwaysShowSharpness", "Always Show Sharpness", false));
+		o.add(ModOption.toggle("hideFirstPerson", "Hide First Person Particles", false));
+		o.add(ModOption.toggle("hideBlockBreak", "Hide Block-Breaking Particle", false));
+		o.add(ModOption.toggle("hideAll", "Hide All Particles", false));
+		o.add(ModOption.header("Global"));
+		o.add(ModOption.dropdown("mode", "Particles", "All", "Reduced", "Off"));
+		o.add(ModOption.slider("scale", "Scale", 0.1, 2.0, 0.1, 1.0, "%.1fx"));
+		o.add(ModOption.slider("multiplier", "Multiplier", 0.1, 2.0, 0.1, 1.0, "%.1fx"));
+		o.add(ModOption.color("customColor", "Custom Color", 0xFFFFFFFF));
+		o.add(ModOption.dropdown("colorMode", "Color Mode", "Overlay", "Replace", "Multiply"));
+		o.add(ModOption.header("Particle Types"));
+		for (String[] p : PARTICLE_TYPES) {
+			String id = p[0];
+			o.add(ModOption.toggle("p_" + id, p[1], true));
+			o.add(ModOption.toggle("p_" + id + "_players", "Show on Players", true).under("p_" + id));
+			o.add(ModOption.toggle("p_" + id + "_entities", "Show on Entities", true).under("p_" + id));
+			o.add(ModOption.toggle("p_" + id + "_self", "Show on Self", true).under("p_" + id));
+			o.add(ModOption.toggle("p_" + id + "_sound", "Play Sound", false).under("p_" + id));
+			o.add(ModOption.slider("p_" + id + "_scale", "Scale", 0.1, 2.0, 0.1, 1.0, "%.1fx").under("p_" + id));
+			o.add(ModOption.slider("p_" + id + "_multiplier", "Multiplier", 0.1, 2.0, 0.1, 1.0, "%.1fx").under("p_" + id));
+			o.add(ModOption.toggle("p_" + id + "_hide", "Hide Particle", false).under("p_" + id));
+			o.add(ModOption.color("p_" + id + "_color", "Custom Color", 0xFFFFFFFF).under("p_" + id));
+		}
+		return o.toArray(new ModOption[0]);
 	}
 
 	private static void add(String id, String name, boolean defaultOn, ModOption... options) {
-		ALL.add(new Mod(id, name, defaultOn, List.of(options)));
+		add(id, name, "", defaultOn, options);
+	}
+
+	private static void add(String id, String name, String description, boolean defaultOn, ModOption... options) {
+		ALL.add(new Mod(id, name, description, defaultOn, List.of(options)));
 	}
 
 	private Mods() {
@@ -144,7 +414,7 @@ public final class Mods {
 			return (int) v.getAsLong();
 		}
 		ModOption o = opt(modId, key);
-		return o == null || o.swatches == null || o.swatches.length == 0 ? 0xFFFFFFFF : o.swatches[0];
+		return o == null ? 0xFFFFFFFF : o.defColor;
 	}
 
 	public static int keyCode(String modId, String key) {
