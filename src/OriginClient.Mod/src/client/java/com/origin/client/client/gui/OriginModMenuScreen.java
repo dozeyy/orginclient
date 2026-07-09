@@ -108,9 +108,55 @@ public class OriginModMenuScreen extends Screen {
 	}
 
 	// top-bar tab selection
-	enum Tab { MODS, SETTINGS }
+	enum Tab { MODS, SETTINGS, SHADERS }
 
 	private Tab tab = Tab.MODS;
+
+	// ---- SHADERS tab state ----
+	private double shaderScroll = 0, shaderScrollTarget = 0;
+	private int shaderMaxScroll = 0;
+	private List<String> packCache = new ArrayList<>();
+	private long packScanAt = 0;
+
+	// Download Shaders overlay: the top 20 shaderpacks by Modrinth downloads
+	// (live-ranked 2026-07-09). Links open the pack's versions page filtered
+	// to the RUNNING game version + iris loader, so every entry fits whatever
+	// version this client build targets.
+	private boolean downloadOverlay = false;
+	private double dlScroll = 0, dlScrollTarget = 0;
+	private int dlMaxScroll = 0;
+
+	private static final String[][] SHADER_DIRECTORY = {
+			{"Complementary Reimagined", "complementary-reimagined"},
+			{"Complementary Unbound", "complementary-unbound"},
+			{"BSL Shaders", "bsl-shaders"},
+			{"Photon Shaders", "photon-shader"},
+			{"Solas Shader", "solas-shader"},
+			{"Bliss Shaders", "bliss-shader"},
+			{"Rethinking Voxels", "rethinking-voxels"},
+			{"MakeUp — Ultra Fast", "makeup-ultra-fast-shaders"},
+			{"Super Duper Vanilla", "super-duper-vanilla"},
+			{"Insanity Shader", "insanity-shader"},
+			{"Pastel Shaders", "pastel-shaders"},
+			{"Mellow", "mellow"},
+			{"AstraLex Shaders", "astralex"},
+			{"Nostalgia Shader", "nostalgia-shader"},
+			{"Miniature Shader", "miniature-shader"},
+			{"VanillAA", "vanillaa"},
+			{"Hysteria Shaders", "hysteria-shaders"},
+			{"Kappa Shader", "kappa-shader"},
+			{"Spooklementary", "spooklementary"},
+			{"Potato Shaders", "potato-shaders"},
+	};
+
+	private List<String> packs() {
+		long now = System.currentTimeMillis();
+		if (now - packScanAt > 1500) {
+			packScanAt = now;
+			packCache = com.origin.client.client.shaders.IrisBridge.listPacks();
+		}
+		return packCache;
+	}
 
 	// SETTINGS tab: General / Performance sub-tabs (spec §7 — no Controls tab)
 	enum SubTab { GENERAL, PERFORMANCE }
@@ -178,6 +224,8 @@ public class OriginModMenuScreen extends Screen {
 		scroll += (scrollTarget - scroll) * Math.min(1.0, dt / 60.0);
 		settingsScroll += (settingsScrollTarget - settingsScroll) * Math.min(1.0, dt / 60.0);
 		settingsTabScroll += (settingsTabScrollTarget - settingsTabScroll) * Math.min(1.0, dt / 60.0);
+		shaderScroll += (shaderScrollTarget - shaderScroll) * Math.min(1.0, dt / 60.0);
+		dlScroll += (dlScrollTarget - dlScroll) * Math.min(1.0, dt / 60.0);
 
 		double p = OriginTheme.easeOut(Math.min(1.0, (now - openedAt) / (double) SLIDE_MS));
 		if (closingAt > 0) {
@@ -233,7 +281,10 @@ public class OriginModMenuScreen extends Screen {
 		haloY += (mouseY - haloY) * OriginTheme.HALO_LERP_FACTOR;
 		OriginUi.glow(g, haloX, haloY, 150, 0.10f * (float) p);
 
-		// shared color picker overlay draws last, in raw screen space
+		// modal overlays draw last, in raw screen space
+		if (downloadOverlay) {
+			renderDownloadOverlay(g, mouseX, mouseY);
+		}
 		OriginColorPicker.render(g, mouseX, mouseY);
 	}
 
@@ -266,6 +317,10 @@ public class OriginModMenuScreen extends Screen {
 
 		if (tab == Tab.SETTINGS) {
 			renderSettingsTab(g, mouseX, mouseY, now, alpha);
+			return;
+		}
+		if (tab == Tab.SHADERS) {
+			renderShadersTab(g, mouseX, mouseY, alpha);
 			return;
 		}
 
@@ -302,6 +357,204 @@ public class OriginModMenuScreen extends Screen {
 		g.disableScissor();
 	}
 
+	// ---- SHADERS tab ----
+
+	private void renderShadersTab(GuiGraphics g, int mx, int my, float alpha) {
+		int x0 = px() + 18, x1 = px() + pw() - 18;
+		int sty = py() + 40;
+		var iris = com.origin.client.client.shaders.IrisBridge.class;
+
+		// primary action: DOWNLOAD SHADERS — same chip language, accent-strong
+		int dlW = font.width("DOWNLOAD SHADERS") + 24;
+		boolean dlHover = in(mx, my, x0, sty, x0 + dlW, sty + 20);
+		float dh = OriginUi.anim("sh:dl", dlHover, 120.0);
+		OriginUi.panel(g, x0, sty - Math.round(dh), dlW, 20, 8,
+				withAlpha(dlHover ? 0x3EFFFFFF : 0x2EFFFFFF, alpha), withAlpha(0x66FFFFFF, alpha));
+		g.drawString(font, "DOWNLOAD SHADERS", x0 + 12, sty + 6 - Math.round(dh), withAlpha(OriginTheme.TEXT, alpha), clear);
+
+		// right chips: IRIS SETTINGS + FOLDER
+		int isW = font.width("IRIS SETTINGS") + 16;
+		int fdW = font.width("FOLDER") + 16;
+		int fdX = x1 - fdW;
+		int isX = fdX - 6 - isW;
+		boolean isHover = in(mx, my, isX, sty, isX + isW, sty + 20);
+		OriginUi.panel(g, isX, sty, isW, 20, 8, withAlpha(chipFill(isHover), alpha),
+				withAlpha(isHover ? OriginTheme.STROKE_STRONG : OriginTheme.STROKE, alpha));
+		g.drawString(font, "IRIS SETTINGS", isX + 8, sty + 6, withAlpha(OriginTheme.TEXT, alpha), clear);
+		boolean fdHover = in(mx, my, fdX, sty, fdX + fdW, sty + 20);
+		OriginUi.panel(g, fdX, sty, fdW, 20, 8, withAlpha(chipFill(fdHover), alpha),
+				withAlpha(fdHover ? OriginTheme.STROKE_STRONG : OriginTheme.STROKE, alpha));
+		g.drawString(font, "FOLDER", fdX + 8, sty + 6, withAlpha(OriginTheme.TEXT, alpha), clear);
+
+		String current = com.origin.client.client.shaders.IrisBridge.currentPack();
+		boolean installed = com.origin.client.client.shaders.IrisBridge.installed();
+		String status = !installed ? "Iris is not loaded — shaders unavailable"
+				: current == null ? "Shaders off — full Sodium speed"
+				: "Active: " + current;
+		g.drawString(font, status, x0, sty + 28, withAlpha(OriginTheme.MUTED, alpha), clear);
+
+		// pack list
+		int top = py() + 82;
+		int bottom = py() + ph() - 10;
+		var packList = packs();
+		int rows = packList.size() + 1; // + "None" row
+		shaderMaxScroll = Math.max(0, rows * 30 - (bottom - top));
+		g.enableScissor(px(), top, px() + pw(), bottom);
+		int y = top + 2 - (int) Math.round(shaderScroll);
+		y = shaderRow(g, x0, x1, y, "None — shaders off", current == null, mx, my, alpha);
+		for (String pack : packList) {
+			y = shaderRow(g, x0, x1, y, pack, pack.equals(current), mx, my, alpha);
+		}
+		if (packList.isEmpty()) {
+			g.drawString(font, "No shaderpacks installed — hit DOWNLOAD SHADERS, then drop the .zip into the folder.",
+					x0, y + 6, withAlpha(OriginTheme.MUTED, alpha), clear);
+		}
+		g.disableScissor();
+	}
+
+	private int shaderRow(GuiGraphics g, int x0, int x1, int y, String label, boolean active, int mx, int my, float alpha) {
+		OriginUi.panel(g, x0, y, x1 - x0, 26, 8,
+				withAlpha(clear ? 0xC0101010 : 0x10FFFFFF, alpha),
+				withAlpha(active ? 0x66FFFFFF : OriginTheme.STROKE, alpha));
+		String shown = font.width(label) > (x1 - x0) - 90 ? font.plainSubstrByWidth(label, (x1 - x0) - 96) + "…" : label;
+		g.drawString(font, shown, x0 + 10, y + 9, withAlpha(OriginTheme.TEXT, alpha), clear);
+		if (active) {
+			String t = "ACTIVE";
+			g.drawString(font, t, x1 - 12 - font.width(t), y + 9, withAlpha(GREEN_TEXT, alpha), clear);
+		} else {
+			String t = "APPLY";
+			int bw = font.width(t) + 16;
+			boolean hover = in(mx, my, x1 - 10 - bw, y + 4, x1 - 10, y + 22);
+			OriginUi.panel(g, x1 - 10 - bw, y + 4, bw, 18, 7,
+					withAlpha(hover ? 0x2EFFFFFF : 0x18FFFFFF, alpha), withAlpha(OriginTheme.STROKE, alpha));
+			g.drawString(font, t, x1 - 10 - bw + 8, y + 9, withAlpha(OriginTheme.TEXT_DIM, alpha), clear);
+		}
+		return y + 30;
+	}
+
+	private boolean clickShadersTab(double mx, double my) {
+		int x0 = px() + 18, x1 = px() + pw() - 18;
+		int sty = py() + 40;
+		int dlW = font.width("DOWNLOAD SHADERS") + 24;
+		if (in(mx, my, x0, sty, x0 + dlW, sty + 20)) {
+			downloadOverlay = true;
+			dlScroll = dlScrollTarget = 0;
+			return true;
+		}
+		int isW = font.width("IRIS SETTINGS") + 16;
+		int fdW = font.width("FOLDER") + 16;
+		int fdX = x1 - fdW;
+		int isX = fdX - 6 - isW;
+		if (in(mx, my, isX, sty, isX + isW, sty + 20)) {
+			com.origin.client.client.shaders.IrisBridge.openIrisScreen();
+			return true;
+		}
+		if (in(mx, my, fdX, sty, fdX + fdW, sty + 20)) {
+			try {
+				var dir = com.origin.client.client.shaders.IrisBridge.shaderpacksDir();
+				java.nio.file.Files.createDirectories(dir);
+				net.minecraft.Util.getPlatform().openPath(dir);
+			} catch (Exception ignored) {
+			}
+			return true;
+		}
+		int top = py() + 82;
+		int bottom = py() + ph() - 10;
+		if (my >= top && my <= bottom) {
+			var packList = packs();
+			int y = top + 2 - (int) Math.round(shaderScroll);
+			for (int i = -1; i < packList.size(); i++) {
+				String pack = i < 0 ? null : packList.get(i);
+				String current = com.origin.client.client.shaders.IrisBridge.currentPack();
+				boolean active = pack == null ? current == null : pack.equals(current);
+				if (my >= y && my < y + 26 && !active && mx >= x1 - 80) {
+					if (!com.origin.client.client.shaders.IrisBridge.apply(pack)) {
+						com.origin.client.client.shaders.IrisBridge.openIrisScreen();
+					}
+					return true;
+				}
+				y += 30;
+			}
+		}
+		return true; // shaders tab swallows its clicks
+	}
+
+	// ---- Download Shaders overlay ----
+
+	private void renderDownloadOverlay(GuiGraphics g, int mx, int my) {
+		int w = Math.min(340, width - 40);
+		int h = Math.min(240, height - 40);
+		int x = (width - w) / 2, y = (height - h) / 2;
+		g.fill(0, 0, width, height, 0x88000000);
+		OriginUi.panel(g, x, y, w, h, 12, 0xF6101010, OriginTheme.STROKE_STRONG);
+
+		g.drawString(font, "Download Shaders", x + 14, y + 12, OriginTheme.TEXT, false);
+		boolean closeHover = in(mx, my, x + w - 26, y + 8, x + w - 8, y + 26);
+		g.drawString(font, "✕", x + w - 22, y + 12, closeHover ? OriginTheme.TEXT : OriginTheme.MUTED, false);
+		String ver = net.minecraft.SharedConstants.getCurrentVersion().getName();
+		g.drawString(font, "Top 20 for " + ver + " — downloads in-game, straight into your shaders.",
+				x + 14, y + 26, OriginTheme.MUTED, false);
+
+		int top = y + 42, bottom = y + h - 12;
+		dlMaxScroll = Math.max(0, SHADER_DIRECTORY.length * 26 - (bottom - top));
+		g.enableScissor(x, top, x + w, bottom);
+		int ry = top - (int) Math.round(dlScroll);
+		for (int i = 0; i < SHADER_DIRECTORY.length; i++) {
+			if (ry + 24 >= top && ry <= bottom) {
+				OriginUi.panel(g, x + 12, ry, w - 24, 22, 7, 0x12FFFFFF, OriginTheme.STROKE);
+				g.drawString(font, (i + 1) + ". " + SHADER_DIRECTORY[i][0], x + 20, ry + 7, OriginTheme.TEXT, false);
+
+				var st = com.origin.client.client.shaders.ShaderDownloader.state(SHADER_DIRECTORY[i][1]);
+				int bw = 58;
+				int bx = x + w - 20 - bw;
+				switch (st.status()) {
+					case WORKING -> {
+						// live progress bar in place of the button
+						OriginUi.panel(g, bx, ry + 6, bw, 10, 5, 0x30FFFFFF, OriginTheme.STROKE);
+						int fill = (int) (bw * Math.max(0.05, st.progress()));
+						OriginUi.panel(g, bx, ry + 6, fill, 10, 5, 0xE6E0E0E0, 0);
+					}
+					case DONE -> g.drawString(font, "DONE", bx + (bw - font.width("DONE")) / 2, ry + 7, GREEN_TEXT, false);
+					case ERROR -> g.drawString(font, "N/A", bx + (bw - font.width("N/A")) / 2, ry + 7, RED_TEXT, false);
+					default -> {
+						String t = "GET";
+						boolean hover = in(mx, my, bx, ry + 2, bx + bw, ry + 20);
+						OriginUi.panel(g, bx, ry + 2, bw, 18, 7,
+								hover ? 0x3EFFFFFF : 0x22FFFFFF, hover ? 0x66FFFFFF : OriginTheme.STROKE);
+						g.drawString(font, t, bx + (bw - font.width(t)) / 2, ry + 7, OriginTheme.TEXT, false);
+					}
+				}
+			}
+			ry += 26;
+		}
+		g.disableScissor();
+	}
+
+	private boolean clickDownloadOverlay(double mx, double my) {
+		int w = Math.min(340, width - 40);
+		int h = Math.min(240, height - 40);
+		int x = (width - w) / 2, y = (height - h) / 2;
+		if (in(mx, my, x + w - 26, y + 8, x + w - 8, y + 26) || !in(mx, my, x, y, x + w, y + h)) {
+			downloadOverlay = false;
+			return true;
+		}
+		int top = y + 42, bottom = y + h - 12;
+		if (my >= top && my <= bottom) {
+			int ry = top - (int) Math.round(dlScroll);
+			String ver = net.minecraft.SharedConstants.getCurrentVersion().getName();
+			for (String[] entry : SHADER_DIRECTORY) {
+				if (my >= ry && my < ry + 22 && mx >= x + w - 20 - 58) {
+					// in-game download for the running version; the pack appears
+					// in the shaders list the moment the bar completes
+					com.origin.client.client.shaders.ShaderDownloader.start(entry[1], ver);
+					return true;
+				}
+				ry += 26;
+			}
+		}
+		return true; // modal swallows everything else
+	}
+
 	// Tabs sit left-anchored right after the logo — never centered, so they can
 	// never collide with the right-aligned chips at small panel widths.
 	private int tabStartX() {
@@ -309,8 +562,8 @@ public class OriginModMenuScreen extends Screen {
 	}
 
 	private void renderTabs(GuiGraphics g, int mx, int my, int hy, float alpha) {
-		String[] labels = {"MODS", "SETTINGS"};
-		Tab[] tabs = {Tab.MODS, Tab.SETTINGS};
+		String[] labels = {"MODS", "SETTINGS", "SHADERS"};
+		Tab[] tabs = {Tab.MODS, Tab.SETTINGS, Tab.SHADERS};
 		int tx = tabStartX();
 		for (int i = 0; i < labels.length; i++) {
 			int w = font.width(labels[i]) + 28;
@@ -586,6 +839,9 @@ public class OriginModMenuScreen extends Screen {
 		if (OriginColorPicker.isOpen()) {
 			return OriginColorPicker.mouseClicked(mx, my, button);
 		}
+		if (downloadOverlay) {
+			return clickDownloadOverlay(mx, my);
+		}
 		if (button != 0 || closingAt > 0) {
 			return super.mouseClicked(mx, my, button);
 		}
@@ -610,6 +866,10 @@ public class OriginModMenuScreen extends Screen {
 			if (tab == Tab.SETTINGS) {
 				searchFocused = false;
 				return clickSettingsTab(mx, my);
+			}
+			if (tab == Tab.SHADERS) {
+				searchFocused = false;
+				return clickShadersTab(mx, my);
 			}
 			// search bar focus (centered box below the top bar)
 			int sy2 = py() + 40;
@@ -665,8 +925,8 @@ public class OriginModMenuScreen extends Screen {
 	}
 
 	private boolean clickTabs(double mx, double my, int hy) {
-		Tab[] tabs = {Tab.MODS, Tab.SETTINGS};
-		String[] labels = {"MODS", "SETTINGS"};
+		Tab[] tabs = {Tab.MODS, Tab.SETTINGS, Tab.SHADERS};
+		String[] labels = {"MODS", "SETTINGS", "SHADERS"};
 		int tx = tabStartX();
 		for (int i = 0; i < labels.length; i++) {
 			int w = font.width(labels[i]) + 28;
@@ -774,9 +1034,15 @@ public class OriginModMenuScreen extends Screen {
 		if (OriginColorPicker.isOpen()) {
 			return true;
 		}
+		if (downloadOverlay) {
+			dlScrollTarget = Math.max(0, Math.min(dlMaxScroll, dlScrollTarget - sy * 30));
+			return true;
+		}
 		if (page == null) {
 			if (tab == Tab.SETTINGS) {
 				settingsTabScrollTarget = Math.max(0, Math.min(settingsTabMaxScroll, settingsTabScrollTarget - sy * 30));
+			} else if (tab == Tab.SHADERS) {
+				shaderScrollTarget = Math.max(0, Math.min(shaderMaxScroll, shaderScrollTarget - sy * 30));
 			} else {
 				scrollTarget = Math.max(0, Math.min(maxScroll(), scrollTarget - sy * 30));
 			}
@@ -795,6 +1061,10 @@ public class OriginModMenuScreen extends Screen {
 			Mods.set(capMod, capKey, keyCode == GLFW.GLFW_KEY_ESCAPE ? -1 : keyCode);
 			capMod = null;
 			capKey = null;
+			return true;
+		}
+		if (keyCode == GLFW.GLFW_KEY_ESCAPE && downloadOverlay) {
+			downloadOverlay = false;
 			return true;
 		}
 		if (keyCode == GLFW.GLFW_KEY_ESCAPE) {

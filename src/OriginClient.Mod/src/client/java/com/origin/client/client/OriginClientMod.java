@@ -177,7 +177,11 @@ public class OriginClientMod implements ClientModInitializer {
 			if (client.options.keySprint.consumeClick() || edge) {
 				FEATURES.sprintToggledOn = !FEATURES.sprintToggledOn;
 			}
-			player.setSprinting(FEATURES.sprintToggledOn && player.isAlive());
+			// only sprint while actually moving forward — vanilla behavior;
+			// forcing the flag while stationary spawns sprint particles at
+			// the player's feet nonstop
+			boolean moving = player.input != null && player.input.hasForwardImpulse();
+			player.setSprinting(FEATURES.sprintToggledOn && player.isAlive() && moving);
 		} else {
 			FEATURES.sprintToggledOn = false;
 		}
@@ -291,20 +295,25 @@ public class OriginClientMod implements ClientModInitializer {
 		}
 	}
 
-	// Chat opacity/scale ride the vanilla accessibility options — no reason
-	// to re-implement chat rendering for values the game already exposes.
+	// Chat options ride the vanilla accessibility options. IMPORTANT mapping:
+	// "Background Opacity" drives textBackgroundOpacity — the grey box behind
+	// chat lines — NOT chatOpacity (which fades the TEXT itself; wiring the
+	// slider there made messages unreadable). Text stays fully visible at
+	// background 0. chatOpacity is pinned to 1.0 while the mod is on, which
+	// also heals any options.txt damage the old wiring left behind.
 	private void applyChat(Minecraft client) {
 		boolean on = Mods.on("chat");
 		if (on) {
 			if (!chatApplied) {
-				savedChatOpacity = client.options.chatOpacity().get();
+				savedChatOpacity = client.options.textBackgroundOpacity().get();
 				savedChatScale = client.options.chatScale().get();
 				chatApplied = true;
 			}
-			client.options.chatOpacity().set(Mods.num("chat", "opacity"));
+			client.options.textBackgroundOpacity().set(Mods.num("chat", "opacity"));
+			client.options.chatOpacity().set(1.0);
 			client.options.chatScale().set(Mods.num("chat", "scale"));
 		} else if (chatApplied) {
-			client.options.chatOpacity().set(savedChatOpacity);
+			client.options.textBackgroundOpacity().set(savedChatOpacity);
 			client.options.chatScale().set(savedChatScale);
 			chatApplied = false;
 		}

@@ -344,8 +344,8 @@ public final class Mods {
 				ModOption.toggle("hoverImagePreview", "Hover Image Preview", false),
 				ModOption.toggle("smoothChat", "Smooth Chat", true),
 				ModOption.toggle("timestamps", "Timestamps", false),
-				ModOption.slider("opacity", "Background Opacity", 0.1, 1.0, 0.05, 1.0, "%.0f%%"),
-				ModOption.slider("inputOpacity", "Input Field Opacity", 0.1, 1.0, 0.05, 1.0, "%.0f%%"),
+				ModOption.slider("opacity", "Background Opacity", 0.0, 1.0, 0.05, 0.5, "%.0f%%"),
+				ModOption.slider("inputOpacity", "Input Field Opacity", 0.0, 1.0, 0.05, 1.0, "%.0f%%"),
 				ModOption.slider("scale", "Scale", 0.5, 1.0, 0.05, 1.0, "%.0f%%"));
 
 		add("particles", "Particle Changer", "Per-particle visibility and styling.", false,

@@ -7,7 +7,11 @@ public sealed record VersionPerfProfile(
     PerfMod? Indium,
     PerfMod? Lithium,
     PerfMod? Ferrite,
-    PerfMod? Krypton)
+    PerfMod? Krypton,
+    // Iris shader loader — only present on profiles whose Sodium build it is
+    // version-compatible with (Iris hard-requires Sodium). Idle overhead with
+    // no shaderpack active is ~zero, so it never costs FPS by default.
+    PerfMod? Iris = null)
 {
     public IEnumerable<PerfMod> Mods()
     {
@@ -16,5 +20,6 @@ public sealed record VersionPerfProfile(
         if (Lithium != null) yield return Lithium;
         if (Ferrite != null) yield return Ferrite;
         if (Krypton != null) yield return Krypton;
+        if (Iris != null) yield return Iris;
     }
 }

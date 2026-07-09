@@ -57,6 +57,10 @@ dependencies {
 	modImplementation(include("maven.modrinth:indium:${project.indium_version}"))
 	modImplementation(include("maven.modrinth:lithium:${project.lithium_version}"))
 	modImplementation(include("maven.modrinth:ferrite-core:${project.ferritecore_version}"))
+	// Iris shader loader (see gradle.properties for the Sodium pairing note).
+	// Accessed via reflection only (IrisBridge) so an Iris update can never
+	// break our compile — but bundled jar-in-jar like the rest of the stack.
+	modImplementation(include("maven.modrinth:iris:${project.iris_version}"))
 	// Temporarily disabled: Krypton bundles its own nested velocity-native
 	// jar-in-jar, and Loom's include() doesn't propagate that nested jar
 	// through to the `runClient` dev classpath (real, reproducible,
