@@ -48,6 +48,21 @@ public class OriginClientMod implements ClientModInitializer {
 		ClientTickEvents.END_CLIENT_TICK.register(this::onEndTick);
 		HudRenderCallback.EVENT.register((guiGraphics, tickCounter) ->
 				com.origin.client.client.hud.HudElements.renderAll(guiGraphics));
+
+		// Inject a "Download Shaders" button into Iris's own shader menu so the
+		// whole shader flow lives where Sodium/Iris users already look — no tab
+		// in the mod menu. Detected by class name (no compile dep on Iris),
+		// added via Fabric's screen API (no Iris mixin to break on updates).
+		net.fabricmc.fabric.api.client.screen.v1.ScreenEvents.AFTER_INIT.register((client, screen, sw, sh) -> {
+			if (screen.getClass().getName().contains("ShaderPackScreen")) {
+				var btn = net.minecraft.client.gui.components.Button.builder(
+								net.minecraft.network.chat.Component.literal("Download Shaders"),
+								b -> client.setScreen(new com.origin.client.client.shaders.ShaderBrowserScreen(screen)))
+						.bounds(6, 6, 120, 20)
+						.build();
+				net.fabricmc.fabric.api.client.screen.v1.Screens.getButtons(screen).add(btn);
+			}
+		});
 		WorldRenderEvents.LAST.register(context -> {
 			try {
 				ChunkBorderRenderer.render(context);
