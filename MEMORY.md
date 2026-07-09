@@ -2005,3 +2005,30 @@ menu; cells shrink to fit width; potion HUD draws real effect sprites + new
 GuiEffectsMixin gates vanilla top-right behind "Vanilla Display" toggle; block
 outline chroma reverted; icon atlas regenerated (21 icons = 21 mods, cleaner
 flask/shield/cloud; customsky/togglesneak/packdisplay removed).
+
+---
+
+## 2026-07-09 — Two more silent-mixin root causes (freelook, time changer)
+
+Both "compiles green but does nothing" bugs, diagnosed by disassembling the
+real 1.21.1 jars (javap -c on the loom-cache minecraftMaven jars) BEFORE
+writing the fix — that workflow found the exact wrong assumption both times:
+
+1. Freelook: Camera.setup calls Entity.getViewYRot VIRTUALLY, and
+   LivingEntity overrides it (head-yaw lerp). Injecting into
+   Entity.getViewYRot therefore never runs for players. getViewXRot is NOT
+   overridden — pitch worked, yaw didn't ("looking around is still broken").
+   Fix: CameraMixin @Redirect on the setRotation(FF)V invoke inside
+   Camera.setup, require=1 (defaultRequire is 0 in our config, so unmatched
+   injectors die silently — set require=1 on anything load-bearing).
+2. Time changer: the sky path is LevelTimeAccess.getTimeOfDay() ->
+   LevelAccessor.dayTime() (default interface method) ->
+   LevelData.getDayTime(). Level.getDayTime() is a DIFFERENT accessor the
+   renderer never calls; overriding it did nothing. Fix: add a real
+   dayTime() override on ClientLevel (method-addition mixin wins virtual
+   dispatch for every consumer: sun angle, moon phase/brightness).
+
+Also this pass: editor shows only enabled mods (config persists while
+disabled), drag clamp keeps a 12px grabbable sliver on-screen (still free
+overlap + off-screen hang), potions/armor backgrounds hug actual content
+in-game (none when empty; editor previews unchanged).
