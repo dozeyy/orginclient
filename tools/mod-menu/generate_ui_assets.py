@@ -119,10 +119,9 @@ def _(d):  # speedometer
 
 
 @icon("cps")
-def _(d):  # computer mouse — button split stays INSIDE the body outline
+def _(d):  # computer mouse — button split fully inside the body, clear of the top
     rrect(d, 30, 14, 66, 82, 18)
-    line(d, [(48, 16), (48, 44)])   # centre divider, from just inside the top
-    line(d, [(34, 44), (62, 44)])   # button base, inset off the side walls
+    line(d, [(48, 26), (48, 48)])   # centre divider; top cap sits below the curve
 
 
 @icon("coords")
