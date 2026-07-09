@@ -5,7 +5,8 @@
 	"client": [
 		"GameRendererMixin",
 		"MouseHandlerMixin",
-		"EntityViewAngleMixin",
+		"ClientLevelTimeMixin",
+		"CameraMixin",
 		"LoadingOverlayMixin",
 		"TitleScreenMixin",
 		"AbstractButtonMixin",

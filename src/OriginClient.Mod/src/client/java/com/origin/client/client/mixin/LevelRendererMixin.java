@@ -31,7 +31,9 @@ public class LevelRendererMixin {
 	@Inject(method = "renderSnowAndRain", at = @At("HEAD"), cancellable = true)
 	private void originclient$skipWeather(LightTexture lightTexture, float partialTick,
 										  double camX, double camY, double camZ, CallbackInfo ci) {
-		if (Mods.on("weather")) {
+		// Clear mode skips the precipitation pass; other modes force rain
+		// levels tick-side (OriginClientMod.applyWeather) and render normally.
+		if (Mods.on("weather") && Mods.mode("weather", "mode").equals("Clear")) {
 			ci.cancel();
 		}
 	}

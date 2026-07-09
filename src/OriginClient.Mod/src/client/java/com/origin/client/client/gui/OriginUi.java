@@ -24,7 +24,7 @@ public final class OriginUi {
 	private static volatile boolean loaded = false;
 	private static boolean ok = false;
 
-	private static ResourceLocation fillTex, borderTex, trackTex, knobTex, iconsTex, glowTex, ringTex;
+	private static ResourceLocation fillTex, borderTex, trackTex, knobTex, iconsTex, glowTex, ringTex, logoTex;
 	private static int panelTexSize = 96, panelCorner = 24;
 	private static int iconCell = 96, atlasW = 576, atlasH = 384;
 	private static final Map<String, int[]> ICONS = new HashMap<>();
@@ -149,6 +149,21 @@ public final class OriginUi {
 		RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
 	}
 
+	/** The exact brand mark (baked from the website nav-mark geometry — three
+	 *  nested ellipses at 0/60/120°), drawn smooth at any size. */
+	public static void logo(GuiGraphics g, double cx, double cy, int size, float alpha) {
+		ensureLoaded();
+		if (!ok || logoTex == null) {
+			mark(g, cx, cy, size, alpha); // fallback to the procedural rings
+			return;
+		}
+		RenderSystem.enableBlend();
+		RenderSystem.defaultBlendFunc();
+		RenderSystem.setShaderColor(1f, 1f, 1f, alpha);
+		g.blit(logoTex, (int) (cx - size / 2.0), (int) (cy - size / 2.0), size, size, 0f, 0f, 256, 256, 256, 256);
+		RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+	}
+
 	/** Rounded slider: track + fill + knob. value 0..1. Returns knob center x. */
 	public static int slider(GuiGraphics g, int x, int y, int w, double value, boolean active) {
 		int h = 4;
@@ -219,6 +234,7 @@ public final class OriginUi {
 			knobTex = reg(mc, "ui_switch_knob", "/assets/originclient/textures/ui/switch_knob.png");
 			glowTex = reg(mc, "ui_glow", "/assets/originclient/textures/ui/radial_glow.png");
 			ringTex = reg(mc, "ui_ring", "/assets/originclient/textures/ui/ring-0.png");
+			logoTex = reg(mc, "ui_logo", "/assets/originclient/textures/ui/origin_logo.png");
 			JsonObject icons = readJson("/assets/originclient/textures/ui/mod_icons.json");
 			iconCell = icons.get("cell").getAsInt();
 			JsonObject list = icons.getAsJsonObject("icons");

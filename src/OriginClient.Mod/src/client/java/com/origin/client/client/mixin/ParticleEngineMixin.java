@@ -24,6 +24,28 @@ public class ParticleEngineMixin {
 		if (!Mods.on("particles")) {
 			return;
 		}
+		if (Mods.bool("particles", "hideAll")) {
+			cir.setReturnValue(null);
+			return;
+		}
+		var typeKey = net.minecraft.core.registries.BuiltInRegistries.PARTICLE_TYPE.getKey(options.getType());
+		if (typeKey != null) {
+			String path = typeKey.getPath();
+			// per-particle-type controls: master row toggle off, or its Hide flag
+			// (only for types that actually have a row — unknown types pass through)
+			if (Mods.hasOption("particles", "p_" + path) && !Mods.bool("particles", "p_" + path)) {
+				cir.setReturnValue(null);
+				return;
+			}
+			if (Mods.bool("particles", "p_" + path + "_hide")) {
+				cir.setReturnValue(null);
+				return;
+			}
+			if (path.equals("block") && Mods.bool("particles", "hideBlockBreak")) {
+				cir.setReturnValue(null);
+				return;
+			}
+		}
 		String mode = Mods.mode("particles", "mode");
 		if (mode.equals("Off")) {
 			cir.setReturnValue(null);

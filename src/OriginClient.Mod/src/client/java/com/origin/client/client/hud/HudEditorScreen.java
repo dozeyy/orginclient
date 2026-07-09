@@ -10,33 +10,35 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import org.lwjgl.glfw.GLFW;
 
-// The HUD editing workspace: a lightweight layer directly over the LIVE game
-// — no dim, no blur, so overlays are positioned against real gameplay.
-// Completely freeform: pixel-precise drag, no snapping; thin center guides
-// appear only while an element passes near them. Hovering an element shows a
-// dark translucent highlight + a bold outline + the single top-right resize
-// handle; scroll also scales the hovered element.
+// The HUD editing workspace, directly over the LIVE game — no dim, no blur.
+// Freeform drag, no snapping; thin center guides appear only while dragging.
+// Each element shows a SQUARE outline on its backing bounds, boldened on
+// hover/select, plus one small resize handle at its FREE corner (the corner
+// diagonally opposite the screen corner it's anchored to). Resizing keeps that
+// anchored corner fixed and expands away from it — the same way the element
+// grows in-game, so what you see here matches what you get.
 //
-// quick mode IS the Right Shift screen (spec: "I should be able to edit my
-// screen the moment I press Right Shift"): the same editable surface plus the
-// ORIGIN logo (same mark+wordmark as the launcher's corner) and one dark MODS
-// button that leads to the full grid.
+// quick=true IS the Right Shift screen: the editable surface plus the real
+// ORIGIN logo (baked nav-mark geometry) and a screen-centered MODS button.
 public class HudEditorScreen extends Screen {
 	private final boolean quick;
 	private final long openedAt = System.currentTimeMillis();
 
 	private String draggingId = null;
 	private double dragOffX, dragOffY, dragX, dragY;
+	private double dragW, dragH; // dragged element's size, for the edge clamp
 	private String selectedId = null;
 	private String hoveredId = null;
 
-	// resize via the single top-right handle
+	// resize: fixed (anchored) corner stays put; scale grows from it
 	private String resizingId = null;
-	private double resizeElemX;
-	private int resizeBaseW;
-	private static final int HANDLE = 8;
+	private double resizeFixedX, resizeFixedY;
+	private int resizeBaseW, resizeBaseH;
 
-	private static final int BTN_W = 132, BTN_H = 26;
+	private static final int HANDLE_VIS = 5; // drawn square side (small, tucked into the corner)
+	private static final int HANDLE_HIT = 6; // extra click tolerance around it
+
+	private static final int BTN_W = 132, BTN_H = 28;
 
 	public HudEditorScreen() {
 		this(false);
@@ -52,6 +54,22 @@ public class HudEditorScreen extends Screen {
 		return false;
 	}
 
+	// Preview mode spans the whole screen lifetime — render, measure, AND
+	// input hit-testing must all see the same (possibly sample-content) box,
+	// otherwise elements like Potions resize against a different size than
+	// they display. That mismatch was exactly the "can't resize potions" bug.
+	@Override
+	protected void init() {
+		super.init();
+		HudElements.editorPreview = true;
+	}
+
+	@Override
+	public void removed() {
+		HudElements.editorPreview = false;
+		super.removed();
+	}
+
 	@Override
 	public void renderBackground(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
 		// Intentionally nothing: the game stays perfectly visible.
@@ -62,7 +80,19 @@ public class HudEditorScreen extends Screen {
 	}
 
 	private int btnY() {
-		return height - BTN_H - 24;
+		return (height - BTN_H) / 2; // perfectly centered in the screen
+	}
+
+	// The element is anchored to one screen corner; that corner stays fixed and
+	// the box grows away from it. The resize handle therefore lives on the FREE
+	// corner (diagonally opposite): freeLeft when right-anchored, freeTop when
+	// bottom-anchored.
+	private static boolean freeLeft(int anchor) {
+		return anchor % 3 == 2;
+	}
+
+	private static boolean freeTop(int anchor) {
+		return anchor / 3 == 2;
 	}
 
 	@Override
@@ -72,6 +102,11 @@ public class HudEditorScreen extends Screen {
 		String hovered = null;
 
 		for (HudElements.Element e : HudElements.ALL) {
+			// only enabled mods appear here; positions/settings persist in the
+			// config regardless, so a disabled mod comes back exactly where it was
+			if (!Mods.on(e.modId())) {
+				continue;
+			}
 			HudPos pos = e.pos();
 			int[] size = e.measure().apply(mc);
 			double w = size[0] * pos.scale, h = size[1] * pos.scale;
@@ -84,17 +119,17 @@ public class HudEditorScreen extends Screen {
 			}
 			boolean active = hover || e.id().equals(selectedId) || e.id().equals(draggingId) || e.id().equals(resizingId);
 
-			// element's own backing, then a dark translucent hover highlight the
-			// content stays legible through
 			HudElements.drawBacking(g, (int) x, (int) y, (int) w, (int) h, pos.bg);
+			// dark translucent hover highlight — content stays legible through it
 			if (active) {
-				g.fill((int) x - 2, (int) y - 2, (int) (x + w) + 2, (int) (y + h) + 2, 0x48303030);
+				g.fill((int) x - 4, (int) y - 4, (int) (x + w) + 4, (int) (y + h) + 4, 0x40303030);
 			}
 
-			// box around every element; bold when hovered/selected
+			// SQUARE outline on the backing bounds — thin (1px) always; hover
+			// state is communicated by brightness, not thickness
 			float hv = OriginUi.anim("hud:" + e.id(), active, 120.0);
-			int frame = OriginTheme.lerpColor(OriginTheme.STROKE_STRONG, 0xE6FFFFFF, hv);
-			OriginUi.panel(g, (int) x - 3, (int) y - 3, (int) w + 6, (int) h + 6, 5, 0, frame);
+			int edge = OriginTheme.lerpColor(OriginTheme.STROKE_STRONG, 0xF0FFFFFF, hv);
+			squareOutline(g, (int) x - 4, (int) y - 4, (int) (x + w) + 4, (int) (y + h) + 4, 1, edge);
 
 			var p = g.pose();
 			p.pushPose();
@@ -102,20 +137,23 @@ public class HudEditorScreen extends Screen {
 			p.scale((float) pos.scale, (float) pos.scale, 1f);
 			try {
 				e.renderer().render(g, mc, size[0], size[1]);
-			} catch (Throwable t) {
+			} catch (Throwable ignored) {
 				// keep editing even if one element can't preview
 			}
 			p.popPose();
 
-			// the single top-right resize handle
+			// small resize handle tucked neatly into the FREE outline corner
 			if (active) {
-				int hxp = (int) (x + w), hyp = (int) y;
-				boolean hh = Math.abs(mouseX - hxp) <= HANDLE && Math.abs(mouseY - hyp) <= HANDLE;
-				g.fill(hxp - HANDLE / 2 - 1, hyp - HANDLE / 2 - 1, hxp + HANDLE / 2 + 1, hyp + HANDLE / 2 + 1, 0xB0000000);
-				g.fill(hxp - HANDLE / 2, hyp - HANDLE / 2, hxp + HANDLE / 2, hyp + HANDLE / 2, hh ? 0xFFFFFFFF : 0xE0E0E0E0);
+				int ox0 = (int) x - 4, oy0 = (int) y - 4, ox1 = (int) (x + w) + 4, oy1 = (int) (y + h) + 4;
+				int hx0 = freeLeft(pos.anchor) ? ox0 : ox1 - HANDLE_VIS;
+				int hy0 = freeTop(pos.anchor) ? oy0 : oy1 - HANDLE_VIS;
+				boolean hh = mouseX >= hx0 - HANDLE_HIT && mouseX <= hx0 + HANDLE_VIS + HANDLE_HIT
+						&& mouseY >= hy0 - HANDLE_HIT && mouseY <= hy0 + HANDLE_VIS + HANDLE_HIT;
+				g.fill(hx0 - 1, hy0 - 1, hx0 + HANDLE_VIS + 1, hy0 + HANDLE_VIS + 1, 0xC0000000);
+				g.fill(hx0, hy0, hx0 + HANDLE_VIS, hy0 + HANDLE_VIS, hh ? 0xFFFFFFFF : 0xF0F0F0F0);
 			}
 
-			// center alignment guides: drawn only, never snapped to
+			// center alignment guides while dragging (drawn only, never snapped)
 			if (e.id().equals(draggingId)) {
 				double ccx = x + w / 2, ccy = y + h / 2;
 				if (Math.abs(ccx - width / 2.0) < 5) {
@@ -129,22 +167,28 @@ public class HudEditorScreen extends Screen {
 		this.hoveredId = hovered;
 
 		if (quick) {
-			// ORIGIN logo — same mark + wordmark as the launcher's corner
 			int cx = width / 2;
-			int ly = 26;
-			OriginUi.glow(g, cx, ly, 90, 0.14f * in);
-			OriginUi.mark(g, cx - 28, ly, 16, in);
-			g.drawString(font, "ORIGIN", cx - 12, ly - 4, withAlpha(OriginTheme.TEXT, in), false);
+			int bt = btnY();
+			// just the mark, sitting a little above the centered button
+			OriginUi.glow(g, cx, bt - 40, 110, 0.16f * in);
+			OriginUi.logo(g, cx, bt - 40, 56, in);
 
-			// dark MODS button, same chip language as the menu
-			boolean hoverBtn = in(mouseX, mouseY, btnX(), btnY(), btnX() + BTN_W, btnY() + BTN_H);
+			// dark, clean MODS button — perfectly centered in the screen
+			boolean hoverBtn = in(mouseX, mouseY, btnX(), bt, btnX() + BTN_W, bt + BTN_H);
 			float hb = OriginUi.anim("quick:mods", hoverBtn, 120.0);
-			OriginUi.panel(g, btnX(), btnY() - Math.round(hb), BTN_W, BTN_H, 9,
+			OriginUi.panel(g, btnX(), bt - Math.round(hb), BTN_W, BTN_H, 9,
 					withAlpha(hoverBtn ? 0xE6181818 : 0xD0101010, in),
 					withAlpha(hoverBtn ? 0x66FFFFFF : OriginTheme.STROKE_STRONG, in));
-			g.drawString(font, "MODS", cx - font.width("MODS") / 2, btnY() + 9 - Math.round(hb),
+			g.drawString(font, "MODS", cx - font.width("MODS") / 2, bt + 10 - Math.round(hb),
 					withAlpha(OriginTheme.TEXT, in), false);
 		}
+	}
+
+	private static void squareOutline(GuiGraphics g, int x0, int y0, int x1, int y1, int t, int color) {
+		g.fill(x0, y0, x1, y0 + t, color);          // top
+		g.fill(x0, y1 - t, x1, y1, color);          // bottom
+		g.fill(x0, y0, x0 + t, y1, color);          // left
+		g.fill(x1 - t, y0, x1, y1, color);          // right
 	}
 
 	@Override
@@ -160,16 +204,26 @@ public class HudEditorScreen extends Screen {
 		Minecraft mc = Minecraft.getInstance();
 		for (int i = HudElements.ALL.size() - 1; i >= 0; i--) {
 			var e = HudElements.ALL.get(i);
+			if (!Mods.on(e.modId())) {
+				continue;
+			}
 			HudPos pos = e.pos();
 			int[] size = e.measure().apply(mc);
 			double w = size[0] * pos.scale, h = size[1] * pos.scale;
 			double x = pos.x(width, w), y = pos.y(height, h);
-			// top-right handle first, so it wins over the body
-			if (Math.abs(mx - (x + w)) <= HANDLE && Math.abs(my - y) <= HANDLE) {
+			int ox0 = (int) x - 4, oy0 = (int) y - 4, ox1 = (int) (x + w) + 4, oy1 = (int) (y + h) + 4;
+			int hx0 = freeLeft(pos.anchor) ? ox0 : ox1 - HANDLE_VIS;
+			int hy0 = freeTop(pos.anchor) ? oy0 : oy1 - HANDLE_VIS;
+			// free-corner handle first, so it wins over the body
+			if (mx >= hx0 - HANDLE_HIT && mx <= hx0 + HANDLE_VIS + HANDLE_HIT
+					&& my >= hy0 - HANDLE_HIT && my <= hy0 + HANDLE_VIS + HANDLE_HIT) {
 				selectedId = e.id();
 				resizingId = e.id();
-				resizeElemX = x;
+				// anchored (fixed) element corner = opposite the free corner
+				resizeFixedX = freeLeft(pos.anchor) ? x + w : x;
+				resizeFixedY = freeTop(pos.anchor) ? y + h : y;
 				resizeBaseW = size[0];
+				resizeBaseH = size[1];
 				return true;
 			}
 			if (mx >= x - 4 && mx < x + w + 4 && my >= y - 4 && my < y + h + 4) {
@@ -179,6 +233,8 @@ public class HudEditorScreen extends Screen {
 				dragOffY = my - y;
 				dragX = x;
 				dragY = y;
+				dragW = w;
+				dragH = h;
 				return true;
 			}
 		}
@@ -190,16 +246,26 @@ public class HudEditorScreen extends Screen {
 	public boolean mouseDragged(double mx, double my, int button, double dx, double dy) {
 		if (resizingId != null) {
 			var e = byId(resizingId);
-			if (e != null && resizeBaseW > 0) {
+			if (e != null && resizeBaseW > 0 && resizeBaseH > 0) {
+				// scale from the anchored corner: how far the cursor is from it,
+				// relative to the element's base size (dominant axis wins)
+				double sx = Math.abs(mx - resizeFixedX) / resizeBaseW;
+				double sy = Math.abs(my - resizeFixedY) / resizeBaseH;
+				double s = Math.max(0.5, Math.min(2.5, Math.max(sx, sy)));
+				// one HudPos instance: pos() loads a fresh object each call, so
+				// setting scale and saving must use the SAME reference.
 				HudPos pos = e.pos();
-				pos.scale = Math.max(0.5, Math.min(2.5, (mx - resizeElemX) / resizeBaseW));
+				pos.scale = s;
 				pos.save(e.id());
 			}
 			return true;
 		}
 		if (draggingId != null) {
-			dragX = mx - dragOffX;
-			dragY = my - dragOffY;
+			// free placement (elements may overlap and hang off the edge), but a
+			// 12px sliver always stays on screen so nothing can be lost off-map
+			int keep = 12;
+			dragX = Math.max(keep - dragW, Math.min(width - keep, mx - dragOffX));
+			dragY = Math.max(keep - dragH, Math.min(height - keep, my - dragOffY));
 			return true;
 		}
 		return super.mouseDragged(mx, my, button, dx, dy);

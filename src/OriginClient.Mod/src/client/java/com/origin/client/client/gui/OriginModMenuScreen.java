@@ -99,6 +99,14 @@ public class OriginModMenuScreen extends Screen {
 	private boolean searchFocused = false;
 	private double haloX = -1, haloY = -1;
 
+	// transparent-menu mode: no panel backing behind the content, so every
+	// surface switches to dark translucent fills + text shadows for contrast
+	private boolean clear = false;
+
+	private int chipFill(boolean hover) {
+		return clear ? (hover ? 0xE0181818 : 0xC8101010) : (hover ? 0x2EFFFFFF : 0x16FFFFFF);
+	}
+
 	// top-bar tab selection
 	enum Tab { MODS, SETTINGS }
 
@@ -186,7 +194,8 @@ public class OriginModMenuScreen extends Screen {
 		pose.translate(0, (1.0 - p) * (height - py()), 0);
 
 		// backing (toggleable to invisible; content panels stay)
-		if (Mods.metaBool("panelBacking", true)) {
+		clear = !Mods.metaBool("panelBacking", true);
+		if (!clear) {
 			OriginUi.panel(g, px(), py(), pw(), ph(), 10, 0xC80E0E0E, OriginTheme.STROKE);
 		}
 
@@ -231,9 +240,9 @@ public class OriginModMenuScreen extends Screen {
 	private void renderGrid(GuiGraphics g, int mouseX, int mouseY, long now, float alpha) {
 		int hy = py() + 10;
 
-		// ORIGIN logo (top-left): tri-ring mark + wordmark
-		OriginUi.mark(g, px() + 22, hy + 10, 15, alpha);
-		g.drawString(font, "ORIGIN", px() + 38, hy + 5, withAlpha(OriginTheme.TEXT, alpha), false);
+		// ORIGIN logo (top-left): the real baked nav-mark + wordmark
+		OriginUi.logo(g, px() + 22, hy + 10, 22, alpha);
+		g.drawString(font, "Origin", px() + 38, hy + 5, withAlpha(OriginTheme.TEXT, alpha), false);
 
 		// MODS / SETTINGS tabs (centered)
 		renderTabs(g, mouseX, mouseY, hy, alpha);
@@ -241,9 +250,9 @@ public class OriginModMenuScreen extends Screen {
 		// right chips: panel-backing visibility + HUD Editor
 		int vbX = px() + pw() - 12 - 24;
 		boolean vbHover = in(mouseX, mouseY, vbX, hy, vbX + 24, hy + 20);
-		boolean backing = Mods.metaBool("panelBacking", true);
+		boolean backing = !clear;
 		OriginUi.panel(g, vbX, hy, 24, 20, 8,
-				withAlpha(vbHover ? 0x2EFFFFFF : 0x16FFFFFF, alpha),
+				withAlpha(chipFill(vbHover), alpha),
 				withAlpha(vbHover ? OriginTheme.STROKE_STRONG : OriginTheme.STROKE, alpha));
 		OriginUi.icon(g, "blockoverlay", vbX + 4, hy + 2, 16, withAlpha(backing ? OriginTheme.TEXT : OriginTheme.MUTED, alpha));
 
@@ -251,9 +260,9 @@ public class OriginModMenuScreen extends Screen {
 		int hbX = vbX - 6 - hbW;
 		boolean hbHover = in(mouseX, mouseY, hbX, hy, hbX + hbW, hy + 20);
 		OriginUi.panel(g, hbX, hy, hbW, 20, 8,
-				withAlpha(hbHover ? 0x2EFFFFFF : 0x16FFFFFF, alpha),
+				withAlpha(chipFill(hbHover), alpha),
 				withAlpha(hbHover ? OriginTheme.STROKE_STRONG : OriginTheme.STROKE, alpha));
-		g.drawString(font, "HUD Editor", hbX + 8, hy + 6, withAlpha(OriginTheme.TEXT, alpha), false);
+		g.drawString(font, "HUD Editor", hbX + 8, hy + 6, withAlpha(OriginTheme.TEXT, alpha), clear);
 
 		if (tab == Tab.SETTINGS) {
 			renderSettingsTab(g, mouseX, mouseY, now, alpha);
@@ -266,13 +275,14 @@ public class OriginModMenuScreen extends Screen {
 		int sw = Math.min(300, pw() - 24);
 		int sx = px() + (pw() - sw) / 2;
 		OriginUi.panel(g, sx, sy, sw, 22, 8,
-				withAlpha(searchFocused ? 0x80000000 : 0x66000000, alpha),
+				withAlpha(clear ? 0xC8101010 : (searchFocused ? 0x80000000 : 0x66000000), alpha),
 				withAlpha(searchFocused ? OriginTheme.STROKE_STRONG : OriginTheme.STROKE, alpha));
-		OriginUi.icon(g, "zoom", sx + 5, sy + 3, 15, withAlpha(OriginTheme.MUTED, alpha));
+		OriginUi.icon(g, "zoom", sx + 5, sy + 3, 15, withAlpha(clear ? OriginTheme.TEXT_DIM : OriginTheme.MUTED, alpha));
 		if (search.isEmpty() && !searchFocused) {
-			g.drawString(font, "Search mods", sx + 24, sy + 7, withAlpha(OriginTheme.MUTED, alpha), false);
+			g.drawString(font, "Search mods", sx + 24, sy + 7,
+					withAlpha(clear ? OriginTheme.TEXT_DIM : OriginTheme.MUTED, alpha), clear);
 		} else {
-			g.drawString(font, search, sx + 24, sy + 7, withAlpha(OriginTheme.TEXT, alpha), false);
+			g.drawString(font, search, sx + 24, sy + 7, withAlpha(OriginTheme.TEXT, alpha), clear);
 		}
 		if (searchFocused) {
 			float pulse = 0.35f + 0.65f * (float) Math.abs(Math.sin(now / 350.0));
@@ -292,24 +302,27 @@ public class OriginModMenuScreen extends Screen {
 		g.disableScissor();
 	}
 
+	// Tabs sit left-anchored right after the logo — never centered, so they can
+	// never collide with the right-aligned chips at small panel widths.
+	private int tabStartX() {
+		return px() + 38 + font.width("Origin") + 16;
+	}
+
 	private void renderTabs(GuiGraphics g, int mx, int my, int hy, float alpha) {
 		String[] labels = {"MODS", "SETTINGS"};
 		Tab[] tabs = {Tab.MODS, Tab.SETTINGS};
-		int gap2 = 10, total = -gap2;
-		for (String l : labels) {
-			total += font.width(l) + 28 + gap2;
-		}
-		int tx = px() + pw() / 2 - total / 2;
+		int tx = tabStartX();
 		for (int i = 0; i < labels.length; i++) {
 			int w = font.width(labels[i]) + 28;
 			boolean active = tab == tabs[i];
 			boolean hover = in(mx, my, tx, hy, tx + w, hy + 20);
-			OriginUi.panel(g, tx, hy, w, 20, 8,
-					withAlpha(active ? 0x2EFFFFFF : (hover ? 0x1EFFFFFF : 0x12FFFFFF), alpha),
+			int fill = clear ? (active ? 0xE0181818 : (hover ? 0xD0141414 : 0xC0101010))
+					: (active ? 0x2EFFFFFF : (hover ? 0x1EFFFFFF : 0x12FFFFFF));
+			OriginUi.panel(g, tx, hy, w, 20, 8, withAlpha(fill, alpha),
 					withAlpha(active ? 0x55FFFFFF : OriginTheme.STROKE, alpha));
 			g.drawString(font, labels[i], tx + 14, hy + 6,
-					withAlpha(active ? OriginTheme.TEXT : OriginTheme.TEXT_DIM, alpha), false);
-			tx += w + gap2;
+					withAlpha(active ? OriginTheme.TEXT : OriginTheme.TEXT_DIM, alpha), clear);
+			tx += w + 8;
 		}
 	}
 
@@ -320,7 +333,7 @@ public class OriginModMenuScreen extends Screen {
 		int cx = r[0], cy = r[1] - Math.round(hv);
 
 		OriginUi.panel(g, cx, cy, cellW, cellH, 10,
-				withAlpha(hover ? 0x24FFFFFF : 0x14FFFFFF, alpha),
+				withAlpha(clear ? (hover ? 0xD8141414 : 0xC8101010) : (hover ? 0x24FFFFFF : 0x14FFFFFF), alpha),
 				withAlpha(hover ? OriginTheme.STROKE_STRONG : OriginTheme.STROKE, alpha));
 
 		// icon stays fully white in every state — only the toggle button below
@@ -331,14 +344,16 @@ public class OriginModMenuScreen extends Screen {
 
 		String name = font.width(mod.name()) > cellW - 12
 				? font.plainSubstrByWidth(mod.name(), cellW - 16) + "…" : mod.name();
-		g.drawString(font, name, cx + (cellW - font.width(name)) / 2, cy + 47, withAlpha(OriginTheme.TEXT, alpha), false);
+		g.drawString(font, name, cx + (cellW - font.width(name)) / 2, cy + 47, withAlpha(OriginTheme.TEXT, alpha), clear);
 
 		int bw = cellW - 24, bx = cx + 12;
 		int oby = cy + 61;
 		boolean oHover = in(mx, my, bx, oby, bx + bw, oby + 15);
 		OriginUi.panel(g, bx, oby, bw, 15, 7,
-				withAlpha(oHover ? 0x2EFFFFFF : 0x18FFFFFF, alpha), withAlpha(OriginTheme.STROKE, alpha));
-		g.drawString(font, "OPTIONS", bx + (bw - font.width("OPTIONS")) / 2, oby + 4, withAlpha(OriginTheme.TEXT_DIM, alpha), false);
+				withAlpha(clear ? (oHover ? 0xE0202020 : 0xD0181818) : (oHover ? 0x2EFFFFFF : 0x18FFFFFF), alpha),
+				withAlpha(OriginTheme.STROKE, alpha));
+		g.drawString(font, "OPTIONS", bx + (bw - font.width("OPTIONS")) / 2, oby + 4,
+				withAlpha(clear ? OriginTheme.TEXT : OriginTheme.TEXT_DIM, alpha), clear);
 
 		int tby = cy + 80;
 		String label = on ? "ENABLED" : "DISABLED";
@@ -519,8 +534,10 @@ public class OriginModMenuScreen extends Screen {
 	}
 
 	private void renderRow(GuiGraphics g, String modId, ModOption o, int x0, int x1, int y, int mx, int my, float alpha) {
-		OriginUi.panel(g, x0, y, x1 - x0, 26, 8, withAlpha(0x10FFFFFF, alpha), withAlpha(OriginTheme.STROKE, alpha));
-		g.drawString(font, o.label, x0 + 10, y + 9, withAlpha(OriginTheme.TEXT_DIM, alpha), false);
+		OriginUi.panel(g, x0, y, x1 - x0, 26, 8,
+				withAlpha(clear ? 0xC0101010 : 0x10FFFFFF, alpha), withAlpha(OriginTheme.STROKE, alpha));
+		g.drawString(font, o.label, x0 + 10, y + 9,
+				withAlpha(clear ? OriginTheme.TEXT : OriginTheme.TEXT_DIM, alpha), clear);
 
 		switch (o.kind) {
 			case TOGGLE -> OriginUi.switchAt(g, modId + ":" + o.key, x1 - 40, y + 5, 30, Mods.bool(modId, o.key), true);
@@ -650,18 +667,14 @@ public class OriginModMenuScreen extends Screen {
 	private boolean clickTabs(double mx, double my, int hy) {
 		Tab[] tabs = {Tab.MODS, Tab.SETTINGS};
 		String[] labels = {"MODS", "SETTINGS"};
-		int gap2 = 10, total = -gap2;
-		for (String l : labels) {
-			total += font.width(l) + 28 + gap2;
-		}
-		int tx = px() + pw() / 2 - total / 2;
+		int tx = tabStartX();
 		for (int i = 0; i < labels.length; i++) {
 			int w = font.width(labels[i]) + 28;
 			if (in(mx, my, tx, hy, tx + w, hy + 20)) {
 				tab = tabs[i];
 				return true;
 			}
-			tx += w + gap2;
+			tx += w + 8;
 		}
 		return false;
 	}

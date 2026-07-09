@@ -419,6 +419,12 @@ public final class Mods {
 		ModsConfig.save();
 	}
 
+	/** Whether this option exists in the mod's schema at all — lets consumers
+	 *  distinguish "off" from "not an option" (per-particle rows, etc.). */
+	public static boolean hasOption(String modId, String key) {
+		return opt(modId, key) != null;
+	}
+
 	public static boolean bool(String modId, String key) {
 		var v = raw(modId).get(key);
 		if (v != null) {

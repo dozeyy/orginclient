@@ -17,7 +17,9 @@ public class LevelTimeMixin {
 	@Inject(method = "getDayTime", at = @At("RETURN"), cancellable = true)
 	private void originclient$lockClientTime(CallbackInfoReturnable<Long> cir) {
 		if (((Level) (Object) this).isClientSide && Mods.on("timechanger")) {
-			cir.setReturnValue((long) Mods.num("timechanger", "time"));
+			// timeOverride folds in the slider, Use Real Time, the +/- keys,
+			// and Time Passage — resolved once per tick in OriginClientMod.
+			cir.setReturnValue((long) com.origin.client.client.OriginClientMod.timeOverride);
 		}
 	}
 }

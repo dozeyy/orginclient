@@ -61,6 +61,18 @@ public final class OriginColorPicker {
 		return Mods.bool(modId, key + "#chroma");
 	}
 
+	/** The color a consumer should draw RIGHT NOW: the picked color, or the
+	 *  chroma-cycled hue (at the picked alpha) when chroma is on. */
+	public static int liveColor(String modId, String key) {
+		int base = Mods.color(modId, key);
+		if (!chromaOn(modId, key)) {
+			return base;
+		}
+		double speed = chromaSpeed(modId, key); // 1..100
+		float hue = (float) ((System.currentTimeMillis() * speed * 0.004) % 360.0);
+		return hsvToArgb(hue, 1f, 1f, (base >>> 24) & 0xFF);
+	}
+
 	public static double chromaSpeed(String modId, String key) {
 		double sp = Mods.num(modId, key + "#speed");
 		return sp <= 0 ? 40 : sp;

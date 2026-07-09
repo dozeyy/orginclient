@@ -15,8 +15,14 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(Gui.class)
 public class GuiScoreboardMixin {
 
-	@Inject(method = "displayScoreboardSidebar", at = @At("HEAD"))
+	@Inject(method = "displayScoreboardSidebar", at = @At("HEAD"), cancellable = true)
 	private void originclient$scaleSidebarPush(GuiGraphics guiGraphics, Objective objective, CallbackInfo ci) {
+		// Hide Scoreboard cancels BEFORE the push so the RETURN pop (which a
+		// cancelled method never reaches) can't unbalance the pose stack.
+		if (Mods.on("scoreboard") && Mods.bool("scoreboard", "hideScoreboard")) {
+			ci.cancel();
+			return;
+		}
 		var pose = guiGraphics.pose();
 		pose.pushPose();
 		if (Mods.on("scoreboard")) {

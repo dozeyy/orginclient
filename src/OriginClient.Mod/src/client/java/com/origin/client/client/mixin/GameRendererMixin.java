@@ -15,9 +15,11 @@ public class GameRendererMixin {
 	private void originclient$applyZoom(Camera camera, float partialTick, boolean usePerspective, CallbackInfoReturnable<Double> cir) {
 		// Zoom key comes from the mod-menu keybind (raw GLFW code), with the
 		// vanilla-controls binding still honored as a fallback.
-		if (com.origin.client.client.mods.Mods.on("zoom")
-				&& (OriginClientMod.isRawKeyDown(com.origin.client.client.mods.Mods.keyCode("zoom", "key"))
-					|| OriginKeyBindings.zoom.isDown())) {
+		boolean held = OriginClientMod.isRawKeyDown(com.origin.client.client.mods.Mods.keyCode("zoom", "key"))
+				|| OriginKeyBindings.zoom.isDown();
+		boolean active = com.origin.client.client.mods.Mods.bool("zoom", "toggleZoom")
+				? OriginClientMod.zoomToggled : held;
+		if (com.origin.client.client.mods.Mods.on("zoom") && active) {
 			cir.setReturnValue(com.origin.client.client.mods.Mods.num("zoom", "fov"));
 		}
 	}

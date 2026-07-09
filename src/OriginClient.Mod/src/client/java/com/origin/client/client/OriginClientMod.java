@@ -27,6 +27,16 @@ public class OriginClientMod implements ClientModInitializer {
 	private boolean hitboxesApplied = false;
 	private boolean chunkKeyWasDown = false;
 	private boolean sprintKeyWasDown = false, sneakKeyWasDown = false;
+	private boolean scoreboardKeyWasDown = false;
+	private boolean fullbrightKeyWasDown = false;
+	private boolean zoomKeyWasDown = false;
+	private boolean timeIncWasDown = false, timeDecWasDown = false;
+	private double timePassageAccum = 0;
+
+	// Live time-changer output, read by LevelTimeMixin every frame.
+	public static volatile double timeOverride = 6000;
+	// Toggle-mode zoom latch, read by GameRendererMixin.
+	public static volatile boolean zoomToggled = false;
 
 	@Override
 	public void onInitializeClient() {
@@ -69,12 +79,45 @@ public class OriginClientMod implements ClientModInitializer {
 		applyFullbright(client);
 		applyChat(client);
 		applyHitboxes(client);
+		applyWeather(client);
+		applyTimeChanger(client);
 		MotionBlur.tick(client);
 
 		LocalPlayer player = client.player;
 		if (player == null) {
 			return;
 		}
+
+		// Scoreboard hide toggle keybind (+ optional action-bar message)
+		boolean sbDown = client.screen == null && isRawKeyDown(Mods.keyCode("scoreboard", "toggleKey"));
+		if (sbDown && !scoreboardKeyWasDown) {
+			boolean hidden = !Mods.bool("scoreboard", "hideScoreboard");
+			Mods.set("scoreboard", "hideScoreboard", hidden);
+			if (Mods.bool("scoreboard", "displayToggleMessage")) {
+				player.displayClientMessage(net.minecraft.network.chat.Component.literal(
+						hidden ? "Scoreboard hidden" : "Scoreboard shown"), true);
+			}
+		}
+		scoreboardKeyWasDown = sbDown;
+
+		// Full Bright toggle keybind flips the mod's own sub-toggle
+		boolean fbDown = client.screen == null && isRawKeyDown(Mods.keyCode("fullbright", "key"));
+		if (fbDown && !fullbrightKeyWasDown) {
+			Mods.set("fullbright", "fullBright", !Mods.bool("fullbright", "fullBright"));
+		}
+		fullbrightKeyWasDown = fbDown;
+
+		// Toggle Zoom: in toggle mode the key latches instead of holding
+		boolean zDown = client.screen == null
+				&& (isRawKeyDown(Mods.keyCode("zoom", "key")) || OriginKeyBindings.zoom.isDown());
+		if (Mods.on("zoom") && Mods.bool("zoom", "toggleZoom")) {
+			if (zDown && !zoomKeyWasDown) {
+				zoomToggled = !zoomToggled;
+			}
+		} else {
+			zoomToggled = false;
+		}
+		zoomKeyWasDown = zDown;
 
 		// Chunk borders toggle keybind (edge-triggered, ignored in screens).
 		int cbKey = Mods.keyCode("chunkborders", "key");
@@ -142,11 +185,59 @@ public class OriginClientMod implements ClientModInitializer {
 		freelookWasDown = keyDown;
 	}
 
+	// Weather Changer: forces client-side rain/thunder levels per the mode.
+	// Snow mode renders as snowfall in cold biomes (that's how MC does snow);
+	// Clear additionally skips the precipitation render pass entirely
+	// (LevelRendererMixin). Server weather/gameplay is never touched.
+	private void applyWeather(Minecraft client) {
+		if (!Mods.on("weather") || client.level == null) {
+			return;
+		}
+		String mode = Mods.mode("weather", "mode");
+		client.level.setRainLevel(mode.equals("Clear") ? 0f : 1f);
+		boolean thunder = mode.equals("Thunder") || Mods.bool("weather", "thunder");
+		client.level.setThunderLevel(thunder ? 1f : 0f);
+	}
+
+	// Time Changer: slider (live), Use Real Current Time, +/- keybinds, and
+	// Time Passage all resolve into one timeOverride that LevelTimeMixin reads.
+	private void applyTimeChanger(Minecraft client) {
+		if (!Mods.on("timechanger")) {
+			return;
+		}
+		double base = Mods.num("timechanger", "time");
+		if (Mods.bool("timechanger", "useRealTime")) {
+			var now = java.time.LocalTime.now();
+			// noon IRL = noon in-game: 06:00 IRL maps to tick 0 (sunrise)
+			base = ((now.getHour() * 1000.0 + now.getMinute() * 1000.0 / 60.0) - 6000 + 24000) % 24000;
+		}
+		boolean inc = client.screen == null && isRawKeyDown(Mods.keyCode("timechanger", "increaseKey"));
+		boolean dec = client.screen == null && isRawKeyDown(Mods.keyCode("timechanger", "decreaseKey"));
+		if (inc && !timeIncWasDown) {
+			base = (base + 500) % 24000;
+			Mods.set("timechanger", "time", base);
+		}
+		if (dec && !timeDecWasDown) {
+			base = (base - 500 + 24000) % 24000;
+			Mods.set("timechanger", "time", base);
+		}
+		timeIncWasDown = inc;
+		timeDecWasDown = dec;
+		if (Mods.bool("timechanger", "timePassage")) {
+			// speed 1.0 = vanilla day speed (+1 tick per tick), kept transient
+			// so it never spams config saves
+			timePassageAccum = (timePassageAccum + Mods.num("timechanger", "speed")) % 24000;
+		} else {
+			timePassageAccum = 0;
+		}
+		timeOverride = (base + timePassageAccum) % 24000;
+	}
+
 	// FullBright: pushes vanilla gamma to the configured level (validator
 	// permitting — flagged for live check) and restores the player's own
-	// value on disable.
+	// value on disable. Gated on the mod switch AND its Full Bright sub-toggle.
 	private void applyFullbright(Minecraft client) {
-		boolean on = Mods.on("fullbright");
+		boolean on = Mods.on("fullbright") && Mods.bool("fullbright", "fullBright");
 		double target = Mods.num("fullbright", "gamma");
 		if (on) {
 			if (!gammaApplied) {
