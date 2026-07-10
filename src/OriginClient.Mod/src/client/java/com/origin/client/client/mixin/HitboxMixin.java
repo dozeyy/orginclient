@@ -61,6 +61,13 @@ public class HitboxMixin {
 			if (Mods.bool("hitboxes", "showDamaged") && ((net.minecraft.world.entity.LivingEntity) entity).hurtTime > 0) {
 				col = 0xFFE05555;
 			}
+			// Show Hittable Color: green on the entity your crosshair is on (the
+			// one you'd hit if you attacked right now). Wins over the damaged tint.
+			if (Mods.bool("hitboxes", "showHittable")
+					&& Minecraft.getInstance().hitResult instanceof net.minecraft.world.phys.EntityHitResult ehr
+					&& ehr.getEntity() == entity) {
+				col = 0xFF7FA98F;
+			}
 			r = ((col >> 16) & 0xFF) / 255f;
 			g = ((col >> 8) & 0xFF) / 255f;
 			b = (col & 0xFF) / 255f;

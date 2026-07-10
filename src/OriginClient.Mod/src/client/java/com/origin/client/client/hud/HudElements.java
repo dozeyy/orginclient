@@ -487,7 +487,12 @@ public final class HudElements {
 					default -> x + 19; // Right
 				};
 				int ty = pos2.equals("Below") ? y + 17 : y + 5;
-				g.drawString(mc.font, txt, tx, ty, textColor, shadow);
+				// Damage Color: below the threshold (Percent <25% remaining, or
+					// Value <50 durability left) the durability text switches colour.
+					boolean armorLow = Mods.mode("armorhud", "damageThreshold").equals("Value")
+							? remaining <= 50 : remaining * 100.0 / stack.getMaxDamage() <= 25.0;
+					g.drawString(mc.font, txt, tx, ty,
+							armorLow ? OriginColorPicker.liveColor("armorhud", "damageColor") : textColor, shadow);
 			}
 			if (vertical) {
 				y += 19;

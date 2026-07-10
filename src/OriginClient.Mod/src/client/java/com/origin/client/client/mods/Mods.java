@@ -124,7 +124,6 @@ public final class Mods {
 				ModOption.toggle("rightClick", "Right Click CPS", false),
 				ModOption.toggle("showText", "Show CPS Text", true),
 				ModOption.toggle("reverseText", "Reverse Text", false),
-				ModOption.toggle("ignoreCancelled", "Ignore Cancelled Clicks", false).tip("Don't count clicks that didn't register a hit."),
 				ModOption.toggle("textShadow", "Text Shadow", true),
 				ModOption.toggle("showBackground", "Show Background", true),
 				ModOption.header("Color"),
@@ -150,16 +149,16 @@ public final class Mods {
 				ModOption.slider("sensitivity", "Zoomed Sensitivity", 0.1, 2.0, 0.05, 1.0, "%.2fx"));
 
 		add("armorhud", "Armor Status", "Armor pieces and durability.", false,
-				ModOption.dropdown("listMode", "List Mode", "Horizontal", "Vertical"),
-				ModOption.dropdown("durabilityPos", "Durability Position", "Right", "Left", "Below", "Hidden"),
-				ModOption.toggle("itemCount", "Item Count", true),
+				ModOption.dropdown("listMode", "List Mode", "Horizontal", "Vertical").tip("Lay the armor pieces out in a row or a column."),
+				ModOption.dropdown("durabilityPos", "Durability Position", "Right", "Left", "Below", "Hidden").tip("Where the durability number sits per piece — Hidden turns it off."),
+				ModOption.toggle("itemCount", "Item Count", true).tip("Show the stack count on held items (e.g. blocks in hand)."),
 				ModOption.toggle("textShadow", "Text Shadow", true),
 				ModOption.toggle("showBackground", "Show Background", true),
-				ModOption.dropdown("damageDisplay", "Damage Display Type", "Value", "Percent"),
-				ModOption.dropdown("damageThreshold", "Damage Threshold Type", "Percent", "Value"),
+				ModOption.dropdown("damageDisplay", "Damage Display Type", "Value", "Percent").tip("Show remaining durability as a raw number or a percentage."),
+				ModOption.dropdown("damageThreshold", "Damage Threshold Type", "Percent", "Value").tip("Whether Damage Color kicks in by percent remaining (<25%) or raw durability left (<50)."),
 				ModOption.header("Color"),
 				ModOption.color("textColor", "Text Color", 0xFFFFFFFF),
-				ModOption.color("damageColor", "Damage Color", 0xFFE05555));
+				ModOption.color("damageColor", "Damage Color", 0xFFE05555).tip("Colour the durability text turns once a piece is low."));
 
 		add("keystrokes", "Key Strokes", "On-screen key display.", false,
 				ModOption.toggle("showClicks", "Show Clicks", true),
@@ -308,15 +307,10 @@ public final class Mods {
 		add("weather", "Weather Changer", "Force a client weather mode.", false,
 				ModOption.dropdown("mode", "Weather Mode", "Clear", "Rain", "Thunder", "Snow"),
 				ModOption.toggle("thunder", "Thunder", false),
-				ModOption.toggle("playThunderSounds", "Play Thunder Sounds", true).under("thunder"),
-				ModOption.slider("lightningFrequency", "Lightning Frequency", 1, 60, 1, 10, "%.0fs").under("thunder"),
-				ModOption.slider("lightningRadius", "Lightning Radius", 8, 128, 8, 48, "%.0f").under("thunder"),
-				ModOption.slider("lightningYOffset", "Lightning Y Offset", -32, 32, 1, 0, "%.0f").under("thunder"));
+				ModOption.toggle("playThunderSounds", "Play Thunder Sounds", true).under("thunder"));
 
 		add("timechanger", "Time Changer", "Set a fixed client time of day.", false,
 				ModOption.slider("time", "Time", 0, 24000, 100, 6000, "%.0f"),
-				ModOption.dropdown("skyMode", "Overworld Sky", "Default", "Clear", "Void"),
-				ModOption.slider("horizonY", "Horizon Y Level", -64, 320, 4, 63, "%.0f"),
 				ModOption.toggle("useRealTime", "Use Real Current Time", false),
 				ModOption.keybind("increaseKey", "Increase Time", GLFW.GLFW_KEY_RIGHT_BRACKET),
 				ModOption.keybind("decreaseKey", "Decrease Time", GLFW.GLFW_KEY_LEFT_BRACKET),
