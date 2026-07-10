@@ -87,5 +87,6 @@ jobs:
           gh release create "launcher-v${{ steps.ver.outputs.version }}"
           OriginLauncher-win-x64.zip
           installer\Output\OriginLauncher-Setup.exe
+          --target ${{ github.sha }}
           --title "Origin Launcher ${{ steps.ver.outputs.version }}"
           --notes "Automated build of ${{ github.sha }}"
