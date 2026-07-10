@@ -9,6 +9,7 @@ public final class OriginFeatures {
     public boolean zoomEnabled = true;
     public boolean freelookEnabled = true;
     public boolean hudInfoEnabled = true;
+    public boolean keystrokesEnabled = false;
     public boolean toggleSprintEnabled = false;
     public boolean toggleSneakEnabled = false;
     public boolean fullbrightEnabled = false;

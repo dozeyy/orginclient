@@ -36,6 +36,7 @@ public class OriginModMenu extends GuiScreen {
         rows.add(new Row("zoom", "Zoom"));
         rows.add(new Row("freelook", "Freelook"));
         rows.add(new Row("hud", "HUD Info"));
+        rows.add(new Row("keystrokes", "Keystrokes"));
         rows.add(new Row("togglesprint", "Toggle Sprint"));
         rows.add(new Row("togglesneak", "Toggle Sneak"));
         rows.add(new Row("fullbright", "Fullbright"));
@@ -111,6 +112,7 @@ public class OriginModMenu extends GuiScreen {
         if ("zoom".equals(id)) return f.zoomEnabled;
         if ("freelook".equals(id)) return f.freelookEnabled;
         if ("hud".equals(id)) return f.hudInfoEnabled;
+        if ("keystrokes".equals(id)) return f.keystrokesEnabled;
         if ("togglesprint".equals(id)) return f.toggleSprintEnabled;
         if ("togglesneak".equals(id)) return f.toggleSneakEnabled;
         if ("fullbright".equals(id)) return f.fullbrightEnabled;
@@ -121,6 +123,7 @@ public class OriginModMenu extends GuiScreen {
         if ("zoom".equals(id)) f.zoomEnabled = v;
         else if ("freelook".equals(id)) f.freelookEnabled = v;
         else if ("hud".equals(id)) f.hudInfoEnabled = v;
+        else if ("keystrokes".equals(id)) f.keystrokesEnabled = v;
         else if ("togglesprint".equals(id)) f.toggleSprintEnabled = v;
         else if ("togglesneak".equals(id)) f.toggleSneakEnabled = v;
         else if ("fullbright".equals(id)) f.fullbrightEnabled = v;
