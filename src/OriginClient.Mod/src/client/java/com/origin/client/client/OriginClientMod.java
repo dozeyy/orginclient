@@ -6,6 +6,7 @@ import com.origin.client.client.mods.ChunkBorderRenderer;
 import com.origin.client.client.mods.MotionBlur;
 import com.origin.client.client.mods.Mods;
 import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
 import net.minecraft.client.Minecraft;
@@ -47,6 +48,13 @@ public class OriginClientMod implements ClientModInitializer {
 	public void onInitializeClient() {
 		OriginKeyBindings.register();
 		ClientTickEvents.END_CLIENT_TICK.register(this::onEndTick);
+		// Single authoritative autosave when the player leaves the game (quit to
+		// desktop / window close). Mod + HUD settings already save eagerly on
+		// every change; this flushes all three stores once on exit so nothing is
+		// ever lost — including vanilla game options, which the mod otherwise
+		// never writes. Per-version isolation is automatic: options.txt and the
+		// config/ dir both live inside this version's own instance folder.
+		ClientLifecycleEvents.CLIENT_STOPPING.register(this::onClientStopping);
 		// Origin's HUD is drawn from GuiHudMixin (Gui.render RETURN, high order)
 		// instead of HudRenderCallback so it always lands on top of any other
 		// mod's HUD — see that mixin for why the callback can't guarantee this.
@@ -99,6 +107,29 @@ public class OriginClientMod implements ClientModInitializer {
 				return true; // fail-soft: let vanilla draw its outline
 			}
 		});
+	}
+
+	// Flush everything to disk once, when Minecraft is shutting down. Each
+	// store is saved in its own try so a failure in one never blocks the
+	// others, and nothing here is allowed to throw into the shutdown path.
+	private void onClientStopping(Minecraft client) {
+		try {
+			Mods.flush();                     // mod settings + HUD positions -> originclient-mods.json
+		} catch (Throwable t) {
+			com.origin.client.OriginClient.LOGGER.warn("Origin: failed to save mod settings on exit", t);
+		}
+		try {
+			OriginConfig.save(FEATURES);      // legacy feature flags -> originclient.json
+		} catch (Throwable t) {
+			com.origin.client.OriginClient.LOGGER.warn("Origin: failed to save feature flags on exit", t);
+		}
+		try {
+			if (client.options != null) {
+				client.options.save();        // vanilla game options -> options.txt
+			}
+		} catch (Throwable t) {
+			com.origin.client.OriginClient.LOGGER.warn("Origin: failed to save game options on exit", t);
+		}
 	}
 
 	/** Raw GLFW key state for the mod-menu's rebindable keys. */

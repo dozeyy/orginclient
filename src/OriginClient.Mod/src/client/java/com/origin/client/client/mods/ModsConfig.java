@@ -10,8 +10,10 @@ import java.io.IOException;
 import java.io.Reader;
 import java.io.Writer;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -63,9 +65,17 @@ public final class ModsConfig {
 			if (hud != null) {
 				for (String id : hud.keySet()) {
 					var arr = hud.getAsJsonArray(id);
-					if (arr != null && arr.size() == 4) {
-						HUD.put(id, new double[]{arr.get(0).getAsDouble(), arr.get(1).getAsDouble(),
-								arr.get(2).getAsDouble(), arr.get(3).getAsDouble()});
+					// save() writes 5 values [anchor, dx, dy, scale, bg]; pre-bg
+					// files have 4. Accept >= 4 and keep EVERY value (so bg
+					// round-trips). The old "== 4" guard silently dropped every
+					// 5-element entry on load, resetting all moved HUD elements to
+					// their defaults on relaunch — the "positions not saved" bug.
+					if (arr != null && arr.size() >= 4) {
+						double[] vals = new double[arr.size()];
+						for (int i = 0; i < arr.size(); i++) {
+							vals[i] = arr.get(i).getAsDouble();
+						}
+						HUD.put(id, vals);
 					}
 				}
 			}
@@ -107,12 +117,27 @@ public final class ModsConfig {
 			}
 			root.add("meta", meta);
 
-			Files.createDirectories(PATH.getParent());
-			try (Writer writer = Files.newBufferedWriter(PATH, StandardCharsets.UTF_8)) {
-				GSON.toJson(root, writer);
-			}
+			writeAtomically(PATH, root);
 		} catch (IOException | RuntimeException e) {
 			com.origin.client.OriginClient.LOGGER.warn("Failed to save originclient-mods.json", e);
+		}
+	}
+
+	// Crash-safe write: serialize to a sibling .tmp, then atomically rename it
+	// over the real file. A hard kill (the launcher can terminate the game,
+	// which also skips the on-exit flush) mid-write can only ever leave a stale
+	// .tmp — the real config keeps its last-good contents instead of being
+	// truncated to garbage and resetting every setting on next load.
+	static void writeAtomically(Path path, JsonObject root) throws IOException {
+		Files.createDirectories(path.getParent());
+		Path tmp = path.resolveSibling(path.getFileName() + ".tmp");
+		try (Writer writer = Files.newBufferedWriter(tmp, StandardCharsets.UTF_8)) {
+			GSON.toJson(root, writer);
+		}
+		try {
+			Files.move(tmp, path, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+		} catch (AtomicMoveNotSupportedException e) {
+			Files.move(tmp, path, StandardCopyOption.REPLACE_EXISTING);
 		}
 	}
 }

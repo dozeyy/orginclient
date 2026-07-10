@@ -8,8 +8,10 @@ import java.io.IOException;
 import java.io.Reader;
 import java.io.Writer;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 
 public final class OriginConfig {
 	private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
@@ -34,9 +36,18 @@ public final class OriginConfig {
 
 	public static void save(OriginFeatures features) {
 		try {
+			// Crash-safe write: serialize to a sibling .tmp, then atomically
+			// rename over the real file, so a kill mid-write can only leave a
+			// stale .tmp instead of a truncated config.
 			Files.createDirectories(PATH.getParent());
-			try (Writer writer = Files.newBufferedWriter(PATH, StandardCharsets.UTF_8)) {
+			Path tmp = PATH.resolveSibling(PATH.getFileName() + ".tmp");
+			try (Writer writer = Files.newBufferedWriter(tmp, StandardCharsets.UTF_8)) {
 				GSON.toJson(features, writer);
+			}
+			try {
+				Files.move(tmp, PATH, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+			} catch (AtomicMoveNotSupportedException e) {
+				Files.move(tmp, PATH, StandardCopyOption.REPLACE_EXISTING);
 			}
 		} catch (IOException e) {
 			com.origin.client.OriginClient.LOGGER.warn("Failed to save originclient.json", e);

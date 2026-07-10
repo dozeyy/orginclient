@@ -481,6 +481,16 @@ public final class Mods {
 		ModsConfig.save();
 	}
 
+	/** Force the whole mod / HUD / meta store to disk in one pass. Every
+	 *  mutation already saves eagerly, so this is the authoritative "save once
+	 *  on exit" flush the client-stopping hook uses — a belt-and-braces write
+	 *  that guarantees on-screen positions and settings land even if some path
+	 *  ever skipped its eager save. */
+	public static void flush() {
+		ModsConfig.ensureLoaded();
+		ModsConfig.save();
+	}
+
 	private static Map<String, com.google.gson.JsonElement> raw(String modId) {
 		ModsConfig.ensureLoaded();
 		migrateOnce();

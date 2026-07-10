@@ -2292,3 +2292,57 @@ game exited (especially on a crash), so Play was gone.
   confirms stagger reads well and bands reconstruct seamlessly. **Not yet
   live-tested in-game** (needs `./gradlew runClient`); sandbox proves geometry/
   logic, not the live GL render.
+
+## 2026-07-09 — Bundled 3 more zero-visual-change FPS mods (EntityCulling / ImmediatelyFast / ModernFix)
+- Goal: max FPS for a massive modpack + shaders @ 1440p (~150fps baseline) with
+  NO visual change, no setup change — shipped inside the client for every version.
+- Added jar-in-jar to `originclient.jar` (same `include()` pattern as the base
+  stack, `build.gradle` + versions in `gradle.properties`):
+  - EntityCulling `1.10.5` (`entityculling-fabric-1.10.5-mc1.21.1.jar`) — async
+    occlusion culling of entities/block-entities, **shadow-pass aware**. This is
+    the big shader win: Iris re-renders the scene for each shadow pass, so culling
+    invisible (block)entities multiplies across passes. Needs Fabric API (already
+    bundled).
+  - ImmediatelyFast `1.6.11+1.21.1-fabric` — batches immediate-mode HUD/text/
+    item/tooltip rendering (heavy in modpack HUDs/inventories).
+  - ModernFix `5.25.1+mc1.21.1` — memory/startup + modpack micro-optimizations.
+  - Versions live-checked on Modrinth API 2026-07-09 (1.21.1 + fabric confirmed).
+- **MoreCulling deliberately NOT bundled**: it hard-requires Cloth Config (extra
+  lib) and ships a leaves-culling option that IS a visual change, while
+  overlapping EntityCulling's occlusion. Fails the "no visual change / fewest
+  moving parts" bar.
+- **Krypton left disabled (unchanged)**: it's a *networking* mod (~zero client
+  FPS), and 0.2.8 bundles `velocity-native-3.3.0-SNAPSHOT` as JiJ — re-enabling
+  cleanly needs that SNAPSHOT on the dev classpath (fragile/purgeable) or it
+  re-breaks `runClient` (the exact crash the team defused). Bad trade for a
+  max-FPS change. Ship separately if the server-side net benefit is wanted.
+- Launcher purge kept in sync: added `entityculling-fabric-`,
+  `immediatelyfast-fabric-`, `modernfix-fabric-` prefixes to
+  `ModManager.IsBundledPerfJar` so a hand-dropped stray copy can't fight the
+  bundled one (user addons like sodium-extra still spared).
+- **Verified:** `./gradlew build` → `originclient-0.4.1.jar` contains all three
+  nested jars (unzip -l confirmed alongside sodium/iris/lithium/ferrite/indium);
+  `dotnet build OriginLauncher.App` clean (0 warn/err). NOT yet live-tested
+  in-game — geometry/packaging proven, live FPS delta + "no visual change" still
+  needs a real launch.
+
+## 2026-07-10 — HUD positions reset to defaults on relaunch (save/load length mismatch)
+- Symptom: moved HUD elements (mod menu positions/scale) came back at defaults
+  every launch, despite the config file holding the moved values. Autosave was
+  wrongly suspected — the SAVE was fine; the LOAD silently discarded everything.
+- Root cause (proven via per-element geometry logging: world-entry HUD showed
+  `cps anchor=0 scale=1.0` while the file held `cps anchor=1 scale=1.8`):
+  `HudPos.save()` writes FIVE values `[anchor,dx,dy,scale,bg]` (bg added later),
+  but `ModsConfig.ensureLoaded()` only accepted `arr.size() == 4`, so every
+  5-element HUD entry failed the guard and was dropped → `pos()` fell back to
+  the schema default. `HudPos.load` already handled 5 (`v.length>=5`); it just
+  never received the data.
+- Fix (source-level, whole class): `ensureLoaded` now accepts `arr.size() >= 4`
+  and copies ALL values into the HUD map (4-length legacy + 5-length current).
+- Verified: boot log `HUDLOAD entries=4` with the real moved arrays loaded
+  (`cps=[1.0,0.98,4.0,2.5,0.0]` etc.). Lesson: when a persisted record grows a
+  field, update BOTH the writer and the length guard on the reader.
+- Separately confirmed the on-exit autosave hook (`CLIENT_STOPPING` →
+  `Mods.flush()` + `OriginConfig.save` + `options.save()`) writes all three
+  stores once on clean quit; per-version isolation is automatic (config/ +
+  options.txt live in each version's instance dir).
