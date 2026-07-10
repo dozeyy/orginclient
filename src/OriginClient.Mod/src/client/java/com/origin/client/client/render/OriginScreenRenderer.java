@@ -16,6 +16,7 @@ import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.origin.client.client.gui.OriginUi;
 import com.origin.client.client.theme.OriginTheme;
 
 // Shared Origin screen rendering, used by both the loading screen
@@ -49,10 +50,39 @@ public final class OriginScreenRenderer {
 	private static final List<Ring> rings = new ArrayList<>();
 	private static ResourceLocation grainId;
 
-	// Baked "ORIGIN" wordmark (Inter, all-caps + glow bloom). Null -> fall
+	// Edge vignette (transparent core -> soft black corners). Blitted full-screen
+	// to darken the frame edges so the centered wordmark reads as the focal
+	// point -- depth from lightness only, no hue. Null -> skip (no crash).
+	private static ResourceLocation vignetteId;
+	private static final int VIGNETTE_TEX = 1024;
+
+	// Baked "ORIGIN" wordmark (Michroma, all-caps + glow bloom). Null -> fall
 	// back to vanilla drawString.
 	private static ResourceLocation wordmarkId;
 	private static int wmTexW, wmTexH, wmInkX, wmInkY, wmInkW, wmInkH;
+	// Per-letter reveal bands: [x0,x1] texture-px columns, one per glyph, from
+	// wordmark.json. Null -> the loading screen draws the whole mark at once
+	// (no staggered reveal) instead of failing.
+	private static int[] wmLetterX0, wmLetterX1;
+
+	// Loading-screen animation clock: millis at the first loading frame, so the
+	// per-letter reveal and the caption's cycling dots are time-driven.
+	private static long loadStartMs = 0L;
+
+	// ---- Main-menu ambient layer ----
+	// Ellipse height:width of the ring textures (generate_textures HEIGHT_RATIO),
+	// needed to place a body on a ring's path.
+	private static final double RING_HEIGHT_RATIO = 0.37;
+	// Wordmark breathing-glow period (ms) on the title screen.
+	private static final double BREATH_MS = 3200.0;
+	// Orbiting bodies riding the rings: {ringIndex, periodSeconds, phase, coreFrac(of w), alpha}.
+	// One bright body on the front ring, one fainter/slower on a back ring.
+	private static final double[][] BODIES = {
+			{0, 26.0, 0.0, 0.010, 0.85},
+			{2, 40.0, 0.5, 0.008, 0.55},
+	};
+	// Sparse drifting background dust.
+	private static final int PARTICLE_COUNT = 28;
 
 	// Cursor-follow glow (the website's two-layer spotlight): one radial
 	// gradient texture drawn twice -- a tight core that snaps to the cursor
@@ -113,27 +143,42 @@ public final class OriginScreenRenderer {
 		int h = mc.getWindow().getGuiScaledHeight();
 		float clamped = Math.max(0f, Math.min(1f, progress));
 
+		if (loadStartMs == 0L) {
+			loadStartMs = System.currentTimeMillis();
+		}
+		long elapsed = System.currentTimeMillis() - loadStartMs;
+
 		guiGraphics.fill(0, 0, w, h, BG_COLOR);
 		if (!ringsFailed) {
 			drawRings(guiGraphics, w, h);
 			drawGrain(guiGraphics, w, h);
 		}
+		// Vignette above the rings/grain, under the wordmark: darkens the edges
+		// so the mark is the focal point.
+		drawVignette(guiGraphics, w, h);
 
 		// Wordmark nudged slightly above center so the logo+bar group stays
 		// balanced. All-caps "ORIGIN" has no descender, so its ink height IS the
 		// cap height: 0.135h gives the right cap size (Will's chosen "middle"
 		// size). The bar sits well below the logo with a clear gap and is a
 		// chunky full-word-width bar (Will: "farther down and bigger"). All
-		// verified in-sandbox against the ring background.
+		// verified in-sandbox against the ring background. On the startup screen
+		// the mark builds in letter by letter (staggered fade + rise).
 		double markInkH = fitInkHeight(h * 0.135, w, 0.82);
 		double markCenterY = h * 0.48;
-		drawWordmark(guiGraphics, w / 2.0, markCenterY, markInkH);
+		drawWordmarkReveal(guiGraphics, w / 2.0, markCenterY, markInkH, elapsed);
 
 		double dispW = (wordmarkId != null && wmInkH > 0) ? wmInkW * (markInkH / wmInkH) : w * 0.24;
 		int barW = (int) Math.round(dispW);
 		int barH = Math.max(3, (int) Math.round(h * 0.012));
 		int barTop = (int) Math.round(markCenterY + markInkH * 1.15);
 		drawBar(guiGraphics, w / 2.0, barTop, barW, barH, clamped);
+
+		// Mono status caption below the bar (the "techy HUD" info layer) + the
+		// aerospace corner brackets on top of everything.
+		int captionY = barTop + barH + Math.max(8, (int) Math.round(h * 0.035));
+		drawCaption(guiGraphics, w / 2.0, captionY, elapsed);
+		drawCornerBrackets(guiGraphics, w, h);
 	}
 
 	/**
@@ -171,6 +216,7 @@ public final class OriginScreenRenderer {
 			drawRings(guiGraphics, w, h);
 			drawGrain(guiGraphics, w, h);
 		}
+		drawFrame(guiGraphics, w, h);
 
 		Font font = mc.font;
 		int barW = Math.max(80, (int) (w * 0.30));
@@ -254,6 +300,11 @@ public final class OriginScreenRenderer {
 				drawRings(guiGraphics, w, h);
 				drawGrain(guiGraphics, w, h);
 			}
+			// Menu ambient life: drifting dust behind, bodies orbiting the rings
+			// on top -- both under the vignette so the frame still darkens them.
+			drawParticles(guiGraphics, w, h);
+			drawOrbitingBodies(guiGraphics, w, h);
+			drawFrame(guiGraphics, w, h);
 			return true;
 		} catch (Throwable t) {
 			return fail(t);
@@ -343,10 +394,70 @@ public final class OriginScreenRenderer {
 			int singleplayerTop = h / 4 + 48;        // vanilla TitleScreen first-button Y
 			double centerY = singleplayerTop / 2.0;  // midpoint between top of screen and that button
 			double inkH = fitInkHeight(h * 0.13, w, 0.82); // same size as the loading screen
+			// Breathing glow: a faint, slightly-larger extra pass whose alpha
+			// swells on a slow sine, so the bloom pulses under the crisp mark.
+			double pulse = 0.5 - 0.5 * Math.cos(System.currentTimeMillis() / BREATH_MS * 2.0 * Math.PI);
+			drawWordmarkGlow(guiGraphics, w / 2.0, centerY, inkH, 1.06, (float) (0.05 + 0.10 * pulse));
 			drawWordmark(guiGraphics, w / 2.0, centerY, inkH);
 			return true;
 		} catch (Throwable t) {
 			return fail(t);
+		}
+	}
+
+	/**
+	 * Main menu: a small account chip (player head + username) in the top-left,
+	 * inside the frame. Identity presence, like premium launchers. Head via the
+	 * skin manager (default skin shows first, the real one pops in async); if the
+	 * head can't be resolved the chip falls back to the Origin ring mark, and if
+	 * the whole chip throws it flips the renderer to vanilla like any Origin draw.
+	 */
+	public static void renderTitleAccountChip(GuiGraphics guiGraphics) {
+		if (broken) {
+			return;
+		}
+		try {
+			Minecraft mc = Minecraft.getInstance();
+			net.minecraft.client.User user = mc.getUser();
+			if (user == null) {
+				return;
+			}
+			String name = user.getName();
+			if (name == null || name.isEmpty()) {
+				return;
+			}
+			Font font = mc.font;
+			int w = mc.getWindow().getGuiScaledWidth();
+			int head = 18;
+			int padX = 8, padY = 6, gap = 8;
+			int chipH = head + padY * 2;
+			int chipW = padX + head + gap + font.width(name) + padX;
+			int x = Math.max(10, (int) Math.round(w * 0.03));
+			int y = x;
+
+			// No border stroke (Will) — just a faint translucent backing so the
+			// white username stays legible over the rings.
+			OriginUi.panel(guiGraphics, x, y, chipW, chipH, OriginTheme.RADIUS_MD,
+					OriginTheme.PANEL_TRANSLUCENT, 0);
+
+			int hx = x + padX, hy = y + padY;
+			boolean drewHead = false;
+			try {
+				com.mojang.authlib.GameProfile profile = new com.mojang.authlib.GameProfile(user.getProfileId(), name);
+				net.minecraft.client.resources.PlayerSkin skin = mc.getSkinManager().getInsecureSkin(profile);
+				net.minecraft.client.gui.components.PlayerFaceRenderer.draw(guiGraphics, skin, hx, hy, head);
+				drewHead = true;
+			} catch (Throwable ignored) {
+				// fall back to the ring mark below
+			}
+			if (!drewHead) {
+				OriginUi.logo(guiGraphics, hx + head / 2.0, hy + head / 2.0, head, 1f);
+			}
+
+			guiGraphics.drawString(font, name, hx + head + gap,
+					y + (chipH - font.lineHeight) / 2, OriginTheme.TEXT, false);
+		} catch (Throwable t) {
+			fail(t);
 		}
 	}
 
@@ -417,6 +528,210 @@ public final class OriginScreenRenderer {
 		}
 		RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
 		pose.popPose();
+	}
+
+	private static double frac(double v) {
+		return v - Math.floor(v);
+	}
+
+	/**
+	 * Sparse drifting background dust: fixed pseudo-random particles (seeded from
+	 * the index, no stored state) that slowly drift and twinkle. Monochrome, very
+	 * low alpha -- depth and life without pulling focus.
+	 */
+	private static void drawParticles(GuiGraphics guiGraphics, int w, int h) {
+		double t = System.currentTimeMillis() / 1000.0;
+		for (int i = 0; i < PARTICLE_COUNT; i++) {
+			double h1 = frac(Math.sin(i * 12.9898) * 43758.5453);
+			double h2 = frac(Math.sin(i * 78.233) * 12345.678);
+			double h3 = frac(Math.sin(i * 39.425) * 98765.43);
+			double speed = 0.004 + 0.010 * h3;
+			double dir = (i % 2 == 0) ? 1.0 : -1.0;
+			double x = frac(h1 + t * speed * 0.15 * dir) * w;
+			double y = frac(h2 - t * speed * 0.10) * h;
+			double twinkle = 0.5 - 0.5 * Math.cos(t * (0.4 + 0.6 * h3) + h1 * 6.2832);
+			int a = (int) Math.round((0.04 + 0.09 * h3) * twinkle * 255);
+			if (a <= 1) {
+				continue;
+			}
+			int px = (int) Math.round(x), py = (int) Math.round(y);
+			int sz = h3 > 0.7 ? 2 : 1;
+			guiGraphics.fill(px, py, px + sz, py + sz, (a << 24) | 0x00FFFFFF);
+		}
+	}
+
+	/**
+	 * Bodies orbiting the rings: each body's parametric point on a ring's ellipse
+	 * (a, a*heightRatio) advances on its own period, then is rotated by that
+	 * ring's live rotation so it visually rides the tilted ellipse -- a small
+	 * glowing "planet on its orbit" that plays the Origin identity. Drawn with the
+	 * radial-glow texture (halo + core). Skipped if the rings/glow aren't loaded.
+	 */
+	private static void drawOrbitingBodies(GuiGraphics guiGraphics, int w, int h) {
+		if (ringsFailed || rings.isEmpty() || radialGlowId == null) {
+			return;
+		}
+		double cx = w / 2.0, cy = h / 2.0;
+		double now = System.currentTimeMillis() / 1000.0;
+		RenderSystem.enableBlend();
+		for (double[] body : BODIES) {
+			int idx = (int) body[0];
+			if (idx < 0 || idx >= rings.size()) {
+				continue;
+			}
+			Ring ring = rings.get(idx);
+			double a = ring.widthFrac() * w * 0.99 / 2.0;
+			double b = a * RING_HEIGHT_RATIO;
+			double revs = now / ring.periodSeconds();
+			double ringAngle = (ring.angle0() + (ring.reverse() ? -revs : revs) * 360.0) % 360.0;
+			double rad = Math.toRadians(ringAngle);
+			double phi = (now / body[1] + body[2]) * 2.0 * Math.PI;
+			double lx = a * Math.cos(phi), ly = b * Math.sin(phi);
+			double px = cx + lx * Math.cos(rad) - ly * Math.sin(rad);
+			double py = cy + lx * Math.sin(rad) + ly * Math.cos(rad);
+			double core = w * body[3];
+			drawRadial(guiGraphics, px, py, core * 3.2, body[4] * 0.28); // halo
+			drawRadial(guiGraphics, px, py, core, body[4]);              // core
+		}
+		RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+	}
+
+	/** Extra wordmark pass at a scale multiplier and alpha -- used for the breathing glow. */
+	private static void drawWordmarkGlow(GuiGraphics guiGraphics, double inkCenterX, double inkCenterY,
+										 double targetInkHeight, double scaleMul, float alpha) {
+		if (wordmarkId == null || wmInkH <= 0 || alpha <= 0.001f) {
+			return;
+		}
+		float scale = (float) (targetInkHeight / wmInkH * scaleMul);
+		double icx = (wmInkX + wmInkW / 2.0) * scale;
+		double icy = (wmInkY + wmInkH / 2.0) * scale;
+		PoseStack pose = guiGraphics.pose();
+		pose.pushPose();
+		pose.translate(inkCenterX - icx, inkCenterY - icy, 0);
+		pose.scale(scale, scale, 1f);
+		RenderSystem.enableBlend();
+		RenderSystem.setShaderColor(1f, 1f, 1f, alpha);
+		guiGraphics.blit(wordmarkId, 0, 0, 0, 0, wmTexW, wmTexH, wmTexW, wmTexH);
+		pose.popPose();
+		RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+	}
+
+	/** Shared frame dressing for the ring backdrop: edge vignette + corner brackets. */
+	private static void drawFrame(GuiGraphics guiGraphics, int w, int h) {
+		drawVignette(guiGraphics, w, h);
+		drawCornerBrackets(guiGraphics, w, h);
+	}
+
+	/** Full-screen edge vignette (the 1024px texture stretched to the GUI size). */
+	private static void drawVignette(GuiGraphics guiGraphics, int w, int h) {
+		if (vignetteId == null) {
+			return;
+		}
+		PoseStack pose = guiGraphics.pose();
+		pose.pushPose();
+		pose.scale((float) w / VIGNETTE_TEX, (float) h / VIGNETTE_TEX, 1f);
+		RenderSystem.enableBlend();
+		RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+		guiGraphics.blit(vignetteId, 0, 0, 0f, 0f, VIGNETTE_TEX, VIGNETTE_TEX, VIGNETTE_TEX, VIGNETTE_TEX);
+		pose.popPose();
+	}
+
+	/**
+	 * Thin L-brackets inset from each screen corner — an aerospace/instrument
+	 * framing cue that matches the Michroma wordmark and adds "designed" edges
+	 * without a hue. Drawn in the soft-strong stroke tone so they read as quiet
+	 * registration marks, not a hard border.
+	 */
+	private static void drawCornerBrackets(GuiGraphics guiGraphics, int w, int h) {
+		int inset = Math.max(10, (int) Math.round(w * 0.022));
+		int len = Math.max(10, (int) Math.round(w * 0.018));
+		int th = Math.max(1, (int) Math.round(w * 0.0015));
+		int c = OriginTheme.STROKE_STRONG;
+		// top-left
+		guiGraphics.fill(inset, inset, inset + len, inset + th, c);
+		guiGraphics.fill(inset, inset, inset + th, inset + len, c);
+		// top-right
+		guiGraphics.fill(w - inset - len, inset, w - inset, inset + th, c);
+		guiGraphics.fill(w - inset - th, inset, w - inset, inset + len, c);
+		// bottom-left
+		guiGraphics.fill(inset, h - inset - th, inset + len, h - inset, c);
+		guiGraphics.fill(inset, h - inset - len, inset + th, h - inset, c);
+		// bottom-right
+		guiGraphics.fill(w - inset - len, h - inset - th, w - inset, h - inset, c);
+		guiGraphics.fill(w - inset - th, h - inset - len, w - inset, h - inset, c);
+	}
+
+	/**
+	 * Wordmark with a per-letter staggered reveal: each glyph band (from
+	 * wordmark.json) fades in and rises into place, offset by index, so the mark
+	 * assembles left-to-right instead of popping in whole. Once every letter has
+	 * finished (alpha 1, no offset) the bands tile seamlessly back into the full
+	 * wordmark. Falls back to the plain whole-mark draw if the bands are missing.
+	 */
+	private static void drawWordmarkReveal(GuiGraphics guiGraphics, double inkCenterX, double inkCenterY,
+										   double targetInkHeight, long elapsedMs) {
+		if (wordmarkId == null || wmLetterX0 == null || wmInkH <= 0) {
+			drawWordmark(guiGraphics, inkCenterX, inkCenterY, targetInkHeight);
+			return;
+		}
+		float scale = (float) (targetInkHeight / wmInkH);
+		double icx = (wmInkX + wmInkW / 2.0) * scale;
+		double icy = (wmInkY + wmInkH / 2.0) * scale;
+		double rise = wmInkH * 0.10;   // texture-px the letters drop in from
+		double stagger = 55.0;         // ms between successive letters
+		double dur = 300.0;            // ms per-letter fade/rise
+
+		PoseStack pose = guiGraphics.pose();
+		pose.pushPose();
+		pose.translate(inkCenterX - icx, inkCenterY - icy, 0);
+		pose.scale(scale, scale, 1f);
+		RenderSystem.enableBlend();
+		for (int i = 0; i < wmLetterX0.length; i++) {
+			double lt = (elapsedMs - i * stagger) / dur;
+			lt = Math.max(0.0, Math.min(1.0, lt));
+			double eased = OriginTheme.easeOut(lt);
+			if (eased <= 0.001) {
+				continue;
+			}
+			int x0 = wmLetterX0[i];
+			int bw = wmLetterX1[i] - x0;
+			if (bw <= 0) {
+				continue;
+			}
+			int yoff = (int) Math.round((1.0 - eased) * rise);
+			RenderSystem.setShaderColor(1f, 1f, 1f, (float) eased);
+			guiGraphics.blit(wordmarkId, x0, yoff, (float) x0, 0f, bw, wmTexH, wmTexW, wmTexH);
+		}
+		RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+		pose.popPose();
+	}
+
+	/**
+	 * Mono status caption ("LOADING" + cycling dots) below the progress bar —
+	 * the small information layer that keeps the scene from reading empty. Muted
+	 * tone, manual letter-tracking for the techy look, three dot slots reserved
+	 * so the word never shifts as the dots animate.
+	 */
+	private static void drawCaption(GuiGraphics guiGraphics, double cx, int y, long elapsedMs) {
+		Font font = Minecraft.getInstance().font;
+		String base = "LOADING";
+		int tracking = 2;
+		int dots = (int) ((elapsedMs / 400L) % 4L);
+		int dotW = font.width(".") + tracking;
+		int textW = 0;
+		for (int i = 0; i < base.length(); i++) {
+			textW += font.width(String.valueOf(base.charAt(i))) + tracking;
+		}
+		double penX = cx - (textW + 3 * dotW) / 2.0;
+		for (int i = 0; i < base.length(); i++) {
+			String ch = String.valueOf(base.charAt(i));
+			guiGraphics.drawString(font, ch, (int) Math.round(penX), y, OriginTheme.MUTED, false);
+			penX += font.width(ch) + tracking;
+		}
+		for (int i = 0; i < dots; i++) {
+			guiGraphics.drawString(font, ".", (int) Math.round(penX), y, OriginTheme.MUTED, false);
+			penX += dotW;
+		}
 	}
 
 	/** Draws the wordmark with its ink box centered on (inkCenterX, inkCenterY), ink scaled to targetInkHeight. Returns ink bottom (screen Y). */
@@ -510,6 +825,16 @@ public final class OriginScreenRenderer {
 			com.origin.client.OriginClient.LOGGER.warn("Origin screen ring/grain textures failed to load; using plain background", e);
 		}
 
+		// Vignette loads independently of the rings: a failure just skips the
+		// edge darkening, it doesn't disable the backdrop.
+		try {
+			Minecraft mc = Minecraft.getInstance();
+			vignetteId = registerTexture(mc, "origin_vignette", "/assets/originclient/textures/ui/vignette.png");
+		} catch (Exception e) {
+			vignetteId = null;
+			com.origin.client.OriginClient.LOGGER.warn("Origin vignette failed to load; skipping edge vignette", e);
+		}
+
 		// Wordmark loads separately: a failure here falls back to vanilla-font
 		// text without disabling the ring/grain background.
 		try {
@@ -524,9 +849,27 @@ public final class OriginScreenRenderer {
 			wmInkY = wm.get("inkY").getAsInt();
 			wmInkW = wm.get("inkWidth").getAsInt();
 			wmInkH = wm.get("inkHeight").getAsInt();
+			// Per-letter reveal bands (optional): [[x0,x1],...] texture columns.
+			if (wm.has("letters")) {
+				var la = wm.getAsJsonArray("letters");
+				int[] x0 = new int[la.size()];
+				int[] x1 = new int[la.size()];
+				for (int i = 0; i < la.size(); i++) {
+					var band = la.get(i).getAsJsonArray();
+					x0[i] = band.get(0).getAsInt();
+					x1[i] = band.get(1).getAsInt();
+				}
+				wmLetterX0 = x0;
+				wmLetterX1 = x1;
+			} else {
+				wmLetterX0 = null;
+				wmLetterX1 = null;
+			}
 			wordmarkId = registerTexture(mc, "origin_wordmark", "/assets/originclient/textures/ui/wordmark.png");
 		} catch (Exception e) {
 			wordmarkId = null;
+			wmLetterX0 = null;
+			wmLetterX1 = null;
 			com.origin.client.OriginClient.LOGGER.warn("Origin wordmark failed to load; using vanilla font", e);
 		}
 

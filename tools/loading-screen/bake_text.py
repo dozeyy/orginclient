@@ -13,7 +13,10 @@ from PIL import Image, ImageChops, ImageDraw, ImageFilter, ImageFont
 def render_text(font, text, letter_spacing_px=0.0, pad=90, glow_blur=40, glow_alpha=0.30):
     """Render `text` (drawn char-by-char with letter_spacing_px between glyphs)
     to an RGBA image cropped to the ink + `pad`. Returns (img, meta) where meta
-    has width/height/inkX/inkY/inkWidth/inkHeight."""
+    has width/height/inkX/inkY/inkWidth/inkHeight, plus `letters`: one
+    full-height [x0,x1] band per glyph (final-image px), partitioned at the
+    midpoints between glyph centers. The in-game per-letter reveal blits these
+    bands with a staggered fade so the wordmark builds up letter by letter."""
     # First pass: pen positions
     margin = pad + 40
     baseline = margin + font.getmetrics()[0]
@@ -46,6 +49,18 @@ def render_text(font, text, letter_spacing_px=0.0, pad=90, glow_blur=40, glow_al
     ink_w = bbox[2] - bbox[0]
     ink_h = bbox[3] - bbox[1]
 
+    # Per-letter vertical bands in final (cropped) coords. Glyph center =
+    # margin + pen_x + advance/2, shifted left by the crop origin `l`. Cut lines
+    # sit at the midpoint between neighbouring centers; the first band starts at
+    # 0 and the last ends at the image width so the union covers everything.
+    final_w = layer.width
+    centers = [(margin + pen_x + font.getlength(ch) / 2.0) - l for ch, pen_x in positions]
+    letters = []
+    for i in range(len(centers)):
+        x0 = 0.0 if i == 0 else (centers[i - 1] + centers[i]) / 2.0
+        x1 = float(final_w) if i == len(centers) - 1 else (centers[i] + centers[i + 1]) / 2.0
+        letters.append([max(0, int(round(x0))), min(final_w, int(round(x1)))])
+
     glow = layer.filter(ImageFilter.GaussianBlur(glow_blur)).point(lambda a: int(a * glow_alpha))
     alpha = ImageChops.lighter(layer, glow)
     white = Image.new("L", layer.size, 255)
@@ -56,6 +71,7 @@ def render_text(font, text, letter_spacing_px=0.0, pad=90, glow_blur=40, glow_al
         "width": img.width, "height": img.height,
         "inkX": int(ink_l), "inkY": int(ink_t),
         "inkWidth": int(ink_w), "inkHeight": int(ink_h),
+        "letters": letters,
     }
     return img, meta
 

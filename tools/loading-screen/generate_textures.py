@@ -117,6 +117,33 @@ def make_radial_glow() -> Image.Image:
     return Image.merge("RGBA", (white, white, white, img))
 
 
+def make_vignette() -> Image.Image:
+    """Edge vignette: transparent core -> soft black at the corners. Blitted
+    full-screen (stretched to the GUI size) it darkens the frame edges so the
+    centered wordmark reads as the focal point — depth from lightness only, no
+    hue, matching the monochrome design language. The ramp starts ~45% out from
+    center and eases to ~55% black in the corners; the eased (t*t) falloff keeps
+    the transition invisible rather than a hard ring."""
+    size = 1024
+    half = size / 2.0
+    inner = 0.45          # transparent until this fraction of the half-diagonal
+    max_alpha = 0.55      # corner darkness
+    diag = (half * half + half * half) ** 0.5
+    img = Image.new("L", (size, size), 0)
+    px = img.load()
+    for y in range(size):
+        dy = y + 0.5 - half
+        for x in range(size):
+            dx = x + 0.5 - half
+            r = (dx * dx + dy * dy) ** 0.5 / diag  # 0 center .. 1 corner
+            t = (r - inner) / (1.0 - inner)
+            if t > 0:
+                t = min(1.0, t)
+                px[x, y] = int(t * t * max_alpha * 255)
+    black = Image.new("L", (size, size), 0)
+    return Image.merge("RGBA", (black, black, black, img))
+
+
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
     meta = {"texSize": TEX, "heightRatio": HEIGHT_RATIO, "fillFrac": FILL_FRAC, "rings": []}
@@ -136,6 +163,9 @@ def main():
 
     make_radial_glow().save(OUT / "radial_glow.png")
     print("radial glow -> radial_glow.png")
+
+    make_vignette().save(OUT / "vignette.png")
+    print("vignette -> vignette.png")
 
     (OUT / "rings.json").write_text(json.dumps(meta, indent=2))
     print(f"metadata -> rings.json")

@@ -55,6 +55,8 @@ public class TitleScreenMixin {
 			}
 		}
 		OriginScreenRenderer.renderTitleCursorGlow(guiGraphics, mouseX, mouseY, hoveringClickable);
+		// Account chip (player head + username) in the top-left frame corner.
+		OriginScreenRenderer.renderTitleAccountChip(guiGraphics);
 	}
 
 	// Both suppressions are gated on the renderer's health: if the Origin

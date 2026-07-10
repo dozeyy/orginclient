@@ -2228,3 +2228,67 @@ in-game. Plan approved before coding (large, two-language, one fuzzy req).
   remove. **Not yet live-tested:** the WPF Mods page GUI (drag-drop visual,
   toggles) and in-game UI-on-top — dev WPF window can't be driven from here and
   the game needs a real launch with a competing HUD/UI mod. Next real test.
+
+## 2026-07-09 — Launcher crashed when the game closed (root-caused + fixed)
+Will: "whenever [the] client is closed the launcher shouldn't close; the next time
+you click Play it should work again and again." The launcher was dying whenever the
+game exited (especially on a crash), so Play was gone.
+- **Root cause (code evidence, not theory):** `HomePage.StartWithLifecycleCapture`.
+  `process.Exited` (fires on a ThreadPool thread, `EnableRaisingEvents=true`, no
+  SynchronizingObject) called `logWriter.Dispose()`, but the stdout/stderr
+  `*DataReceived` callbacks can still fire AFTER Exited while buffered output
+  drains — writing to the disposed `StreamWriter` throws `ObjectDisposedException`
+  on a background thread. `App.xaml.cs` has NO global handler, so an unhandled
+  background-thread exception terminates the whole process. A crash dumps a burst
+  of stderr right at exit, which is why it was ~always reproducible on a crash.
+  Secondary bug: stdout+stderr wrote the SAME non-thread-safe `StreamWriter` from
+  two threads concurrently, and none of the three callbacks were try/caught.
+- **Fix:** serialize every write under a lock; dispose the writer exactly once and
+  only after BOTH streams signal EOF (null `Data`) so no write can race the
+  dispose; wrap Output/Error/Exited callbacks so nothing escapes onto a background
+  thread; `Dispatcher.BeginInvoke` (non-blocking) and skip the status update if a
+  newer launch is already in flight. Play was already re-enabled in
+  PlayButton_Click's `finally` right after launch, so once the launcher stops
+  crashing, Play works repeatedly — the fix is purely "don't let the child game
+  take down the launcher."
+- **Verified:** launcher builds clean; a standalone concurrency stress test
+  reproduced the OLD pattern throwing ObjectDisposedException on a bg thread and
+  proved the NEW pattern (lock + dispose-after-both-EOF + guarded callbacks)
+  survives 200 iters x 1000 concurrent writes with 0 escapes. Lesson: any callback
+  the OS/process layer invokes on a background thread (Exited, *DataReceived) must
+  be exception-proof — there's no global net, so one escape = dead launcher.
+
+## 2026-07-09 — ORIGIN wordmark → Michroma + loading-screen depth pass
+- **Font change:** the "ORIGIN" wordmark switched from Inter-700 to **Michroma**
+  (wide aerospace/observatory grotesque) to tie the mark to the tri-ring orbital
+  identity — Inter read as body text at logo scale. Chosen by Will from a baked
+  5-font comparison sheet (Inter / Space Grotesk / Michroma / Orbitron /
+  Syncopate) rendered on the real #050505 bg (tools/loading-screen/out/).
+  Re-baked via `generate_wordmark.py` (Michroma-Regular.ttf, tracking dropped
+  0.45→0.14x space since Michroma is already wide). Updating the single baked
+  `wordmark.png` covers BOTH instances (loading screen + title screen) — they
+  share `drawWordmark`; the mod-menu/HUD-editor use the ring mark, not the text.
+- **"Too simplistic" depth pass** (4 moves, all monochrome, fail-soft):
+  1. **Per-letter reveal** — `bake_text.py` now emits `letters:[[x0,x1],...]`
+     texture bands into wordmark.json; `drawWordmarkReveal` blits each glyph band
+     with staggered ease-out fade+rise (55ms stagger, 300ms/letter). Bands tile
+     back seamlessly into the full mark. Falls back to whole-mark draw if bands
+     missing.
+  2. **Mono LOADING caption** (`drawCaption`) below the bar, muted, tracked, with
+     cycling dots — the info layer that kills the empty feel.
+  3. **Edge vignette** — new `make_vignette()` → vignette.png (1024, transparent
+     core → 55% black corners), `drawVignette` stretches it full-screen. Baked
+     standalone so grain/ring PNGs stayed untouched.
+  4. **Corner brackets** (`drawCornerBrackets`) — thin aerospace L-marks in
+     STROKE_STRONG. Replaced the originally-planned tri-ring "O" swap, which
+     clashes with Michroma's squared O (flagged to Will).
+  - Vignette + brackets bundled as `drawFrame`, applied to loading + world-load
+    scene + title background for consistency; reveal + caption are startup-only.
+    Loading clock = `loadStartMs` set on first frame.
+- **Verified:** `./gradlew build` clean (compileClientJava + processClientResources
+  + remapJar all pass — new blit calls & mixin targets resolve on real 1.21.1).
+  Design verified in-sandbox: static composite (preview_scene.png) + a 6-frame
+  reveal filmstrip (reveal_filmstrip.png) replaying the exact Java easing —
+  confirms stagger reads well and bands reconstruct seamlessly. **Not yet
+  live-tested in-game** (needs `./gradlew runClient`); sandbox proves geometry/
+  logic, not the live GL render.

@@ -1,8 +1,12 @@
 #!/usr/bin/env python3
-"""Bake the "ORIGIN" wordmark into a smooth texture: all-caps, Inter 700, with
-letter-spacing of ~0.45x a space width (a little under half a space — decent,
-clearly-spaced tracking, Will's spec) and a soft white glow bloom behind it.
-Used on both the loading screen and the main menu.
+"""Bake the "ORIGIN" wordmark into a smooth texture: all-caps, Michroma, with a
+touch of letter-spacing and a soft white glow bloom behind it. Used on both the
+loading screen and the main menu.
+
+Michroma (chosen over Inter 2026-07-09): a wide aerospace/observatory grotesque
+that ties the wordmark to the tri-ring orbital identity — reads as a mark, not
+body text. It's already very wide, so tracking is light (Inter needed 0.45x a
+space; Michroma only ~0.14x) or the word overruns the on-screen width clamp.
 
 Baked as a texture (not live text) so it shows instantly -- Minecraft's own
 font isn't loaded during the first resource load, and this is one fixed word as
@@ -24,15 +28,15 @@ OUT = (HERE / ".." / ".." / "src" / "OriginClient.Mod" / "src" / "client" /
 
 TEXT = "ORIGIN"
 CAP = 300                          # glyph size, px (baked large, displayed scaled)
-# Letter-spacing = 0.45 x the font's own space advance: "half a normal space,
-# maybe a little less, but decently some space in between" (Will). Derived from
-# the space glyph so it stays a true half-space if the font/size changes.
-SPACING_FRAC_OF_SPACE = 0.45
+# Letter-spacing as a fraction of the font's own space advance, derived from the
+# space glyph so it stays proportional if the size changes. Michroma is already
+# a wide face, so this is light — just enough air between glyphs.
+SPACING_FRAC_OF_SPACE = 0.14
 
 
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
-    font = load_font("../font-atlas/fonts/Inter-700.ttf", CAP)
+    font = load_font("../font-atlas/fonts/Michroma-Regular.ttf", CAP)
     letter_spacing = SPACING_FRAC_OF_SPACE * font.getlength(" ")
     # Soft bloom behind the crisp letters — a halo, not just an edge glow, so
     # blur generously and keep the peak alpha gentle.
