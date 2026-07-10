@@ -34,7 +34,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 //  - renderMenuBackgroundTexture(...): the static helper option/selection
 //    LISTS use to tile their darker strip behind rows. Cancelled so lists sit
 //    transparently on the Origin background instead of vanilla's texture.
-@Mixin(Screen.class)
+// priority 2000: Origin's shared-screen background wins over other UI mods.
+@Mixin(value = Screen.class, priority = 2000)
 public class ScreenBackgroundMixin {
 
 	@Inject(method = "renderBackground", at = @At("HEAD"), cancellable = true)

@@ -12,7 +12,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 // Scoreboard mod: read-only re-render — rescales the whole sidebar around
 // its right-center anchor. Never touches scoreboard data. push at HEAD /
 // pop at every RETURN so early exits can't unbalance the pose stack.
-@Mixin(Gui.class)
+// priority 2000: Origin's scoreboard rescale wins over other UI mods.
+@Mixin(value = Gui.class, priority = 2000)
 public class GuiScoreboardMixin {
 
 	@Inject(method = "displayScoreboardSidebar", at = @At("HEAD"), cancellable = true)

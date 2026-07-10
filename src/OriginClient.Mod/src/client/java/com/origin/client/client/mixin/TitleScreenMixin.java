@@ -33,7 +33,11 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 //  - After init(), hide the SpriteIconButton (language, accessibility) and
 //    PlainTextButton (copyright) widgets via visible/active -- the only widgets
 //    of those types; the real options are plain Button, left intact.
-@Mixin(TitleScreen.class)
+// priority 2000 (default 1000): if another mod also modifies TitleScreen (e.g.
+// redirects the logo/background), Origin's re-skin wins the conflict. Scoped to
+// the UI mixins only — perf/render mixins stay at default so Sodium/Iris
+// application ordering is left undisturbed.
+@Mixin(value = TitleScreen.class, priority = 2000)
 public class TitleScreenMixin {
 
 	@Inject(method = "render", at = @At("HEAD"))

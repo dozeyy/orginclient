@@ -2170,3 +2170,61 @@ overlay Show-Hidden-Foliage (needs a raytrace change).
   install innosetup + ISCC). Build ISCC locally via `winget install JRSoftware.InnoSetup`.
 - **Update timing:** poll 10min->2min + re-check on window focus; the hard gate is still the
   fresh CheckAsync on the Play click (can't play a stale build; in-game is never interrupted).
+
+## 2026-07-09 — External/user mod management (per-version) + Origin-UI-on-top
+Built the real Mods tab (was a stub) so players import their own `.jar` mods,
+isolated per MC version, toggle on/off, and have that reflected faithfully
+in-game. Plan approved before coding (large, two-language, one fuzzy req).
+- **On/off = extension rename** (`foo.jar` <-> `foo.jar.disabled`): Fabric/Forge
+  only load `*.jar`, so a disabled mod is simply never seen — the Prism/MultiMC
+  standard. No separate folder, no launch-time copying. `Core/Mods/ModManager.cs`
+  (new, pure/no-WPF): Enumerate/SetEnabled/Import/Remove/OpenFolder over
+  `/instances/{version}/mods/`, all I/O wrapped so a locked jar (game running)
+  returns a friendly message instead of throwing.
+- **Real latent bug found + fixed (silent user-data loss):** VersionManager's
+  1.21.1 launch purge deleted any jar whose name `StartsWith("sodium"|"iris"|...)`
+  — so `sodium-extra.jar`, `sodiumdynamiclights.jar`, `reeses-sodium-options.jar`
+  were destroyed on every launch. Replaced with `ModManager.IsBundledPerfJar`,
+  which keys on each project's canonical filename SHAPE (`sodium-fabric-`,
+  `lithium-fabric-`, `iris-fabric-`/`iris-mc`, `indium-`, `ferritecore-`,
+  `krypton-`) so real conflicting perf jars are still purged but addons survive.
+  Also: enumerate-all + `EndsWith` everywhere instead of Win32 `*.jar` globs
+  (legacy 3-char-ext match is ambiguous, also matches `.jar.disabled`); skip
+  `.jar.disabled` in the purge; installers' skip-if-present now also count the
+  `.disabled` variant so a disabled managed dep isn't re-downloaded into a dupe.
+- **Version source = HomePage live, not disk.** settings.json never persists the
+  *default* version (`VersionComboBox_SelectionChanged` early-returns while
+  `_isLoading`), so reading it would be null on first run while Home shows a
+  version. Added `HomePage.CurrentVersion` (reads the dropdown); MainWindow's
+  `NavMods_Checked` calls `_modsPage.ShowVersion(_homePage.CurrentVersion)` —
+  mirrors the existing `RefreshAccountState()`-on-nav pattern, so switching
+  versions on Home auto-swaps the Mods list. Refresh-on-nav is sufficient (can't
+  be on both pages at once); no event bus needed.
+- **Mods page (`UI/Pages/ModsPage.xaml(.cs)`, replaces the placeholder):**
+  Deskify-styled, rows built in code-behind. Drag-drop `.jar` zone that also
+  opens the folder on click; "Your mods" rows (reuse `Toggle.Switch` + trash) with
+  an inline themed Remove-confirm (no native dialog); read-only "Built-in" section
+  for managed jars so a user can't disable fabric-api and break the game. Added
+  `Icon.Folder`/`Icon.Trash` to `Theme/Icons.xaml`.
+- **"Origin UI always on top" (mod side) — corrected a wrong assumption:** the
+  LayeredDraw HUD API (`HudLayerRegistrationCallback`/`IdentifiedLayer`) does NOT
+  exist in 1.21.1's fabric-api (it's 1.21.4+). Instead: new `GuiHudMixin` injects
+  `Gui.render` at RETURN with `order=2000`, so Origin's HUD draws after the whole
+  vanilla HUD AND after Fabric's HudRenderCallback dispatch (where other mods
+  paint) = on top. Moved Origin's HUD draw out of the old HudRenderCallback
+  registration in OriginClientMod into this mixin (kept the potion-in-inventory
+  ScreenEvents draw). `order` = injector call sequence (the draw-last lever);
+  `priority` = mixin conflict winner — bumped `priority=2000` on the 7 UI screen
+  mixins only (TitleScreen/ScreenBackground/AbstractButton/AbstractSliderButton/
+  Checkbox/GuiEffects/GuiScoreboard) so Origin wins hard `@Redirect`/`@Overwrite`
+  conflicts vs another UI mod; left render/perf mixins at default so Sodium/Iris
+  ordering is undisturbed. Honest limit (stated, not promised away): a mod that
+  *replaces* a vanilla Screen with its own class can't be overridden via mixins.
+- **Verified:** `dotnet build` + `./gradlew build` both clean (mixin refmap
+  validates the `Gui.render(GuiGraphics,DeltaTracker)` target exists on the real
+  1.21.1 jar). Drove the actual `ModManager` via a throwaway harness — 21/21
+  checks: classification (incl. the sodium-extra regression), `.disabled` toggle
+  round-trip, import filtering/`.disabled`-twin clearing, `.download` exclusion,
+  remove. **Not yet live-tested:** the WPF Mods page GUI (drag-drop visual,
+  toggles) and in-game UI-on-top — dev WPF window can't be driven from here and
+  the game needs a real launch with a competing HUD/UI mod. Next real test.

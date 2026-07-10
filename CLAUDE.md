@@ -149,7 +149,11 @@ settings, and instance isolation all working end-to-end.
 
 ### Next (Phase 2 — mods + loaders)
 - [ ] Fabric/Forge/OptiFine install per version (via CmlLib.Core)
-- [ ] Mods page: drag-drop `.jar` install, enable/disable per profile
+- [x] Mods page: drag-drop `.jar` install, click-to-open-folder, per-mod
+      enable/disable (`.jar.disabled` rename), per-version isolation, auto-
+      follows Home's selected version (`Core/Mods/ModManager.cs` +
+      `UI/Pages/ModsPage`). In-game, Origin UI draws on top of other mods
+      (`GuiHudMixin` + priority-2000 UI mixins). Not yet live-tested (2026-07-09).
 - [ ] Mod conflict detection (name/version mismatch + suggested fix)
 - [ ] Repair Game (re-validate/redownload assets & libraries)
 - [ ] Advanced JVM args editor, hardware acceleration toggle

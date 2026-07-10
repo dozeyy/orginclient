@@ -14,7 +14,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 // drawing is replaced. `value` is a protected field declared directly on
 // AbstractSliderButton (javap-confirmed) -- a declared-field @Shadow, the safe
 // case, unlike the inherited-method shadow that failed before.
-@Mixin(AbstractSliderButton.class)
+// priority 2000: Origin's slider restyle wins over other UI mods.
+@Mixin(value = AbstractSliderButton.class, priority = 2000)
 public class AbstractSliderButtonMixin {
 
 	@Shadow

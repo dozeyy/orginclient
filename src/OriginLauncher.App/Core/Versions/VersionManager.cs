@@ -8,6 +8,7 @@ using CmlLib.Core.Installers;
 using CmlLib.Core.ModLoaders.FabricMC;
 using CmlLib.Core.ProcessBuilder;
 using OriginLauncher.App.Core.Loaders;
+using OriginLauncher.App.Core.Mods;
 using OriginLauncher.App.Core.Models;
 
 namespace OriginLauncher.App.Core.Versions;
@@ -171,40 +172,48 @@ public sealed class VersionManager
                     // updated. This is exactly the "old client through the
                     // launcher" symptom: the launcher was new, the instance
                     // jar was old. Always ship the launcher's own bundled jar.
-                    foreach (var stale in Directory.EnumerateFiles(modsFolder, "originclient*.jar"))
+                    //
+                    // Enumerate ALL files and filter by EndsWith rather than a
+                    // Win32 "originclient*.jar" glob — the legacy 3-char-ext
+                    // match is ambiguous. Enabled ".jar" only; a user's own
+                    // ".jar.disabled" is never touched.
+                    foreach (var file in Directory.EnumerateFiles(modsFolder))
                     {
-                        try { File.Delete(stale); } catch { /* locked/removed already */ }
+                        var fn = Path.GetFileName(file);
+                        if (fn.StartsWith("originclient", StringComparison.OrdinalIgnoreCase)
+                            && fn.EndsWith(ModManager.JarSuffix, StringComparison.OrdinalIgnoreCase))
+                        {
+                            try { File.Delete(file); } catch { /* locked/removed already */ }
+                        }
                     }
                     File.Copy(OriginPaths.BundledOriginClientJar, Path.Combine(modsFolder, "originclient.jar"), overwrite: true);
                     originClientInstalled = true;
 
                     // Origin Client bundles its own pinned Sodium/Indium/Lithium/
-                    // FerriteCore/Iris as jar-in-jar. Purge any STANDALONE copies a
-                    // pre-bundle install (or a hand-dropped mod) left behind: a
-                    // stray newer Sodium overrides the bundled 0.6.x and, being
-                    // incompatible with the pinned Iris 1.8.x, silently disables
-                    // Iris — killing shaders AND leaving the client in a mixed
-                    // Sodium state that breaks other Origin mixins. Matched by
-                    // name prefix so version-drifted leftovers (e.g.
-                    // sodium-fabric-0.8.12) are caught too. fabric-api, krypton
-                    // (not bundled), and any user-dropped mods are left untouched.
-                    string[] bundledPerfPrefixes =
-                        { "sodium", "indium", "lithium", "ferritecore", "ferrite-core", "iris" };
-                    foreach (var jar in Directory.EnumerateFiles(modsFolder, "*.jar"))
+                    // FerriteCore/Krypton/Iris as jar-in-jar. Purge any STANDALONE
+                    // copies a pre-bundle install (or a hand-dropped mod) left
+                    // behind: a stray newer Sodium overrides the bundled 0.6.x
+                    // and, being incompatible with the pinned Iris 1.8.x, silently
+                    // disables Iris — killing shaders AND leaving the client in a
+                    // mixed Sodium state that breaks other Origin mixins.
+                    //
+                    // Matched by ModManager.IsBundledPerfJar, which keys on each
+                    // project's canonical filename SHAPE (sodium-fabric-*, etc.)
+                    // — so a version-drifted leftover is caught, but user addons
+                    // like sodium-extra / sodiumdynamiclights are spared (the old
+                    // bare "sodium" prefix silently deleted those every launch).
+                    // Only enabled ".jar" files are considered; ".jar.disabled"
+                    // user mods are left alone.
+                    foreach (var file in Directory.EnumerateFiles(modsFolder))
                     {
-                        var name = Path.GetFileName(jar);
+                        var name = Path.GetFileName(file);
+                        if (!name.EndsWith(ModManager.JarSuffix, StringComparison.OrdinalIgnoreCase))
+                            continue;
                         if (name.Equals("originclient.jar", StringComparison.OrdinalIgnoreCase))
                             continue;
-                        bool isBundledPerf = false;
-                        foreach (var prefix in bundledPerfPrefixes)
-                            if (name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
-                            {
-                                isBundledPerf = true;
-                                break;
-                            }
-                        if (isBundledPerf)
+                        if (ModManager.IsBundledPerfJar(name))
                         {
-                            try { File.Delete(jar); } catch { /* locked/removed already */ }
+                            try { File.Delete(file); } catch { /* locked/removed already */ }
                         }
                     }
                 }

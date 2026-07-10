@@ -32,7 +32,7 @@ public static class FabricApiInstaller
 
     public static Task InstallAsync(
         string mcVersion, string modsFolder, IProgress<string>? progress = null, CancellationToken ct = default) =>
-        InstallProjectAsync(ProjectSlug, "fabric-api-*.jar", "[\"fabric\"]",
+        InstallProjectAsync(ProjectSlug, "fabric-api-", "[\"fabric\"]",
             "Installing Fabric API...", mcVersion, modsFolder, progress, ct);
 
     // The legacy ecosystem's equivalent, for Legacy Fabric instances
@@ -43,18 +43,27 @@ public static class FabricApiInstaller
     // project only publishes legacy-fabric jars.
     public static Task InstallLegacyAsync(
         string mcVersion, string modsFolder, IProgress<string>? progress = null, CancellationToken ct = default) =>
-        InstallProjectAsync("legacy-fabric-api", "legacy-fabric-api-*.jar", null,
+        InstallProjectAsync("legacy-fabric-api", "legacy-fabric-api-", null,
             "Installing Legacy Fabric API...", mcVersion, modsFolder, progress, ct);
 
     private static async Task InstallProjectAsync(
-        string slug, string presentGlob, string? loadersFilter, string progressText,
+        string slug, string presentPrefix, string? loadersFilter, string progressText,
         string mcVersion, string modsFolder, IProgress<string>? progress, CancellationToken ct)
     {
         Directory.CreateDirectory(modsFolder);
 
         // Skip-if-present, same idea as PerfModInstaller: no repeat network
         // call on every subsequent launch of an already-provisioned instance.
-        if (Directory.EnumerateFiles(modsFolder, presentGlob).Any())
+        // Enumerate all files and match the project's filename prefix in either
+        // state (".jar" or a player-disabled ".jar.disabled") — never a Win32
+        // glob, and never re-downloading a copy the player deliberately turned off.
+        if (Directory.EnumerateFiles(modsFolder).Any(f =>
+        {
+            var n = Path.GetFileName(f);
+            return n.StartsWith(presentPrefix, StringComparison.OrdinalIgnoreCase)
+                && (n.EndsWith(".jar", StringComparison.OrdinalIgnoreCase)
+                    || n.EndsWith(".jar.disabled", StringComparison.OrdinalIgnoreCase));
+        }))
             return;
 
         progress?.Report(progressText);

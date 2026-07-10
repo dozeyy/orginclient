@@ -36,6 +36,14 @@ public partial class HomePage : UserControl
         _ = LoadVersionsAsync();
     }
 
+    // The version the player currently has selected, sourced live from the
+    // dropdown rather than settings.json — the default selection is never
+    // persisted (VersionComboBox_SelectionChanged early-returns while
+    // _isLoading), so disk would read null on first run while Home visibly
+    // shows a version. Null when no real version is selectable (load failed).
+    public string? CurrentVersion =>
+        VersionComboBox.IsEnabled ? VersionComboBox.SelectedItem as string : null;
+
     // Called by MainWindow whenever the account switcher panel adds or
     // selects an account, so Home reflects it without needing to navigate away and back.
     public void RefreshAccountState()

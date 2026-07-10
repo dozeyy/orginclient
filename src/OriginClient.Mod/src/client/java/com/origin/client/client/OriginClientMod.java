@@ -7,7 +7,6 @@ import com.origin.client.client.mods.MotionBlur;
 import com.origin.client.client.mods.Mods;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
-import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
@@ -48,8 +47,9 @@ public class OriginClientMod implements ClientModInitializer {
 	public void onInitializeClient() {
 		OriginKeyBindings.register();
 		ClientTickEvents.END_CLIENT_TICK.register(this::onEndTick);
-		HudRenderCallback.EVENT.register((guiGraphics, tickCounter) ->
-				com.origin.client.client.hud.HudElements.renderAll(guiGraphics));
+		// Origin's HUD is drawn from GuiHudMixin (Gui.render RETURN, high order)
+		// instead of HudRenderCallback so it always lands on top of any other
+		// mod's HUD — see that mixin for why the callback can't guarantee this.
 
 		// Inject a "Download Shaders" button into Iris's own shader menu so the
 		// whole shader flow lives where Sodium/Iris users already look — no tab

@@ -22,7 +22,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 // with no baked Inter texture fall back to vanilla font inside the Origin
 // shell, per the settled font decision. Disabled buttons (active=false,
 // e.g. Telemetry Data) render the dimmed Origin style and skip hover.
-@Mixin(AbstractButton.class)
+// priority 2000: Origin's widget restyle wins over other UI mods.
+@Mixin(value = AbstractButton.class, priority = 2000)
 public class AbstractButtonMixin {
 
 	@Inject(method = "renderWidget", at = @At("HEAD"), cancellable = true)

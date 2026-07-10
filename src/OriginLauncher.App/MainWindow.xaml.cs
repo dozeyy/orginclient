@@ -12,7 +12,7 @@ public partial class MainWindow : Window
 {
     private readonly HomePage _homePage = new();
     private readonly SettingsPage _settingsPage = new();
-    private readonly ModsPlaceholderPage _modsPage = new();
+    private readonly ModsPage _modsPage = new();
     private readonly AccountSwitcherPanel _accountPanel = new();
     private bool _accountPanelOpen;
     private bool _signInPanelOpen;
@@ -143,6 +143,10 @@ public partial class MainWindow : Window
     {
         NavHome.IsChecked = false;
         NavSettings.IsChecked = false;
+        // Mirror Home's live version selection so the Mods tab always shows the
+        // set that will actually launch — sourced from the dropdown, not disk
+        // (the default selection is never persisted; see HomePage.CurrentVersion).
+        _modsPage.ShowVersion(_homePage.CurrentVersion);
         PageHost.Content = _modsPage;
     }
 

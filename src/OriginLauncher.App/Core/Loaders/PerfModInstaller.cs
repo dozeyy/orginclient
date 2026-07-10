@@ -19,7 +19,10 @@ public static class PerfModInstaller
         foreach (var mod in profile.Mods())
         {
             var destPath = Path.Combine(modsFolder, mod.FileName);
-            if (File.Exists(destPath)) continue;
+            // Skip if already present in EITHER state — an enabled ".jar" or a
+            // ".jar.disabled" the player turned off. Re-downloading over a
+            // disabled copy would leave two of the same mod id and refuse to launch.
+            if (File.Exists(destPath) || File.Exists(destPath + ".disabled")) continue;
 
             progress?.Report($"Downloading {mod.FileName}...");
             using var response = await Http.GetAsync(mod.Url, HttpCompletionOption.ResponseHeadersRead, ct);

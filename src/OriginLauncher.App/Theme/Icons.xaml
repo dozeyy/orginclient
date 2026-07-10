@@ -74,6 +74,43 @@
         </PathFigure>
     </PathGeometry>
 
+    <!-- Folder with a tab — the mods drop zone / "open folder" affordance. -->
+    <PathGeometry x:Key="Icon.Folder">
+        <PathFigure StartPoint="4.5,8" IsClosed="True">
+            <LineSegment Point="4.5,18.5"/>
+            <LineSegment Point="19.5,18.5"/>
+            <LineSegment Point="19.5,10"/>
+            <LineSegment Point="11.5,10"/>
+            <LineSegment Point="9.7,7.7"/>
+            <LineSegment Point="5.5,7.7"/>
+        </PathFigure>
+    </PathGeometry>
+
+    <!-- Trash / remove a mod. Lid + handle + tapered can + two ribs. -->
+    <GeometryGroup x:Key="Icon.Trash">
+        <PathGeometry>
+            <PathFigure StartPoint="5,7" IsClosed="False">
+                <LineSegment Point="19,7"/>
+            </PathFigure>
+            <PathFigure StartPoint="10,7" IsClosed="False">
+                <LineSegment Point="10,5.3"/>
+                <LineSegment Point="14,5.3"/>
+                <LineSegment Point="14,7"/>
+            </PathFigure>
+            <PathFigure StartPoint="6.6,7" IsClosed="False">
+                <LineSegment Point="7.4,19"/>
+                <LineSegment Point="16.6,19"/>
+                <LineSegment Point="17.4,7"/>
+            </PathFigure>
+            <PathFigure StartPoint="10,10.5" IsClosed="False">
+                <LineSegment Point="10,15.5"/>
+            </PathFigure>
+            <PathFigure StartPoint="14,10.5" IsClosed="False">
+                <LineSegment Point="14,15.5"/>
+            </PathFigure>
+        </PathGeometry>
+    </GeometryGroup>
+
     <PathGeometry x:Key="Icon.Minimize">
         <PathFigure StartPoint="6,17" IsClosed="False">
             <LineSegment Point="18,17"/>
