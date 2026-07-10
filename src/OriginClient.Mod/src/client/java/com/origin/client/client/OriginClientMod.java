@@ -290,10 +290,10 @@ public class OriginClientMod implements ClientModInitializer {
 		if (Mods.on("togglesprint") && Mods.bool("togglesprint", "flyBoost")
 				&& player.getAbilities().flying && (player.isCreative() || player.isSpectator())) {
 			float mult = (float) Math.max(1.0, Mods.num("togglesprint", "flyBoostAmount"));
-			player.getAbilities().setFlyingSpeed(0.05f * mult);
+			player.getAbilities().flyingSpeed = 0.05f * mult;
 			flyBoostApplied = true;
 		} else if (flyBoostApplied) {
-			player.getAbilities().setFlyingSpeed(0.05f);
+			player.getAbilities().flyingSpeed = 0.05f;
 			flyBoostApplied = false;
 		}
 
