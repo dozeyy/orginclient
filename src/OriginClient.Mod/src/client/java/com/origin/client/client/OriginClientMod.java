@@ -43,6 +43,14 @@ public class OriginClientMod implements ClientModInitializer {
 	// Nametag toggle latches, read by EntityNametagMixin.
 	public static volatile boolean nametagsHidden = false, playerNametagsHidden = false;
 	private boolean nametagAllKeyWasDown = false, nametagPlayerKeyWasDown = false;
+	// Zoomed Sensitivity + Smooth Camera (zoom/freelook) save-and-restore state.
+	private boolean zoomSensApplied = false;
+	private double savedSensitivity = 0.5;
+	private boolean smoothCamApplied = false;
+	private boolean savedSmoothCam = false;
+	// Fly Boost restore latch + thunder-sound cadence counter.
+	private boolean flyBoostApplied = false;
+	private int thunderSoundTicks = 0;
 
 	@Override
 	public void onInitializeClient() {
@@ -155,10 +163,22 @@ public class OriginClientMod implements ClientModInitializer {
 			}
 		}
 
+		// Copy Coords To Clipboard: press the (unbound-by-default) key to drop
+		// your XYZ on the clipboard, gated by the Coordinates mod + its toggle.
+		while (OriginKeyBindings.copyCoords.consumeClick()) {
+			LocalPlayer p = client.player;
+			if (p != null && Mods.on("coords") && Mods.bool("coords", "copyClipboard")) {
+				String c = p.blockPosition().getX() + ", " + p.blockPosition().getY() + ", " + p.blockPosition().getZ();
+				client.keyboardHandler.setClipboard(c);
+				p.displayClientMessage(net.minecraft.network.chat.Component.literal("Copied coordinates: " + c), true);
+			}
+		}
+
 		applyChat(client);
 		applyHitboxes(client);
 		applyWeather(client);
 		applyTimeChanger(client);
+		GeneralSettings.tick(client);
 		MotionBlur.tick(client);
 
 		LocalPlayer player = client.player;
@@ -225,6 +245,20 @@ public class OriginClientMod implements ClientModInitializer {
 			zoomScrollFactor = 1.0;   // reset scroll-zoom depth when not zooming
 		}
 
+		// Zoomed Sensitivity: temporarily scale mouse sensitivity while zoomed so
+		// aiming is steadier, restoring the player's own value the instant zoom ends.
+		if (zoomActive) {
+			if (!zoomSensApplied) {
+				savedSensitivity = client.options.sensitivity().get();
+				zoomSensApplied = true;
+			}
+			double f = Mods.num("zoom", "sensitivity");
+			client.options.sensitivity().set(Math.max(0.0, Math.min(1.0, savedSensitivity * (f <= 0 ? 1.0 : f))));
+		} else if (zoomSensApplied) {
+			client.options.sensitivity().set(savedSensitivity);
+			zoomSensApplied = false;
+		}
+
 		// Chunk borders toggle keybind (edge-triggered, ignored in screens).
 		int cbKey = Mods.keyCode("chunkborders", "key");
 		boolean cbDown = client.screen == null && isRawKeyDown(cbKey);
@@ -281,6 +315,19 @@ public class OriginClientMod implements ClientModInitializer {
 			FEATURES.sneakToggledOn = false;
 		}
 
+		// Fly Boost: multiply flight speed, but ONLY in a mode that actually
+		// allows flight (creative/spectator) and only while airborne — it never
+		// touches survival movement, so it's a QoL tweak, not a speed hack.
+		if (Mods.on("togglesprint") && Mods.bool("togglesprint", "flyBoost")
+				&& player.getAbilities().flying && (player.isCreative() || player.isSpectator())) {
+			float mult = (float) Math.max(1.0, Mods.num("togglesprint", "flyBoostAmount"));
+			player.getAbilities().setFlyingSpeed(0.05f * mult);
+			flyBoostApplied = true;
+		} else if (flyBoostApplied) {
+			player.getAbilities().setFlyingSpeed(0.05f);
+			flyBoostApplied = false;
+		}
+
 		// Freelook: custom bind (default Left Alt) with the vanilla-controls
 		// binding as a fallback. Hold = look around; release = snap back (the
 		// player's real rotation is never touched — see MouseHandlerMixin).
@@ -308,6 +355,20 @@ public class OriginClientMod implements ClientModInitializer {
 			}
 		}
 		freelookWasDown = keyDown;
+
+		// Smooth Camera Movement (zoom / freelook): ride vanilla's cinematic
+		// camera smoothing while either is engaged, then restore the player's own
+		// setting the moment both release.
+		boolean wantSmooth = (zoomActive && Mods.bool("zoom", "smoothCamera"))
+				|| (OriginFreelookState.active && Mods.on("freelook") && Mods.bool("freelook", "smoothCamera"));
+		if (wantSmooth && !smoothCamApplied) {
+			savedSmoothCam = client.options.smoothCamera;
+			client.options.smoothCamera = true;
+			smoothCamApplied = true;
+		} else if (!wantSmooth && smoothCamApplied) {
+			client.options.smoothCamera = savedSmoothCam;
+			smoothCamApplied = false;
+		}
 	}
 
 	// Weather Changer: forces client-side rain/thunder levels per the mode.
@@ -322,6 +383,20 @@ public class OriginClientMod implements ClientModInitializer {
 		client.level.setRainLevel(mode.equals("Clear") ? 0f : 1f);
 		boolean thunder = mode.equals("Thunder") || Mods.bool("weather", "thunder");
 		client.level.setThunderLevel(thunder ? 1f : 0f);
+
+		// Play Thunder Sounds: forcing the thunder level alone never actually
+		// makes a sound (vanilla thunder rides real lightning bolts we don't
+		// spawn), so play a rolling thunder clip on a gentle cadence instead.
+		if (thunder && Mods.bool("weather", "playThunderSounds") && client.player != null) {
+			if (++thunderSoundTicks >= 300) {   // ~every 15 seconds
+				thunderSoundTicks = 0;
+				client.level.playLocalSound(client.player.getX(), client.player.getY(), client.player.getZ(),
+						net.minecraft.sounds.SoundEvents.LIGHTNING_BOLT_THUNDER,
+						net.minecraft.sounds.SoundSource.WEATHER, 1.0f, 0.9f, false);
+			}
+		} else {
+			thunderSoundTicks = 0;
+		}
 	}
 
 	// Time Changer: slider (live), Use Real Current Time, +/- keybinds, and

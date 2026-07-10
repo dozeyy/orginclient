@@ -217,7 +217,9 @@ public final class OriginColorPicker {
 			close(); // click outside dismisses
 			return true;
 		}
-		if (allowChroma && in(mx, my, chromaSwX() - 4, chromaSwY(), chromaSwX() + 30, chromaSwY() + 18)) {
+		// Hit-test exactly the drawn pill (switchAt draws 30 x 30*8/15=16 here),
+		// so only clicks on the switch itself toggle it — no slop around the edge.
+		if (allowChroma && in(mx, my, chromaSwX(), chromaSwY(), chromaSwX() + 30, chromaSwY() + 16)) {
 			Mods.set(modId, key + "#chroma", !chromaOn(modId, key));
 			return true;
 		}

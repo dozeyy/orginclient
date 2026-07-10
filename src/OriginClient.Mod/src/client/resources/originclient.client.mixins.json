@@ -24,7 +24,13 @@
 		"ChatTimestampMixin",
 		"GuiEffectsMixin",
 		"GuiScoreboardMixin",
-		"GameRendererAccessor"
+		"GameRendererAccessor",
+		"MinecraftFramerateMixin",
+		"ToastComponentMixin",
+		"EntityRenderDispatcherMixin",
+		"BlockEntityRenderDispatcherMixin",
+		"PauseScreenMixin",
+		"IrisShadowDirectivesMixin"
 	],
 	"injectors": {
 		"defaultRequire": 0

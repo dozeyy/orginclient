@@ -42,7 +42,13 @@ public final class BlockOverlayRenderer {
 		BlockState state = octx.blockState();
 		VoxelShape shape = state.getShape(mc.level, pos, CollisionContext.of(octx.entity()));
 		if (shape.isEmpty()) {
-			return true;
+			// Show Hidden Foliage: grass/crops with an empty collision shape get
+			// no outline normally — fall back to a full-block box so they're
+			// highlighted. Off (default) keeps vanilla's "no outline" behavior.
+			if (!Mods.bool("blockoverlay", "showHiddenFoliage")) {
+				return true;
+			}
+			shape = net.minecraft.world.phys.shapes.Shapes.block();
 		}
 		double ox = pos.getX() - octx.cameraX();
 		double oy = pos.getY() - octx.cameraY();

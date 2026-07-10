@@ -13,12 +13,27 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 // Nametag Tweaks: rescale + the page's toggles (hide-in-F1, Toggle All /
 // Toggle Players keybinds). Cancel happens BEFORE the push so the RETURN pop
 // (which a cancelled method never reaches) can't unbalance the pose stack.
 @Mixin(EntityRenderer.class)
 public class EntityNametagMixin {
+
+	// Third Person Nametag: your own tag is normally hidden (you're the camera
+	// entity). Force it visible for the local player while in a third-person
+	// view so you can see it in F5. Fail-soft: only ever flips a false to true.
+	@Inject(method = "shouldShowName", at = @At("RETURN"), cancellable = true)
+	private void originclient$ownNametag(Entity entity, CallbackInfoReturnable<Boolean> cir) {
+		if (cir.getReturnValueZ() || !Mods.on("nametags") || !Mods.bool("nametags", "thirdPerson")) {
+			return;
+		}
+		Minecraft mc = Minecraft.getInstance();
+		if (entity == mc.player && !mc.options.getCameraType().isFirstPerson()) {
+			cir.setReturnValue(true);
+		}
+	}
 
 	@Inject(method = "renderNameTag", at = @At("HEAD"), cancellable = true)
 	private void originclient$scaleTagPush(Entity entity, Component displayName, PoseStack poseStack,

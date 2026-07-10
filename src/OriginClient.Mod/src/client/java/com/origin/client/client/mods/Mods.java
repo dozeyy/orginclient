@@ -33,25 +33,30 @@ public final class Mods {
 	public static final String GENERAL_ID = "@general";
 	public static final String PERFORMANCE_ID = "@performance";
 
+	// Every option here is backed by real behavior — Smart Disconnect prompts
+	// before leaving a world (PauseScreenMixin), the rest apply via the tick
+	// loop / dedicated mixins. Cosmetic-only toggles that couldn't be honestly
+	// implemented in a lightweight Fabric mod were dropped rather than left as
+	// save-but-do-nothing switches.
 	public static final List<ModOption> GENERAL_SETTINGS = List.of(
 			ModOption.toggle("borderlessFullscreen", "Borderless Fullscreen", false),
 			ModOption.toggle("rawMouseInput", "Raw Mouse Input", true),
-			ModOption.toggle("smartDisconnect", "Smart Disconnect", true),
-			ModOption.toggle("keepInventoryCentered", "Keep Inventory Centered", false),
+			ModOption.toggle("smartDisconnect", "Smart Disconnect", true).tip("Ask for confirmation before leaving a world or server."),
 			ModOption.toggle("disableHotbarScrolling", "Disable Hotbar Scrolling", false),
 			ModOption.dropdown("mainMenuStyle", "Main Menu Style", "Origin", "Vanilla"),
-			ModOption.toggle("showAchievements", "Show Achievements", true));
+			ModOption.toggle("showAchievements", "Show Achievements", true).tip("Show the advancement toast pop-ups."));
 
+	// Entity/Tile Entity Distance are a percentage of your render distance: at
+	// 100% nothing extra is culled; lower values stop drawing distant entities /
+	// block entities. The FPS caps kick in when the window is unfocused or you're
+	// sitting on the main menu. Shader Performance Mode halves every active
+	// shaderpack's shadow map resolution + shadow render distance (the biggest
+	// GPU lever with shaders on) via IrisShadowDirectivesMixin.
 	public static final List<ModOption> PERFORMANCE_SETTINGS = List.of(
-			ModOption.toggle("turboNametags", "Turbo Nametags", true),
-			ModOption.toggle("memorySavings", "Memory Savings", true),
-			ModOption.toggle("renderRegions", "Render Regions", true),
-			ModOption.dropdown("lazyChunkLoading", "Lazy Chunk Loading", "Off", "Low", "Medium", "High"),
-			ModOption.toggle("hudCaching", "HUD Caching", true),
+			ModOption.toggle("shaderPerformanceMode", "Shader Performance Mode", true).tip("Any shader you load runs at half shadow resolution and half shadow distance for a big FPS gain. Turn off for full quality; tuning a shader's own shadow options still applies (at half)."),
 			ModOption.toggle("limitUnfocusedFps", "Limit Unfocused FPS", true),
 			ModOption.slider("maxUnfocusedFps", "Max Unfocused FPS", 5, 60, 5, 30, "%.0f").under("limitUnfocusedFps"),
 			ModOption.slider("maxMainMenuFps", "Max Main Menu FPS", 30, 260, 10, 120, "%.0f"),
-			ModOption.toggle("particlePhysics", "Use Particle Physics", false),
 			ModOption.slider("entityDistance", "Entity Distance", 10, 100, 5, 100, "%.0f%%"),
 			ModOption.slider("tileEntityDistance", "Tile Entity Distance", 10, 100, 5, 100, "%.0f%%"));
 
@@ -119,7 +124,6 @@ public final class Mods {
 				ModOption.toggle("rightClick", "Right Click CPS", false),
 				ModOption.toggle("showText", "Show CPS Text", true),
 				ModOption.toggle("reverseText", "Reverse Text", false),
-				ModOption.toggle("ignoreCancelled", "Ignore Cancelled Clicks", false).tip("Don't count clicks that didn't register a hit."),
 				ModOption.toggle("textShadow", "Text Shadow", true),
 				ModOption.toggle("showBackground", "Show Background", true),
 				ModOption.header("Color"),
@@ -145,16 +149,16 @@ public final class Mods {
 				ModOption.slider("sensitivity", "Zoomed Sensitivity", 0.1, 2.0, 0.05, 1.0, "%.2fx"));
 
 		add("armorhud", "Armor Status", "Armor pieces and durability.", false,
-				ModOption.dropdown("listMode", "List Mode", "Horizontal", "Vertical"),
-				ModOption.dropdown("durabilityPos", "Durability Position", "Right", "Left", "Below", "Hidden"),
-				ModOption.toggle("itemCount", "Item Count", true),
+				ModOption.dropdown("listMode", "List Mode", "Horizontal", "Vertical").tip("Lay the armor pieces out in a row or a column."),
+				ModOption.dropdown("durabilityPos", "Durability Position", "Right", "Left", "Below", "Hidden").tip("Where the durability number sits per piece — Hidden turns it off."),
+				ModOption.toggle("itemCount", "Item Count", true).tip("Show the stack count on held items (e.g. blocks in hand)."),
 				ModOption.toggle("textShadow", "Text Shadow", true),
 				ModOption.toggle("showBackground", "Show Background", true),
-				ModOption.dropdown("damageDisplay", "Damage Display Type", "Value", "Percent"),
-				ModOption.dropdown("damageThreshold", "Damage Threshold Type", "Percent", "Value"),
+				ModOption.dropdown("damageDisplay", "Damage Display Type", "Value", "Percent").tip("Show remaining durability as a raw number or a percentage."),
+				ModOption.dropdown("damageThreshold", "Damage Threshold Type", "Percent", "Value").tip("Whether Damage Color kicks in by percent remaining (<25%) or raw durability left (<50)."),
 				ModOption.header("Color"),
 				ModOption.color("textColor", "Text Color", 0xFFFFFFFF),
-				ModOption.color("damageColor", "Damage Color", 0xFFE05555));
+				ModOption.color("damageColor", "Damage Color", 0xFFE05555).tip("Colour the durability text turns once a piece is low."));
 
 		add("keystrokes", "Key Strokes", "On-screen key display.", false,
 				ModOption.toggle("showClicks", "Show Clicks", true),
@@ -303,15 +307,10 @@ public final class Mods {
 		add("weather", "Weather Changer", "Force a client weather mode.", false,
 				ModOption.dropdown("mode", "Weather Mode", "Clear", "Rain", "Thunder", "Snow"),
 				ModOption.toggle("thunder", "Thunder", false),
-				ModOption.toggle("playThunderSounds", "Play Thunder Sounds", true).under("thunder"),
-				ModOption.slider("lightningFrequency", "Lightning Frequency", 1, 60, 1, 10, "%.0fs").under("thunder"),
-				ModOption.slider("lightningRadius", "Lightning Radius", 8, 128, 8, 48, "%.0f").under("thunder"),
-				ModOption.slider("lightningYOffset", "Lightning Y Offset", -32, 32, 1, 0, "%.0f").under("thunder"));
+				ModOption.toggle("playThunderSounds", "Play Thunder Sounds", true).under("thunder"));
 
 		add("timechanger", "Time Changer", "Set a fixed client time of day.", false,
 				ModOption.slider("time", "Time", 0, 24000, 100, 6000, "%.0f"),
-				ModOption.dropdown("skyMode", "Overworld Sky", "Default", "Clear", "Void"),
-				ModOption.slider("horizonY", "Horizon Y Level", -64, 320, 4, 63, "%.0f"),
 				ModOption.toggle("useRealTime", "Use Real Current Time", false),
 				ModOption.keybind("increaseKey", "Increase Time", GLFW.GLFW_KEY_RIGHT_BRACKET),
 				ModOption.keybind("decreaseKey", "Decrease Time", GLFW.GLFW_KEY_LEFT_BRACKET),
@@ -498,11 +497,23 @@ public final class Mods {
 	}
 
 	private static ModOption opt(String modId, String key) {
-		Mod m = byId(modId);
-		if (m == null) {
-			return null;
+		// The SETTINGS tab stores under pseudo-ids that aren't in ALL, so resolve
+		// their schema (and thus their defaults) from the settings lists directly
+		// — otherwise every General/Performance option would fall back to 0/false
+		// before it's ever touched (e.g. Entity Distance -> 0 = cull everything).
+		List<ModOption> opts;
+		if (GENERAL_ID.equals(modId)) {
+			opts = GENERAL_SETTINGS;
+		} else if (PERFORMANCE_ID.equals(modId)) {
+			opts = PERFORMANCE_SETTINGS;
+		} else {
+			Mod m = byId(modId);
+			if (m == null) {
+				return null;
+			}
+			opts = m.options();
 		}
-		for (ModOption o : m.options()) {
+		for (ModOption o : opts) {
 			if (o.key.equals(key)) {
 				return o;
 			}

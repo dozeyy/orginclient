@@ -11,6 +11,7 @@ public final class OriginKeyBindings {
 	public static KeyMapping openModMenu;
 	public static KeyMapping zoom;
 	public static KeyMapping freelook;
+	public static KeyMapping copyCoords;
 
 	private OriginKeyBindings() {
 	}
@@ -30,6 +31,12 @@ public final class OriginKeyBindings {
 
 		freelook = KeyBindingHelper.registerKeyBinding(new KeyMapping(
 				"key.originclient.freelook",
+				InputConstants.Type.KEYSYM,
+				InputConstants.UNKNOWN.getValue(),
+				CATEGORY));
+
+		copyCoords = KeyBindingHelper.registerKeyBinding(new KeyMapping(
+				"key.originclient.copy_coords",
 				InputConstants.Type.KEYSYM,
 				InputConstants.UNKNOWN.getValue(),
 				CATEGORY));
