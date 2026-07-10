@@ -2145,3 +2145,28 @@ overlay Show-Hidden-Foliage (needs a raytrace change).
 - **Removed by request:** Chat → Copy Chat + Hover Image Preview; Particle Changer →
   Always Show Sharpness, Custom Color, Color Mode, and per-type Custom Color (all were
   schema-only, no implementation — safe deletes).
+
+## 2026-07-09 — Launcher install/update flow made flawless (single-file jar bug + installer)
+- **THE big one — single-file `AppContext.BaseDirectory`:** the launcher publishes as a
+  single-file exe, so BaseDirectory is the exe's own folder. The bundled `originclient.jar`
+  (a `<Content>` item) got embedded in the bundle and extracted to a `%Temp%\.net\...` dir,
+  NOT next to the exe — so `OriginPaths.BundledOriginClientJar` (= BaseDirectory\Bundled\...)
+  never existed at runtime. VersionManager took the `!originClientInstalled` fallback and
+  re-downloaded the STANDALONE perf-mod catalog every launch → a stray Sodium 0.8.12 that
+  overrode the pinned 0.6.13 and disabled Iris (no shaders). The mod only ever ran via manual
+  copies. Fix: `<ExcludeFromSingleFile>true</ExcludeFromSingleFile>` (+ CopyToPublishDirectory)
+  on the Content jar so it stays LOOSE at `publish\Bundled\OriginClient\originclient.jar`.
+- **Perf-mod conflict cleanup:** even with the mod found, a pre-bundle instance kept its old
+  standalone sodium/indium/lithium/ferrite. VersionManager now purges standalone copies (by
+  name prefix) when it deploys originclient.jar, since the jar JiJs them. Iris 1.8.8 REQUIRES
+  Sodium 0.6.x — any stray newer Sodium silently kills it.
+- **Verified clean** via `./gradlew runClient`: iris 1.8.8 + sodium 0.6.13 + originclient 0.4.1
+  all load, Iris builds its pipeline. runClient is the definitive "is the mod itself OK" test,
+  independent of the launcher instance.
+- **Installer:** releases now ship `OriginLauncher-Setup.exe` (Inno Setup, `installer/
+  OriginLauncher.iss`, per-user install to `%LocalAppData%\Programs\OriginLauncher` so in-place
+  self-update needs no admin, Add/Remove-Programs uninstall, ships the loose Bundled\ folder).
+  The win-x64.zip stays the self-update asset. Both built in launcher-release.yml (choco
+  install innosetup + ISCC). Build ISCC locally via `winget install JRSoftware.InnoSetup`.
+- **Update timing:** poll 10min->2min + re-check on window focus; the hard gate is still the
+  fresh CheckAsync on the Play click (can't play a stale build; in-game is never interrupted).
