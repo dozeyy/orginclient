@@ -1,4 +1,4 @@
-# Origin Launcher
+# Origin
 
 > Project-specific config. Global rules, identity, model + skill routing live in
 > `~/.claude/` and load automatically — this file is ONLY what's unique to this
@@ -7,203 +7,80 @@
 ## Type
 application
 
-## One-liner
-A premium Windows desktop Minecraft launcher (Origin Launcher) that runs a custom
-client wrapper (Origin Client) with account management, version/mod-loader
-handling, performance tuning, and crash diagnostics — Lunar/Feather-tier polish.
+## What it is
+- **Origin Launcher** — premium Windows desktop Minecraft launcher (C# / .NET 8,
+  WPF). Account management, version handling, performance tuning, launch.
+- **Origin Client** — the in-game Fabric mod it installs: restyled title screen,
+  loading screens, mod menu, HUD, and a curated set of QoL mods. Java, Fabric,
+  Mojmap, Gradle + Loom. Lives under `src/OriginClient.Mod*/`, one module per
+  Minecraft API family.
 
-## Why
-Deliver a faster, cleaner, more stable alternative to existing modded launchers:
-instant-feeling UI, simple version+mod workflow, real crash diagnostics instead
-of a raw log dump, and secure multi-account switching without constant re-auth.
+## The mandate (non-negotiable)
+1. **Fabric only.** No Forge, no NeoForge, no OptiFine. The launcher always
+   installs Fabric + the matching Origin build quietly (Lunar/Feather model).
+2. **Every supported version gets the FULL Origin experience.** Identical look
+   across versions — the title screen, every loading/progress screen, the mod
+   menu, and the HUD must all match the Origin design on every supported version.
+   Vanilla menus are NOT an acceptable shipped state; fail-soft-to-vanilla exists
+   only as a crash-safety net, never the intended result.
+3. **Every supported version has shader integration.** Iris + Sodium work on
+   every version Origin offers. A version doesn't ship until its shaders work.
+4. **Never broken.** Whatever version the player picks, the game boots and the
+   Origin surfaces work — or degrade silently to vanilla, never crash.
 
-## Target
-- Platform: Windows desktop only (v1)
-- Audience: Will + Minecraft players who want a modded client with less friction
-  than Forge/Fabric's raw tooling and a cleaner UI than existing launchers
+## Supported versions
+1.20, 1.20.1, 1.20.4, 1.21, 1.21.1, 1.21.11 — all Fabric. Each needs the full
+Origin UI + shaders (per the mandate). Reaching that is a **per-version build**:
+Minecraft renames GUI/render internals between versions and mixins bind to exact
+signatures, so there's one Origin jar per API family, and the launcher installs
+the matching one. ~95% of the mod is shared (theme, assets, layout, tools/); only
+the two renderers' MC calls + the mixin layer are version-touching.
 
-## Scope (v1 — Phase 1, see Roadmap)
-- Must-have:
-  - App shell + Deskify-style theme (dark, monochrome, Bahnschrift, 8px grid)
-  - Home page: Play button, last played version, selected account, quick settings
-  - Microsoft account login (device code OAuth) + encrypted local token storage
-  - Account switcher slide-out panel, multi-account support
-  - Version selector (vanilla, via Mojang manifest) + install path management
-  - Basic settings: RAM slider, resolution, MC version, install path
-  - Launch pipeline: build JVM args → launch vanilla Minecraft, isolated instance
-- NOT in v1:
-  - Mod loaders (Fabric/Forge/OptiFine), mods page, conflict detection → Phase 2
-  - Repair Game, advanced JVM editor, performance/graphics mode toggle → Phase 2
-  - Crash debug screen, log-cause detection, disable-mods-and-retry → Phase 3
-  - Language sync, light theme, future MC version branches (26.x) → Phase 3
+**Verification bar:** compiling clean only proves mixin *targets exist*. `@Inject`
+descriptor and `@Shadow` mismatches only surface at mixin **apply** time — always
+smoke-test a new/ported build with `./gradlew runClient` (offline dev account,
+independent of launcher auth) and confirm zero `Mixin apply ... failed` lines
+before calling a version done.
 
-## Stack / Tools
-- C# / .NET 8, WPF (native Windows, matches Deskify token system directly in XAML)
-- CmlLib.Core (MIT) for Mojang version manifest, library/asset download, Forge/
-  Fabric install, and launch-argument construction — avoids reinventing a
-  well-solved problem; wraps in `Core/Launch/` rather than calling it from UI code
-- Microsoft.Identity.Client (MSAL) for MSA OAuth → Xbox Live → XSTS → Minecraft
-  token chain
-- Windows DPAPI (`System.Security.Cryptography.ProtectedData`) to encrypt cached
-  tokens at rest — ties them to the Windows user profile, satisfies "device-bound,
-  no plaintext" requirement with no extra key management
-- JSON (System.Text.Json) for local config/instance/profile files
-
-## Origin Client (in-game mod) — separate stack
-- Java 21, Fabric (loader + Fabric API), Gradle + Fabric Loom, official Mojang
-  mappings (Mojmap, not Yarn). Lives in `src/OriginClient.Mod/` — its own Gradle
-  build, no dependency on the .NET launcher solution.
-- Named "Origin Client" (renamed from "Orbit Client" on 2026-07-06); the
-  launcher was renamed to match ("Orbit Launcher" -> "Origin Launcher") the
-  same day. Whole product is "Origin" now, no remaining "Orbit" branding.
-  Java package `com.origin.client`, mod id `originclient`.
-- Pinned to Minecraft 1.21.1 for v1. Multi-version/multi-loader strategy is
-  settled in `src/OriginClient.Mod/VERSIONS.md`: one build per MC version,
-  launcher always installs Fabric + the matching build (Lunar model; OptiFine
-  never paired — Sodium conflict), fail-soft runtime degrades any mismatch to
-  vanilla instead of crashing.
-- Scaffolded from FabricMC's official `fabric-example-mod` (1.21.1 branch) to
-  guarantee a matching Gradle wrapper/Loom version/mappings instead of
-  hand-writing config
-
-## Constraints
-- Performance targets: launcher cold start <3s, 60fps+ UI transitions, no jank
-  switching tabs/versions
-- Hard requirements: accounts encrypted at rest and device-bound; instances
-  isolated per Minecraft version under `/OriginLauncher/instances/`; no plaintext
-  tokens on disk; newest launch action cancels any in-flight one
+## Stack
+- Launcher: C# / .NET 8, WPF. CmlLib.Core (Mojang manifest, downloads, Fabric
+  install, launch args). MSAL for MSA→Xbox→XSTS→Minecraft auth. Windows DPAPI for
+  token-at-rest. System.Text.Json for config.
+- Mod: Java + Fabric (loader + API) + Loom + official Mojang mappings. 1.21.x on
+  Java 21, 1.20.x on Java 17. Shaders via Iris; perf via Sodium/Lithium/
+  FerriteCore. 1.21.1 jar bundles its perf stack jar-in-jar; other versions get
+  the perf stack installed standalone from `PerformanceModCatalog` alongside the
+  Origin jar (`VersionManager.OriginBuilds` records which model per version).
 
 ## Brand
-- Name: Origin — mark is 3 tilted rings (ellipses) sharing one center, rotated
-  0°/60°/120° (atom/orbital pattern), stroke-only, with a soft monochrome glow.
-  Two consumers of the same geometry: `UI/Controls/OriginMark.xaml` (static,
-  used as the small in-app mark + rendered into `Assets/origin.ico`) and
-  `UI/Controls/OriginBackground.xaml` (larger, continuously rotating, ambient).
-- Palette: still Deskify-derived monochrome — dark default, one tonal accent
-  (`#E0E0E0`), no new hue even in the glow (confirmed with Will — glow stays
-  white/gray, not a color accent).
-- UI language pivoted from the original nav-rail/card layout to a minimal,
-  center-focused "one primary action" launcher (big centered Play button,
-  version dropdown above it, chromeless window, floating corner controls).
-  See `UI/Pages/HomePage.xaml` and `MainWindow.xaml` for the current shape —
-  this superseded the Phase 1 nav-rail described further down; roadmap below
-  reflects the current state.
+Origin mark = 3 tilted stroke-only rings sharing one center (0°/60°/120°, atom/
+orbital), soft monochrome glow. Deskify-derived monochrome (dark default, one
+tonal accent `#E0E0E0`, no hue even in the glow). Minimal center-focused launcher:
+big centered Play button, version dropdown above, chromeless window, floating
+corner controls. In-game menus match this exactly.
 
-## Success (Phase 1) = 
-Will can install Origin Launcher, log in with a Microsoft account, pick a vanilla
-MC version, hit Play, and land in-game — with account switching, RAM/resolution
-settings, and instance isolation all working end-to-end.
+## Constraints
+- Launcher cold start <3s, 60fps+ UI, no jank switching tabs/versions.
+- Accounts encrypted at rest + device-bound; no plaintext tokens on disk.
+- Instances isolated per version under `%LocalAppData%/OriginLauncher/instances/`.
+- Newest launch action cancels any in-flight one.
 
----
+## Current state (2026-07-10)
+- Launcher shipping (v1.0.15, auto-update). Auth chain: MSA→Xbox→XSTS confirmed;
+  Minecraft `login_with_xbox` returns 403 (leading theory: new-app-registration
+  propagation) — retry sign-in after time; Azure config verified correct.
+- 1.21.1 Origin mod: full, shipping.
+- 1.20 Origin mod (`src/OriginClient.Mod120`, covers 1.20 + 1.20.1): ported,
+  builds, wired into the launcher (`OriginBuilds` registry + per-version bundling
+  in the csproj). runClient boots to title screen; fixing the remaining
+  `@Inject`/`@Shadow` apply mismatches so every Origin surface renders.
+- Remaining to satisfy the mandate: finish 1.20 mixin fixes, then per-version
+  builds + shader verification for 1.20.4, 1.21, 1.21.11.
 
 ## Roadmap
-
-### Now (Phase 1 — core loop)
-- [ ] Azure AD app registration for MSA OAuth (client ID + redirect URI) — Will,
-      blocks the account-system work specifically, not UI/shell work
-- [x] WPF app shell + Deskify token/theme setup (ResourceDictionary)
-- [x] Home page UI (Play button, last played, account preview, quick settings)
-- [x] Azure AD app registration done (client ID `de37d9e5-...`, personal
-      accounts only, public client, redirect `http://localhost`)
-- [x] Account system: full MSA (PKCE auth-code + loopback listener) → Xbox
-      Live → XSTS → MC token chain in `Core/Auth/MicrosoftAuthenticator.cs`,
-      returns a `CmlLib.Core.Auth.MSession`. Refresh-token support
-      (`SignInSilentlyAsync`) for re-auth without a browser each launch.
-      DPAPI-encrypted persistence in `Core/Accounts/AccountStore.cs`.
-      "Add Microsoft Account" button and account-row selection are wired to
-      this for real (`UI/Controls/AccountSwitcherPanel.xaml(.cs)`).
-- [x] Launch pipeline: Play button does silent token refresh → builds
-      `MLaunchOption` via `LaunchProfileBuilder` → `VersionManager` installs
-      + builds the process via CmlLib.Core → `Process.Start()`. Wired in
-      `UI/Pages/HomePage.xaml.cs`.
-- [ ] **Auth chain unresolved at the last step** — MSA → Xbox Live → XSTS all
-      confirmed working against a real account. Minecraft's own
-      `login_with_xbox` returns `403 Invalid app registration`; Azure config
-      itself has been verified correct (screenshot-confirmed redirect URI).
-      Leading unconfirmed theory: new-app-registration propagation delay.
-      Next real test is just retrying sign-in after time has passed.
-- [x] Version manager: Mojang manifest fetch (CmlLib.Core `MinecraftLauncher`),
-      instance folder scaffolding (`/instances/`, `/accounts/`, `/logs/`)
-- [x] Launch pipeline: JVM args + RAM + resolution → launch vanilla instance,
-      basic process lifecycle (start/exit code capture + per-launch log under
-      `/logs/`) in `HomePage.StartWithLifecycleCapture`
-- [x] Settings page (basic): RAM slider, install path, resolution, MC version
-      (persisted to `settings.json` under the Origin root)
-
-### Now — visual/UX revision (done, on top of Phase 1 core loop)
-- [x] 3-ring origin mark (`UI/Controls/OriginMark.xaml`) + animated background
-      field (`UI/Controls/OriginBackground.xaml`, 4 rings, independent
-      speed/direction, pauses on minimize)
-- [x] Chromeless MainWindow: drag-from-empty-background, top-right corner
-      cluster (account/minimize/close), floating left-edge icon column
-      (Home/Mods-stub/Settings)
-- [x] HomePage rebuilt: centered `Button.PlayHero`, version dropdown above it
-- [x] Mods placeholder page (stub — real mod loader work still Phase 2 below)
-- [x] Settings: Performance/Graphics mode toggle, auto-detected default RAM
-- [x] `Core/Launch/JvmArgPresets.cs` (Aikar's flags for Performance mode) +
-      `Core/Launch/LaunchProfileBuilder.cs` (produces `MLaunchOption` for
-      CmlLib.Core) — prep for the real launch pipeline, still gated on the
-      Azure AD auth blocker below for a real account session
-- [x] `Assets/origin.ico` generated from the mark, wired as `ApplicationIcon`
-      + `Window.Icon`
-
-### Next (Phase 2 — mods + loaders)
-- [ ] Fabric/Forge/OptiFine install per version (via CmlLib.Core)
-- [x] Mods page: drag-drop `.jar` install, click-to-open-folder, per-mod
-      enable/disable (`.jar.disabled` rename), per-version isolation, auto-
-      follows Home's selected version (`Core/Mods/ModManager.cs` +
-      `UI/Pages/ModsPage`). In-game, Origin UI draws on top of other mods
-      (`GuiHudMixin` + priority-2000 UI mixins). Not yet live-tested (2026-07-09).
-- [ ] Mod conflict detection (name/version mismatch + suggested fix)
-- [ ] Repair Game (re-validate/redownload assets & libraries)
-- [ ] Advanced JVM args editor, hardware acceleration toggle
-- [x] GPU preference registry hint for hybrid-GPU laptops
-      (`Core/GpuPreference.cs`, writes `UserGpuPreferences` for the resolved
-      java executable, applied when Performance mode is selected)
-- [ ] Language settings (dropdown, synced with launcher UI language)
-
-### Now — Origin Client (in-game mod, new sub-project)
-- [x] Fabric mod project scaffolded at `src/OriginClient.Mod/` (MC 1.21.1,
-      Mojmap, own Gradle/Loom build)
-- [x] Title screen replaced (Mixin): Singleplayer/Multiplayer/Settings/Mod
-      Settings/Quit, matching the launcher's minimal look
-      (`TitleScreenMixin`)
-- [x] Branded loading screen: Origin wordmark drawn over vanilla's resource
-      loading overlay without touching its real progress logic
-      (`LoadingOverlayMixin`)
-- [x] Right Shift mod-menu overlay (`OriginModMenuScreen` + custom-drawn
-      `OriginToggleButton`, non-pausing, Deskify-styled toggle rows)
-- [x] Feature mods v1: Zoom (FOV mixin), Freelook (camera-only rotation via
-      redirect + view-angle override), HUD info (FPS/coords/ping), Toggle
-      sprint/sneak (post-tick override, no mixin), Fullbright (gamma
-      override, no mixin)
-- [x] **Compile-verify against the real 1.21.1 jar** — `./gradlew build`
-      passes clean. One real bug found/fixed (`OptionsScreen` is under
-      `...screens.options`, not `...screens` directly); every other
-      Mojmap class/Mixin target matched on the first try.
-- [ ] Not yet visually confirmed in-game (compiling clean proves the Mixin
-      targets exist, not that the features look/feel right) — needs a real
-      launch. `./gradlew runClient` (dev/offline account) can test this
-      independently of the launcher's auth chain if that stays blocked.
-      Flagged risks to check specifically: fullbright brightness ceiling
-      (gamma validator may clamp back to 1.0), freelook pitch clamp
-      behavior at extremes
-- [ ] Real logo texture on the loading screen (current v1 is text-only
-      wordmark) — open question whether Origin Client gets its own mark or
-      reuses the launcher's tri-ring Origin mark; not decided yet
-- [ ] Wire the launcher's Play button to actually load this mod (Fabric
-      loader install + this mod jar in the instance's mods folder) — not
-      done yet, mod currently only runs via its own dev-launch task
-
-### Later (Phase 3 — crash system + polish)
-- [ ] Origin Debug Screen: crash-cause detection from logs, mod-conflict tie-in,
-      JVM error summary
-- [ ] "Disable Mods & Retry" / "Open Crash Log" actions
-- [ ] Full motion pass (button press/hover/lift per Deskify spec), load-then-snap
-      transitions everywhere
-- [ ] Light theme (Deskify inverse tokens)
-- [ ] Placeholder support for future MC branches (26.1–26.2)
-
-### Open questions
-- Azure app registration not yet created — needed before any real OAuth call;
-  shell/UI/version-manager work can proceed without it in the meantime
+- [ ] **1.20 / 1.20.1** — finish runtime mixin fixes, verify UI + shaders in-game.
+- [ ] **1.20.4** — per-version build (renderBackground 4-arg era), UI + shaders.
+- [ ] **1.21** — reuse/adapt the 1.21.1 build, UI + shaders.
+- [ ] **1.21.11** — per-version build (blit reworked at 1.21.2), UI + shaders.
+- [ ] Crash system: Origin debug screen, log-cause detection, disable-mods-&-retry.
+- [ ] Light theme (Deskify inverse tokens).

@@ -21,36 +21,49 @@
   </ItemGroup>
 
   <!--
-    Bundles OriginClient.Mod's own Gradle build output into the launcher's
-    output directory (as Bundled/OriginClient/originclient.jar, read at
+    Bundles each OriginClient.Mod* Gradle build output into the launcher's
+    output directory (as Bundled/OriginClient/originclient-<mcver>.jar, read at
     runtime via OriginPaths.BundledOriginClientJar) so a Fabric instance the
-    launcher provisions can be pre-loaded with Origin Client automatically —
-    no separate manual copy step, and whatever tool packages this output into
-    a setup installer picks the jar up along with everything else.
+    launcher provisions can be pre-loaded with the Origin Client build matching
+    the chosen Minecraft version — no separate manual copy step, and whatever
+    tool packages this output into a setup installer picks the jars up along
+    with everything else. VersionManager's OriginBuilds registry maps each MC
+    version to the bundled filename here.
 
-    Filename is pinned to the exact mod_version in
-    src/OriginClient.Mod/gradle.properties (currently 0.2.0) rather than a
-    wildcard: a glob risks matching a stale jar left behind from a prior
-    version bump if `build/libs` isn't cleaned, which would break the build
-    with an ambiguous duplicate match. Bump this alongside mod_version.
+    Each source filename is pinned to the exact mod_version in that module's
+    gradle.properties rather than a wildcard: a glob risks matching a stale jar
+    left behind from a prior version bump if build/libs isn't cleaned, which
+    would break the build with an ambiguous duplicate match. Bump these
+    alongside each module's mod_version.
 
-    Conditional on the jar existing so a fresh checkout (or a launcher-only
-    change) still builds before `./gradlew build` has ever been run in
-    OriginClient.Mod — the launcher already fail-softs at runtime when the
-    bundled jar is absent (VersionManager falls back to the standalone
-    perf-mod catalog). A RELEASE build must still verify the jar is present.
+    Conditional on each jar existing so a fresh checkout (or a launcher-only
+    change) still builds before ./gradlew build has been run in that module —
+    the launcher already fail-softs at runtime when a bundled jar is absent
+    (VersionManager falls back to the standalone perf-mod catalog for that
+    version). A RELEASE build must still verify the jars are present.
+
+    Every jar is kept LOOSE next to the exe in a single-file publish. Without
+    ExcludeFromSingleFile it gets embedded in the bundle and extracted to a temp
+    dir, while OriginPaths.BundledOriginClientJar looks in AppContext.BaseDirectory
+    (the exe's own folder) — so File.Exists is false, the launcher thinks the
+    mod isn't bundled, and it falls back to the standalone perf-mod catalog (a
+    stray Sodium that breaks Iris). Loose = the path resolves.
   -->
-  <ItemGroup Condition="Exists('..\OriginClient.Mod\build\libs\originclient-0.4.1.jar')">
-    <Content Include="..\OriginClient.Mod\build\libs\originclient-0.4.1.jar">
-      <Link>Bundled\OriginClient\originclient.jar</Link>
+  <ItemGroup>
+    <!-- 1.21.1 — full Origin build, self-contained perf stack (jar-in-jar). -->
+    <Content Condition="Exists('..\OriginClient.Mod\build\libs\originclient-0.4.1.jar')"
+             Include="..\OriginClient.Mod\build\libs\originclient-0.4.1.jar">
+      <Link>Bundled\OriginClient\originclient-1.21.1.jar</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
-      <!-- Keep the jar LOOSE next to the exe in a single-file publish. Without
-           this it gets embedded in the bundle and extracted to a temp dir,
-           while OriginPaths.BundledOriginClientJar looks in AppContext.BaseDirectory
-           (the exe's own folder) — so File.Exists is false, the launcher thinks
-           the mod isn't bundled, and it falls back to the standalone perf-mod
-           catalog (a stray Sodium that breaks Iris). Loose = the path resolves. -->
+      <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+    </Content>
+    <!-- 1.20 / 1.20.1 — Origin client only; perf stack installed standalone. -->
+    <Content Condition="Exists('..\OriginClient.Mod120\build\libs\originclient-1.20-0.4.1.jar')"
+             Include="..\OriginClient.Mod120\build\libs\originclient-1.20-0.4.1.jar">
+      <Link>Bundled\OriginClient\originclient-1.20.jar</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
       <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
     </Content>
   </ItemGroup>

@@ -5,6 +5,45 @@ every session — read at session start alongside `./CLAUDE.md`.
 
 ---
 
+## 2026-07-10 — Direction locked: full Origin UI + shaders on EVERY version
+- Will's mandate (now in `./CLAUDE.md`, rewritten + simplified): Fabric only;
+  every supported version gets the full Origin experience (title, loading
+  screens, mod menu, HUD all matching) AND shader integration (Iris + Sodium);
+  vanilla menus are no longer an acceptable shipped state (fail-soft only).
+  Supersedes the old "1.21.1 full, others vanilla-menu until per-version builds"
+  plan.
+
+## 2026-07-10 — 1.20 / 1.20.1 Origin port done + wired + verified
+- `src/OriginClient.Mod120` (MC 1.20, Java 17, covers 1.20 + 1.20.1) now
+  compiles, builds, boots in-game, and is installed by the launcher.
+- **Key learning (root cause of the "compiles but broken" trap):** a clean
+  `./gradlew build` only proves mixin *targets exist*. `@Inject` target
+  descriptors and `@Shadow` names are validated at mixin **apply** time, not by
+  javac — so a wrong signature ships silently and the feature is dead. First
+  compile pass fixed 30 javac errors (vertex API `addVertex/setColor/setNormal`
+  → `vertex(Matrix4f..)/color/normal(Matrix3f..)/endVertex`; `DeltaTracker`→
+  `float`; `Holder<MobEffect>`→`MobEffect`; `countRenderedSections`→
+  `countRenderedChunks`; `SpriteIconButton`→`ImageButton`; `PlayerSkin`→
+  `getInsecureSkinLocation`; `PostChain.setUniform`→PostChainAccessor+per-pass
+  `safeGetUniform`; `mouseScrolled` 4→3 args; `renderBackground` 4→1 arg;
+  mixin `compatibilityLevel` JAVA_21→JAVA_17). But `runClient` then revealed 5
+  MORE mixins failing to APPLY (fail-soft, silently disabled): ScreenBackground
+  (renderBackground has no mouse/tick params in 1.20 — compute from mouseHandler;
+  no renderMenuBackgroundTexture helper), ChatTimestamp (`refreshTrimmedMessages`
+  →`refreshTrimmedMessage`), Hitbox (`renderHitbox` drops r/g/b), LevelRenderer
+  (`renderSky` first param `Matrix4f`→`PoseStack`), EntityNametag (`renderNameTag`
+  drops `partialTick`). **Rule now in CLAUDE.md: always runClient-verify a ported
+  build for zero `Mixin apply ... failed` before calling it done.**
+- Launcher wiring generalized: `VersionManager.OriginBuilds` maps MC version →
+  (jar filename, BundlesPerfStack). 1.21.1 bundles its perf stack jar-in-jar
+  (purge standalone, skip catalog); 1.20 ships Origin-only so the perf/shader
+  catalog installs alongside it. `OriginPaths.BundledOriginClientJar(name)` +
+  per-version `<Content>` links in the csproj. `OriginClientConfigBridge` now
+  writes the originUiEnabled toggle across all Origin instances, sourced from
+  `VersionManager.OriginSupportedVersions`.
+- Remaining for the mandate: per-version builds for 1.20.4 (renderBackground
+  4-arg era), 1.21 (reuse/adapt 1.21.1), 1.21.11 (blit reworked at 1.21.2).
+
 ## 2026-07-06 — Project init
 - Defined via init interview. Full original product spec (all pages, mod
   system, crash system, file layout) captured in the initiating conversation;
@@ -2488,3 +2527,56 @@ game exited (especially on a crash), so Play was gone.
   JiJ nesting under Stonecutter, do NOT bundle perf mods for non-1.21.1 (let the
   launcher's catalog install them), then work the API deltas version by version
   with Will testing each build in-game.
+
+## 2026-07-10 (release) — Shipped Fabric-only 1.20+ to main + release
+- Committed 4d6623b to main and merged to release (pushed → launcher-release CI
+  publishes launcher-v1.0.<run>, mandatory auto-update to users).
+- Removed: both Forge modules, LegacyFabricInstaller + FabricApiInstaller.
+  InstallLegacyAsync + the VersionManager Legacy branch, all pre-1.20 perf-catalog
+  entries. Nothing pre-1.20 remains in shipping code. VERSIONS.md updated with a
+  CURRENT-STATE banner (Fabric-only, 1.20+, mod ships 1.21.1 only for now).
+- The WIP src/OriginClient.Mod120 (1.20 port, ~35 API deltas, does NOT compile
+  yet) is deliberately left UNTRACKED — not in the release. Resume there for the
+  1.20 UI build; it already compiles MC 1.20 and the delta list is in VERSIONS.md.
+- Repo remote note: pushes report "repository moved to dozeyy/originclient.git"
+  (origin URL still the old orginclient spelling; redirect works).
+
+## 2026-07-10 (Mod120) — Iris nag + in-world shader-screen dirt; 1.20 versions locked
+- Iris "X.Y.Z (outdated)" watermark, "New update available!", AND the on-join
+  chat nag are ALL one flag: disassembled Iris 1.6.4 — ShaderPackScreen only
+  appends those when getUpdateChecker().getUpdateMessage().isPresent(), which is
+  empty whenever disableUpdateMessage=true (checkForUpdates then skips the whole
+  index fetch). So DO NOT "fix the nag" by bumping Iris — a newer Iris still flags
+  itself outdated. Shipped path already seeds disableUpdateMessage=true
+  (IrisConfigSeeder ← VersionManager, configFolder = <instance>/config). The nag
+  only survived in the Gradle dev env (run/config/iris.properties had =false);
+  set it true + deleted run/irisUpdateInfo.json (that cache is literally where the
+  "download 1.6.11" message came from).
+- 1.20 Iris/Sodium STAY at iris-mc1.20-1.6.4 + sodium-0.4.10+build.27. Confirmed
+  three ways: (1) Lunar's own 1.20 Fabric profile uses the exact same pair; (2)
+  iris 1.6.11 + sodium 0.5.7 are mc1.20.1 builds and sodium 0.5.7's manifest
+  declares breaks:{iris:"<=1.6.11"} — a HARD Fabric incompatibility (won't launch);
+  (3) matches the existing catalog note. Origin's "1.20" pin already = Lunar's FPS
+  stack (Sodium/Lithium/FerriteCore/Indium/Iris) + our Krypton 0.2.3 (Lunar omits
+  it). Per Will: "use exactly what Lunar uses + any of ours they don't that still
+  work" → already satisfied, no catalog change.
+- Dirt band behind the in-world Iris shader screen: AbstractSelectionList.render's
+  renderTopAndBottom block blits Screen.BACKGROUND_LOCATION (dirt) as full-width
+  top/bottom strips with NO level check (javap-confirmed vs mapped 1.20). Iris's
+  list disables behind-rows dirt but leaves the strips on. AbstractSelectionListMixin
+  only suppressed them out-of-world (level==null gate). Fix: ungate to isActive()
+  only, so the strips are suppressed in-world too; the screen's own renderBackground
+  supplies vanilla's darkening and the list sits transparently on it. Iris's list
+  chains ShaderPackSelectionList.render → super → AbstractSelectionList.render, so
+  the mixin fires. compileClientJava clean; final in-game visual still to confirm.
+- Follow-up (same day): stripped the leftover Iris branding watermark on its
+  native ShaderPackScreen (Will: remove any vanilla/mod overlay text). New
+  IrisWatermarkMixin — @Pseudo @Mixin(targets net.coderbot.iris.gui.screen.
+  ShaderPackScreen, remap=false), @Shadow the 3 MutableComponent fields
+  (irisTextComponent / developmentComponent / updateComponent), blank them to
+  Component.empty() at <init> TAIL (all 3 are set only in the constructor —
+  javap-confirmed — so it holds for the screen's life). Chose <init> over render()
+  to dodge remapping the MC-named "render" on a non-MC @Pseudo class. require=0 +
+  required:false → no-ops if Iris absent/renamed. Registered in
+  originclient.client.mixins.json. Vanilla title-screen version line was already
+  no-op'd by TitleScreenMixin. compileClientJava clean; in-game visual TBD by Will.

@@ -43,6 +43,17 @@ jobs:
         working-directory: src/OriginClient.Mod
         run: .\gradlew.bat build --no-daemon
 
+      # The 1.20 API-family mod (src/OriginClient.Mod120, covers 1.20 + 1.20.1),
+      # so the launcher below bundles build/libs/originclient-1.20-0.4.1.jar as
+      # Bundled/OriginClient/originclient-1.20.jar (csproj Content, conditional on
+      # it existing). Same JDK 21 runner: the module targets Java 17 bytecode via
+      # `options.release = 17`, which javac 21 emits fine. libs/ (dev-only Iris/
+      # Sodium for runClient) is absent on the runner and build.gradle guards
+      # those file deps behind .exists(), so `build` runs without them.
+      - name: Build Origin Client mod (1.20)
+        working-directory: src/OriginClient.Mod120
+        run: .\gradlew.bat build --no-daemon
+
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: "8.0.x"

@@ -17,14 +17,21 @@ public static class OriginPaths
     // instances and game versions, maximising cache hits between sessions.
     public static string ShaderCache => Path.Combine(Root, "shader-cache");
 
-    // Read-only asset shipped alongside the exe (see the Content item in
-    // OriginLauncher.App.csproj that copies it out of OriginClient.Mod's own
-    // Gradle build output) — not user data, so it lives next to the app
+    // Read-only assets shipped alongside the exe (see the Content items in
+    // OriginLauncher.App.csproj that copy them out of each OriginClient.Mod*
+    // Gradle build output) — not user data, so they live next to the app
     // binary rather than under %LocalAppData%. Resolved from the running
     // process's own directory so this works identically from a dev build and
     // from wherever a setup installer actually places the app.
-    public static string BundledOriginClientJar => Path.Combine(
-        AppContext.BaseDirectory, "Bundled", "OriginClient", "originclient.jar");
+    //
+    // One jar per supported Minecraft API family (originclient-1.20.jar,
+    // originclient-1.21.1.jar, ...). VersionManager's Origin-build registry
+    // maps each offered MC version to the matching filename here.
+    public static string BundledOriginClientDir => Path.Combine(
+        AppContext.BaseDirectory, "Bundled", "OriginClient");
+
+    public static string BundledOriginClientJar(string jarFileName) =>
+        Path.Combine(BundledOriginClientDir, jarFileName);
 
     public static void EnsureScaffold()
     {

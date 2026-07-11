@@ -39,23 +39,46 @@ public sealed class VersionManager
     // Minecraft releases the perf mods haven't caught up to (they reappear the
     // moment the catalog is regenerated with their Sodium/Iris builds).
     //
-    // 1.21.1 is pinned because it is the Origin Client mod's own target version:
-    // the mod jar-in-jars its own Sodium/Iris, so the standalone catalog entry
-    // for 1.21.1 deliberately omits Iris (to avoid a double Sodium) — which would
-    // otherwise make the shader-stack gate hide the one version that carries the
-    // full Origin experience. Pin it so it is always offered. (Legacy Forge/
-    // classics support was removed — Origin is Fabric-only again, per VERSIONS.md.)
-    private static readonly string[] PinnedVersions = { "1.21.1" };
+    // A per-Minecraft-version Origin Client build. One jar per MC API family;
+    // several close MC versions can share one jar (1.20 + 1.20.1). Each build's
+    // Mixins/fabric.mod.json target its own MC range.
+    //
+    // BundlesPerfStack distinguishes the two install models:
+    //  - true  (1.21.1): the jar jar-in-jars its own pinned Sodium/Iris/Lithium/
+    //    ... — so the launcher installs ONLY this jar, purges any standalone perf
+    //    jars, and skips PerfModInstaller. Installing both would give Fabric two
+    //    copies of the same mod id (e.g. "sodium") and it refuses to start.
+    //  - false (1.20/1.20.1): the jar carries only the Origin client itself, so
+    //    the launcher installs it ALONGSIDE the standalone perf catalog (Sodium +
+    //    Iris + ... for that version) exactly as a vanilla-menu install would get.
+    private sealed record OriginBuild(string JarFileName, bool BundlesPerfStack);
 
-    // Must match minecraft_version in src/OriginClient.Mod/gradle.properties.
-    // The bundled jar's own Mixins/fabric.mod.json target this exact MC
-    // version, and it jar-in-jars its own copy of the same perf-mod stack
-    // PerformanceModCatalog would otherwise install standalone — installing
-    // both into the same instance gives Fabric Loader two copies of the same
-    // mod id (e.g. "sodium") and it refuses to start. So this version is the
-    // one case where the bundled jar replaces PerfModInstaller instead of
-    // sitting alongside it.
-    private const string OriginClientModVersion = "1.21.1";
+    private static readonly IReadOnlyDictionary<string, OriginBuild> OriginBuilds =
+        new Dictionary<string, OriginBuild>
+        {
+            // Full Origin experience, self-contained perf stack.
+            ["1.21.1"] = new("originclient-1.21.1.jar", BundlesPerfStack: true),
+            // 1.20 API family (src/OriginClient.Mod120) — perf stack installed
+            // standalone from the catalog alongside it.
+            ["1.20"]   = new("originclient-1.20.jar",   BundlesPerfStack: false),
+            ["1.20.1"] = new("originclient-1.20.jar",   BundlesPerfStack: false),
+        };
+
+    // Versions always offered in the picker even if the shader-stack gate below
+    // wouldn't include them. 1.21.1's catalog entry deliberately omits Iris (its
+    // jar already carries Sodium, so a standalone Iris would double up) — without
+    // pinning, HasShaderStack would hide the one version with the full Origin
+    // experience. Every version carrying its own bundled perf stack must be pinned
+    // for the same reason; versions whose perf stack comes from the catalog are
+    // already surfaced by HasShaderStack and don't need pinning.
+    private static readonly string[] PinnedVersions =
+        OriginBuilds.Where(b => b.Value.BundlesPerfStack).Select(b => b.Key).Distinct().ToArray();
+
+    // Every Minecraft version that ships an Origin Client build (i.e. gets the
+    // Origin menus, not just Fabric + perf). Single source of truth for anything
+    // that needs to act per-Origin-instance — e.g. the launcher's "Origin UI"
+    // toggle, which must reach every such instance, not just one pinned version.
+    public static IReadOnlyCollection<string> OriginSupportedVersions => OriginBuilds.Keys.ToArray();
 
     public async Task<IReadOnlyList<string>> GetReleaseVersionsAsync()
     {
@@ -152,8 +175,9 @@ public sealed class VersionManager
                 // just the one Origin Client itself targets.
                 await FabricApiInstaller.InstallAsync(version, modsFolder, progress, ct);
 
-                bool originClientInstalled = false;
-                if (version == OriginClientModVersion && File.Exists(OriginPaths.BundledOriginClientJar))
+                bool originBundlesPerfStack = false;
+                if (OriginBuilds.TryGetValue(version, out var originBuild)
+                    && File.Exists(OriginPaths.BundledOriginClientJar(originBuild.JarFileName)))
                 {
                     progress?.Report("Installing Origin Client...");
                     // Remove ANY previously-installed Origin Client jar first,
@@ -177,16 +201,18 @@ public sealed class VersionManager
                             try { File.Delete(file); } catch { /* locked/removed already */ }
                         }
                     }
-                    File.Copy(OriginPaths.BundledOriginClientJar, Path.Combine(modsFolder, "originclient.jar"), overwrite: true);
-                    originClientInstalled = true;
+                    File.Copy(OriginPaths.BundledOriginClientJar(originBuild.JarFileName), Path.Combine(modsFolder, "originclient.jar"), overwrite: true);
+                    originBundlesPerfStack = originBuild.BundlesPerfStack;
 
-                    // Origin Client bundles its own pinned Sodium/Indium/Lithium/
-                    // FerriteCore/Krypton/Iris as jar-in-jar. Purge any STANDALONE
-                    // copies a pre-bundle install (or a hand-dropped mod) left
-                    // behind: a stray newer Sodium overrides the bundled 0.6.x
-                    // and, being incompatible with the pinned Iris 1.8.x, silently
-                    // disables Iris — killing shaders AND leaving the client in a
-                    // mixed Sodium state that breaks other Origin mixins.
+                    // Only when THIS build carries its own perf stack jar-in-jar
+                    // (e.g. 1.21.1): purge any STANDALONE copies a pre-bundle
+                    // install (or a hand-dropped mod) left behind. A stray newer
+                    // Sodium overrides the bundled 0.6.x and, being incompatible
+                    // with the pinned Iris 1.8.x, silently disables Iris — killing
+                    // shaders AND leaving the client in a mixed Sodium state that
+                    // breaks other Origin mixins. Builds that DON'T bundle the perf
+                    // stack (1.20) need the standalone jars, so this purge is
+                    // skipped for them and the catalog install below runs instead.
                     //
                     // Matched by ModManager.IsBundledPerfJar, which keys on each
                     // project's canonical filename SHAPE (sodium-fabric-*, etc.)
@@ -195,32 +221,50 @@ public sealed class VersionManager
                     // bare "sodium" prefix silently deleted those every launch).
                     // Only enabled ".jar" files are considered; ".jar.disabled"
                     // user mods are left alone.
-                    foreach (var file in Directory.EnumerateFiles(modsFolder))
+                    if (originBundlesPerfStack)
                     {
-                        var name = Path.GetFileName(file);
-                        if (!name.EndsWith(ModManager.JarSuffix, StringComparison.OrdinalIgnoreCase))
-                            continue;
-                        if (name.Equals("originclient.jar", StringComparison.OrdinalIgnoreCase))
-                            continue;
-                        if (ModManager.IsBundledPerfJar(name))
+                        foreach (var file in Directory.EnumerateFiles(modsFolder))
                         {
-                            try { File.Delete(file); } catch { /* locked/removed already */ }
+                            var name = Path.GetFileName(file);
+                            if (!name.EndsWith(ModManager.JarSuffix, StringComparison.OrdinalIgnoreCase))
+                                continue;
+                            if (name.Equals("originclient.jar", StringComparison.OrdinalIgnoreCase))
+                                continue;
+                            if (ModManager.IsBundledPerfJar(name))
+                            {
+                                try { File.Delete(file); } catch { /* locked/removed already */ }
+                            }
                         }
                     }
                 }
 
-                // Origin Client already carries its own pinned Sodium/Indium/
-                // Lithium/FerriteCore/Krypton as jar-in-jar — only fall back
-                // to the standalone catalog when it wasn't installed (older/
-                // newer versions Origin Client doesn't target yet, or a dev
-                // checkout that hasn't built the mod), so a real instance
-                // never ends up with both.
-                if (!originClientInstalled)
+                // Install the standalone perf catalog UNLESS the Origin build we
+                // just installed already carries its own pinned Sodium/Indium/
+                // Lithium/FerriteCore/Krypton/Iris jar-in-jar (1.21.1) — in that
+                // one case installing both would give Fabric two copies of the
+                // same mod id. Every other path needs the catalog: a vanilla-menu
+                // version with no Origin build, AND a version whose Origin jar
+                // ships without the perf stack (1.20). This keeps the perf/shader
+                // experience identical whether or not Origin's menus are present.
+                bool irisPresent = originBundlesPerfStack; // 1.21.1's bundled Iris (jar-in-jar)
+                if (!originBundlesPerfStack)
                 {
                     var profile = PerformanceModCatalog.TryGet(version);
                     if (profile != null)
+                    {
                         await PerfModInstaller.InstallAsync(profile, modsFolder, progress, ct);
+                        irisPresent = profile.Iris != null;
+                    }
                 }
+
+                // Iris's own "a new version is available, click to update" nag
+                // (net.coderbot.iris.UpdateChecker) has no in-launcher equivalent
+                // and would send the player out to a browser mid-session — off by
+                // default via Iris's own supported config flag, not a mixin/patch
+                // of Iris's code. Idempotent: only sets the one key, never
+                // clobbers anything Iris (or the player) already wrote there.
+                if (irisPresent)
+                    IrisConfigSeeder.DisableUpdateMessage(configFolder);
                 break;
             }
             case LoaderKind.Forge:
