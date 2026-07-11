@@ -61,6 +61,13 @@ jobs:
         working-directory: src/OriginClient.Mod1204
         run: .\gradlew.bat build --no-daemon
 
+      # NOTE (26.2): src/OriginClient.Mod262 is scaffolded with a proven Java 25 /
+      # unobfuscated-Loom toolchain, but its render layer is mid-port to 26.2's
+      # retained-mode GUI and does not compile yet, so it is intentionally NOT
+      # built or shipped here. Re-add this step (JAVA_HOME ${{ env.JAVA_HOME_25_X64 }},
+      # 25 added to setup-java) once the port compiles clean — see MEMORY.md
+      # 2026-07-11 and the OriginBuilds/csproj "26.2" entries (also staged out).
+
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: "8.0.x"

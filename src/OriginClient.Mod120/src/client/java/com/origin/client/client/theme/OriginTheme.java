@@ -20,6 +20,10 @@ public final class OriginTheme {
 	public static final int STROKE = 0x14FFFFFF;
 	// rgba(255,255,255,0.18)
 	public static final int STROKE_STRONG = 0x2EFFFFFF;
+	// Hover outline — a MUCH lighter gray than the resting stroke, so a hovered
+	// box reads as obviously responsive (A2). One shared value: every hovered
+	// custom box (mod menu, HUD editor, vanilla widget shells) brightens to this.
+	public static final int STROKE_HOVER = 0x9EFFFFFF;
 	public static final int TEXT = 0xFFF5F5F5;
 	public static final int TEXT_DIM = 0xFF9A9A9A;
 	public static final int MUTED = 0xFF616161;
@@ -30,6 +34,16 @@ public final class OriginTheme {
 	public static final int ACCENT_GLOW = 0x59FFFFFF;
 	// rgba(255,255,255,0.55) — cursor core glow
 	public static final int ACCENT_DIM = 0x8CFFFFFF;
+
+	// ---- Mod-menu toggle (C4) ----
+	// The rounded box switch: knob slides left = off, right = on. On/off are the
+	// theme's only two non-gray tones (muted sage / muted clay), kept solid so
+	// the state reads instantly; the knob is a near-white rounded square.
+	public static final int SWITCH_ON = 0xFF2F7D53;   // muted sage
+	public static final int SWITCH_OFF = 0xFFA33A33;  // muted clay
+	public static final int SWITCH_KNOB = 0xFFF0F0F0;
+	// A hairline that darkens the track edge so the box reads crisp on any bg.
+	public static final int SWITCH_STROKE = 0x40000000;
 
 	// ---- Spacing (8px grid) ----
 	public static final int SPACE_1 = 8;

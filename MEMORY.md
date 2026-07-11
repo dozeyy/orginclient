@@ -2735,3 +2735,236 @@ game exited (especially on a crash), so Play was gone.
   required:false → no-ops if Iris absent/renamed. Registered in
   originclient.client.mixins.json. Vanilla title-screen version line was already
   no-op'd by TitleScreenMixin. compileClientJava clean; in-game visual TBD by Will.
+
+## 2026-07-11 — 1.21.1 UI polish pass (A/B/C spec)
+Scope: `src/OriginClient.Mod` (1.21.1). Compiles clean; boots to title with zero
+mixin-apply failures / exceptions / Origin asset warnings. In-menu interactive
+visual pass (Right-Shift mod menu + HUD editor) NOT yet eyeballed — the dev
+`runClient` window is a bare `java` process the computer-use resolver can't grant,
+so live drag/resize/toggle/tab checks are still Will's to confirm in-game.
+
+- **The "custom box" is not one component — it's ONE shared asset pair.** Two
+  renderers draw every box (`OriginUi.panel()` for Origin-native screens;
+  `OriginButtonRenderer` for vanilla widgets via AbstractButton/Slider/Checkbox
+  mixins), but BOTH tint+9-slice the same masks `textures/ui/button_fill.png` +
+  `button_border.png`. Fix the masks once → fixes every box in both renderers.
+- **A1 border bleed root cause:** `tools/buttons/generate_buttons.py` baked the
+  border as an *inset rect with the same corner radius* as the fill — insetting
+  while holding radius pulls the border's corner arc diagonally inward, so the
+  fill's corner poked ~7px outside it (pixel-confirmed). Fix: border is now a TRUE
+  ring (outer rounded-rect at full extent MINUS inner inset by BORDER_PX), and the
+  fill is inset 1px (`FILL_INSET_PX`). Re-ran the tool; overhang rows 7→0.
+- **A2 hover:** added `OriginTheme.STROKE_HOVER` (0x9EFFFFFF, much lighter). Routed
+  `OriginButtonRenderer.BORDER_HOVER` + mod-menu card/chip/back hovers through it.
+- **Custom font reality:** there is NO glyph font wired in — the main-menu title is
+  a baked Michroma `wordmark.png` (only spells ORIGIN). The `textures/font/inter-*`
+  atlases are DEAD (retired approach; see OriginButtonRenderer.drawLabel note:
+  "default Minecraft text everywhere"). For B's MODS label I baked a Michroma
+  `mods_label.png` via new `tools/loading-screen/generate_mods_label.py` (mirrors
+  generate_wordmark). `OriginScreenRenderer` now exposes fail-soft
+  `renderWordmarkAt` + `renderModsLabel`; HudEditorScreen uses them (ORIGIN wordmark
+  under the logo, MODS on the button), vanilla font is the fallback.
+- **B1 snap / B2 resize:** HudEditorScreen. Snap element center to screen center
+  within `SNAP=6px` (assistive — dragging past it releases; guide brightens when
+  snapped). Resize reworked to proportional-from-grab (`resizeGrabDist`/
+  `resizeStartScale`) with `RESIZE_DEADZONE=3px` so it never jumps to the cursor and
+  diagonals scale smoothly; growth direction follows the handle (free corner) away
+  from the anchored corner.
+- **C1 tabs:** MODS/SETTINGS + GENERAL/PERFORMANCE now render as underline tabs on a
+  shared baseline rule (no button box) via `drawTab`/`drawTabBaseline`.
+- **C2 slider drag bug:** settings-tab rows live under synthetic ids
+  `@general`/`@performance` which `Mods.byId` returns null for, so `mouseDragged`'s
+  byId lookup made those sliders click-only. Fix: capture the dragged `ModOption`
+  directly (`dragOpt`) and drag that.
+- **C3:** `ModOption.descending()` flag (reverses track render + hit-map); set on
+  `entityDistance`/`tileEntityDistance` so they read 100%→10%.
+- **C4:** rewrote `OriginUi.switchAt` from the Apple pill to a rounded-rect box
+  (corner ~0.30·h) with a sliding near-white knob (left=off/right=on), muted
+  sage/clay track (`OriginTheme.SWITCH_ON/OFF/KNOB/STROKE`), built from the fixed
+  masks so it stays crisp. `switch_track.png` now unused.
+
+### 2026-07-11 — UI polish, round 2 (Will feedback on round 1)
+- **MODS button font reverted to default Minecraft font.** Backed out the baked
+  Michroma MODS label entirely: removed `renderModsLabel` + its load block/fields
+  from OriginScreenRenderer, deleted `mods_label.png/json` and
+  `generate_mods_label.py`. The ORIGIN wordmark under the logo STAYS (baked
+  Michroma via `renderWordmarkAt`).
+- **Removed the hover "bounce-up" lift across the board.** OriginButtonRenderer
+  (`LIFT_PX` gone, drawY=y), mod-menu cards (`renderCard` no cy offset), HUD-editor
+  MODS button (no `hb` offset). Hover now reads through border brightening (+card
+  fill / icon-size) only — no vertical translation.
+- **Tabs: every underline is now the SAME length** (the hovered-highlight span
+  tx+4..tx+w-4), brightness varies by state (active ACCENT / hover STROKE_HOVER /
+  idle STROKE). Dropped the continuous `drawTabBaseline` — that was what made the
+  inactive underlines look like short mismatched segments.
+- **Entity/Tile Entity Distance corrected:** they are ASCENDING (10% left → 100%
+  right; 100% = normal, lower = entities cull closer) — removed `.descending()`
+  and the whole `ModOption.descending` infra (round 1 had it backwards). Display
+  bug `10000%`→`100%`: the renderer's `v*100` percent path now only fires for
+  FRACTION sliders (`format "%%"` AND `max<=1.0`); Entity/Tile store 0–100 percent
+  directly (EntityRenderDispatcherMixin/BlockEntityRenderDispatcherMixin expect
+  0–100), so they print as-is.
+
+### 2026-07-11 — UI polish pass propagated to all shipping versions
+Ported the full round-1 + round-2 pass from 1.21.1 (`Mod`) to `Mod120`
+(1.20/1.20.1) and `Mod1204` (1.20.4). The touched UI classes are the shared ~95%
+(OriginTheme, OriginUi, OriginButtonRenderer, OriginModMenuScreen, HudEditorScreen,
+OriginScreenRenderer) — all changes were in version-AGNOSTIC regions, so the port
+= copy the shared files from Mod, then patch back each version's few MC-API lines:
+`new ResourceLocation(...)` (vs 1.21.1 `fromNamespaceAndPath`), and on 1.20/1.20.1
+the single-arg `mouseScrolled(mx,my,amount)` + 1-arg `renderBackground(g)`. The
+`GuiGraphics.blit(...)` int signature + button-mask params (96/24/4) are identical
+across all three, so the A1-fixed masks and the `renderWordmarkAt`/`drawBakedInk`
+wordmark helper ported verbatim. Both modules compileClientJava clean; 1.20
+runClient boots to the menu with Origin initialized. (Script:
+scratchpad/port_ui.py.) 1.21 / 1.21.11 have no modules yet — nothing to port.
+
+### 2026-07-11 — 26.2 build: toolchain solved, render layer needs re-architecture
+Started the Minecraft **26.2** Origin build (`src/OriginClient.Mod262`, forked from
+the 1.21.1 `Mod`). 26.2 is a **full release** (not a snapshot — Fabric's game list
+has 26.2 + its pre/rc/snapshots, and 26.3 snapshots are already out), runs on
+**Java 25**, and the full Fabric shader/perf stack exists on Modrinth (verified
+live): Sodium `mc26.2-0.9.1-fabric`, Iris `1.11.2+26.2-fabric`, Lithium
+`0.25.2`, FerriteCore `9.0.0`. Krypton has no 26.2 build (omitted); Indium is
+unnecessary on Sodium 0.9.x (ships its own FRAPI). Lunar's "26.2 fabric" profile
+only carries Fabric API (its perf is proprietary Ichor), so "take Lunar's mods"
+= install the equivalent Modrinth stack, same as every other Origin version.
+
+**Toolchain — SOLVED (this is the reusable part for all 26.x work):**
+- MC 26.2 requires **Java 25**. Only JDK 21 was installed; provisioned Temurin 25
+  to `C:\Users\Will\.jdks\jdk-25.0.3+9`. Loom checks the JVM that *runs Gradle*
+  (not just the compile toolchain), so `JAVA_HOME` must point at JDK 25 for the
+  build — Foojay toolchain auto-provision alone is NOT enough, and Gradle
+  daemon-JVM auto-provisioning can't download at daemon-start (no toolchain repos
+  that early). CI: add 25 via setup-java and set `JAVA_HOME=JAVA_HOME_25_X64` on
+  the 26.2 step.
+- **26.x is UNOBFUSCATED.** Mojang ships NO `client_mappings` for 26.2 (confirmed
+  in the official piston-meta version JSON: downloads = client+server only), so
+  `loom.officialMojangMappings()` fails ("Failed to find official mojang mappings
+  for 26.2") on any Loom version. Fix (per Fabric "Porting to 26.1" + fabric-
+  example-mod@26.1): use plugin id **`net.fabricmc.fabric-loom`** (resolves to
+  Loom **1.17.14**), **remove the `mappings` line entirely**, and use plain
+  `implementation`/`compileOnly`/`api` instead of `modImplementation` etc.
+  `options.release = 25`. With that, Loom downloads + remaps MC 26.2 and the
+  module compiles against it. (Gradle 9.5.1 is fine; Loom 1.18-alpha needs 9.6.)
+
+**Render layer — the big remaining work (NOT a mechanical port):** 26.2 replaced
+immediate-mode GUI drawing with a **retained-mode render-state pipeline**.
+`Renderable.render(GuiGraphics,...)` is gone → `extractRenderState(
+GuiGraphicsExtractor,...)`; `GuiGraphicsExtractor.pose()` returns
+`org.joml.Matrix3x2fStack`; blit/tint go through `RenderPipeline` + `TextureSetup`
++ `GuiRenderState`; there is no `RenderSystem.setShaderColor`. Selective class
+renames (most mojmap names KEPT — Minecraft, Component, Screen, PoseStack, Font):
+`ResourceLocation`→`net.minecraft.resources.Identifier`,
+`GuiGraphics`→`net.minecraft.client.gui.GuiGraphicsExtractor`,
+`MultiBufferSource`→`net.minecraft.client.renderer.SubmitNodeCollector`,
+`LightTexture`→`net.minecraft.client.renderer.Lightmap`. First compile: **200
+javac errors**, dominated by these renames + the immediate→retained render API.
+Origin's whole render layer (OriginScreenRenderer/OriginButtonRenderer/OriginUi +
+the ~40 mixins that inject into `render()`) must be re-architected onto the
+extraction model, then runClient-verified for zero mixin-apply failures. This is a
+large, multi-session effort — the biggest MC version jump the project has faced.
+
+**State left on `release` (all uncommitted):**
+- `src/OriginClient.Mod262`: scaffolded, toolchain proven (resolves+compiles vs
+  26.2), render layer un-ported (does not build). Deliberately NOT wired into CI.
+- `PerformanceModCatalog.Data.cs`: **live** `"26.2"` Full entry (Sodium 0.9.1 +
+  Iris 1.11.2 + Lithium 0.25.2 + FerriteCore 9.0.0). This makes the launcher
+  already offer 26.2 as a Fabric+shaders version (vanilla menus) via HasShaderStack.
+- `OriginBuilds["26.2"]`, csproj bundling, CI 26.2 steps: **staged out / commented**
+  so nothing tries to build/ship a jar that doesn't exist yet. Re-enable each when
+  the port compiles + runClient passes.
+
+### 2026-07-11 — 26.2 render port progress (continued)
+Derived the full 26.2 render API from the mapped jar (javap) and started the
+re-architecture. Compiler-verified DONE (0 javac errors in these three):
+`OriginButtonRenderer`, `OriginUi`, `OriginScreenRenderer` — immediate-mode
+GuiGraphics → retained-mode GuiGraphicsExtractor, tint folded into the blit color
+arg (no setShaderColor), pose() → org.joml.Matrix3x2fStack, blit via
+`RenderPipelines.GUI_TEXTURED`, `new DynamicTexture(() -> name, image)` (no
+setFilter), account chip uses the Origin mark for the head (26.2 removed
+PlayerFaceRenderer.draw / SkinManager.getInsecureSkin). Also ported the two
+widget mixins with verified targets: `renderWidget` → `extractWidgetRenderState`
+(AbstractButtonMixin, AbstractSliderButtonMixin). Full mapping + the mixin
+retarget map (Screen.renderBackground → extractRenderState; TitleScreen
+extractBackground+extractRenderState; Checkbox has no own extract method → needs
+rethink; entity/particle → SubmitNodeCollector/Lightmap) live in
+`src/OriginClient.Mod262/PORT-262.md`. Remaining: 3 Screen subclasses
+(→extractRenderState) + ~38 mixins, then runClient. Build cmd:
+`JAVA_HOME=C:\Users\Will\.jdks\jdk-25.0.3+9 ./gradlew -p src/OriginClient.Mod262 compileClientJava`.
+
+### 2026-07-11 — 26.2 core-first port: mixin layer done, Fabric-API classpath blocker
+Core-first strategy (bootable title/menu/loading first; peripheral mixins are
+required:false → moved to disabled262/ + stripped from JSON, ported back later).
+Mixin layer for the core is DONE and type-checks clean (verified: the whole
+mixin/ folder had 0 javac errors): TitleScreenMixin (extractBackground HEAD-cancel
+backdrop + @Redirect LogoRenderer/SplashRenderer.extractRenderState + version
+text() in extractRenderState), ScreenBackgroundMixin (extractBackground +
+extractMenuBackgroundTexture), LoadingOverlayMixin (Overlay.extractRenderState
+TAIL, currentProgress shadow intact), AbstractButton/AbstractSliderButton
+(extractWidgetRenderState), loading/{LevelLoading,Progress,Connect}Screen
+(extractRenderState). Disabled: GuiHudMixin (HUD = separate re-arch —
+Gui.extractRenderState has no GuiGraphicsExtractor), PauseScreenMixin
+(Button.onPress now needs InputWithModifiers + ConfirmScreen ctor changed),
+ReceivingLevelScreenMixin (class removed), + ~21 entity/particle/world/misc.
+
+**KEY BLOCKER for next session:** Fabric API isn't on the CLIENT split-sourceset
+compile classpath — every `net.fabricmc.fabric.api.*` import fails ("package does
+not exist") though the classes are in resolved jars. Blocks OriginClientMod,
+OriginKeyBindings, mods/*. Likely the `implementation "fabric-api"` bundle's
+transitive submodules aren't reaching compile scope under the unobf setup — fix
+the build.gradle fabric-api dep before porting the remaining non-mixin files
+(HudElements, OriginHud, 3 screens, mods/*, shaders/*). Full detail + the port
+API map in src/OriginClient.Mod262/PORT-262.md.
+
+### 2026-07-11 — 26.2 port: screens done, Fabric-API diagnosis fixed
+The "Fabric API classpath blocker" was a MISDIAGNOSIS — it's Fabric API RENAMES in
+0.146.2+26.2 (confirmed by cracking Lunar's bundled 26.2 jars):
+KeyBindingHelper→KeyMappingHelper (keymapping.v1), WorldRenderEvents/Context→
+rendering.v1.level.LevelRenderEvents/LevelRenderContext, + new HudElementRegistry
+(the proper HUD-layer API). ScreenEvents unchanged. Fixed OriginKeyBindings.
+Ported the SCREENS (down to cascades): OriginColorPicker + IrisBridge clean,
+OriginModMenuScreen 2 residual, HudEditorScreen 4 — via mechanical GuiGraphics→
+GuiGraphicsExtractor + drawString→text + render→extractRenderState + Matrix3x2fStack
+pose, plus these vanilla API changes (all applied, documented in PORT-262.md):
+mouse events → MouseButtonEvent (mouseClicked(MBE,bool)/Released(MBE)/Dragged(MBE,
+d,d)); keyboard → KeyEvent/CharacterEvent (keyPressed(KeyEvent)/charTyped(CharEvent));
+Minecraft.setScreen→setScreenAndShow; **Minecraft.screen field REMOVED** → track it
+via MinecraftScreenTrackerMixin → OriginScreenState.current (swapped all 20 reads);
+MobEffects.MOVEMENT_SPEED→SPEED, DAMAGE_BOOST→STRENGTH.
+Error trajectory 200→ concentrated in: shaders/ (ShaderBrowserScreen 24, ShaderPreviews
+14, OriginShaderButton 8), mods/ world-render (MotionBlur 14, ChunkBorder 12,
+BlockOverlay 10 — need LevelRenderEvents rework, not a rename), HudElements 18 (HUD
+API), OriginClientMod 26 (WorldRenderEvents→LevelRenderEvents registration + cascades
+from mods/shaders). Next: HudElements + mods/ (LevelRenderEvents) + shaders/, then
+compile + runClient. JDK25 at C:\Users\Will\.jdks\jdk-25.0.3+9.
+
+### 2026-07-11 — 26.2 BOOTS: full render port compiles + runs, runtime fixes
+The 26.2 module (src/OriginClient.Mod262) now COMPILES clean and runClient boots
+to the Origin title screen (ORIGIN wordmark, rings, brackets, styled buttons, chip)
+with ZERO mixin-apply failures. Core-first: world-render mods (ChunkBorder/
+BlockOverlay/MotionBlur) + shader-browser UI + custom HUD render are moved to
+disabled262/ and stubbed in the entrypoint (port back onto 26.2's gizmo/submit +
+HudElementRegistry APIs later). Runtime fixes found via runClient (all critical):
+- **Fabric API version**: Lunar's snapshot 0.146.2+26.2 CRASHES the full 26.2
+  release at startup (fabric-recipe-api IngredientMixin @Overwrite hashCode fails).
+  Use the newest FULL-release build: **0.154.2+26.2** (gradle.properties).
+- **Region-blit arg order** (the "blurry buttons"): 26.2's region/scaled blit is
+  `blit(RP, id, x, y, u, v, DESTw, DESTh, REGIONw, REGIONh, texW, texH, color)` —
+  DEST before REGION (same as 1.21.1, just u,v moved up). I had them swapped, which
+  stretched every 9-slice mask into a smear. Full-texture blits (dest==region:
+  wordmark, rings) were unaffected — that's why they looked fine. Fixed in
+  OriginButtonRenderer/OriginUi blit9 + the inline icon/glow/logo/knob/radial blits.
+- **26.2 menu blur**: `GuiGraphicsExtractor.blurBeforeThisStratum()` is the single
+  chokepoint (gated by Options.getMenuBackgroundBlurriness). No-op it for
+  out-of-world Origin menus (MenuBlurMixin) so blur never bleeds through Origin's
+  translucent panels.
+- **Minecraft.screen removed** → my MinecraftScreenTrackerMixin/OriginScreenState
+  tracker goes STALE (26.2 clears the screen without setScreenAndShow(null) on
+  world-enter), so Right Shift / in-world keybinds never fired. Fixed: the 12
+  "no screen open" gates use `mc.mouseHandler.isMouseGrabbed()` instead. (Right
+  Shift → HUD editor confirmed working in-world.)
+- **Narrow-button labels**: 26.2's compact pause-menu buttons (Feedback/Report
+  Bugs) overflow — OriginButtonRenderer.drawLabel now clips to button width via
+  font.plainSubstrByWidth. Build: `JAVA_HOME=C:\Users\Will\.jdks\jdk-25.0.3+9
+  ./gradlew -p src/OriginClient.Mod262 runClient`.

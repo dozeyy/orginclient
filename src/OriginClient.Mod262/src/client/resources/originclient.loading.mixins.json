@@ -1,0 +1,14 @@
+{
+	"required": false,
+	"package": "com.origin.client.client.mixin.loading",
+	"compatibilityLevel": "JAVA_25",
+	"client": [
+		"LevelLoadingScreenMixin",
+		"ProgressScreenMixin",
+		"ConnectScreenMixin",
+		"GenericMessageScreenMixin"
+	],
+	"injectors": {
+		"defaultRequire": 0
+	}
+}

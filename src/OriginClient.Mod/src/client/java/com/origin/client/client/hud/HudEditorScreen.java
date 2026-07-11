@@ -3,6 +3,7 @@ package com.origin.client.client.hud;
 import com.origin.client.client.gui.OriginModMenuScreen;
 import com.origin.client.client.gui.OriginUi;
 import com.origin.client.client.mods.Mods;
+import com.origin.client.client.render.OriginScreenRenderer;
 import com.origin.client.client.theme.OriginTheme;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -30,13 +31,23 @@ public class HudEditorScreen extends Screen {
 	private String selectedId = null;
 	private String hoveredId = null;
 
-	// resize: fixed (anchored) corner stays put; scale grows from it
+	// resize: fixed (anchored) corner stays put; scale grows from it. Resizing is
+	// proportional to how far the cursor is from that corner RELATIVE to where it
+	// was on grab (resizeGrabDist), so the element never jumps to the cursor and
+	// diagonal drags scale smoothly. A small deadzone absorbs jitter.
 	private String resizingId = null;
 	private double resizeFixedX, resizeFixedY;
 	private int resizeBaseW, resizeBaseH;
+	private double resizeGrabDist, resizeStartScale;
 
 	private static final int HANDLE_VIS = 5; // drawn square side (small, tucked into the corner)
 	private static final int HANDLE_HIT = 6; // extra click tolerance around it
+	// Resize feel: cursor must move this far from the grab distance before the
+	// element starts scaling (forgiving grab), per B2.
+	private static final double RESIZE_DEADZONE = 3.0;
+	// Snap assist: an element center within this many px of a screen center line
+	// snaps to it; dragging further than this pulls it back off (B1).
+	private static final double SNAP = 6.0;
 
 	private static final int BTN_W = 132, BTN_H = 28;
 
@@ -153,14 +164,15 @@ public class HudEditorScreen extends Screen {
 				g.fill(hx0, hy0, hx0 + HANDLE_VIS, hy0 + HANDLE_VIS, hh ? 0xFFFFFFFF : 0xF0F0F0F0);
 			}
 
-			// center alignment guides while dragging (drawn only, never snapped)
+			// center guides while dragging: they light up exactly when the element
+			// is snapped to a center line (B1), so the guide doubles as snap feedback.
 			if (e.id().equals(draggingId)) {
 				double ccx = x + w / 2, ccy = y + h / 2;
-				if (Math.abs(ccx - width / 2.0) < 5) {
-					g.fill(width / 2, 0, width / 2 + 1, height, 0x50FFFFFF);
+				if (Math.abs(ccx - width / 2.0) <= SNAP) {
+					g.fill(width / 2, 0, width / 2 + 1, height, 0x99FFFFFF);
 				}
-				if (Math.abs(ccy - height / 2.0) < 5) {
-					g.fill(0, height / 2, width, height / 2 + 1, 0x50FFFFFF);
+				if (Math.abs(ccy - height / 2.0) <= SNAP) {
+					g.fill(0, height / 2, width, height / 2 + 1, 0x99FFFFFF);
 				}
 			}
 		}
@@ -169,17 +181,24 @@ public class HudEditorScreen extends Screen {
 		if (quick) {
 			int cx = width / 2;
 			int bt = btnY();
-			// just the mark, sitting a little above the centered button
-			OriginUi.glow(g, cx, bt - 40, 110, 0.16f * in);
-			OriginUi.logo(g, cx, bt - 40, 56, in);
+			// Header stack above the centered button: the ring mark on top, then
+			// the "ORIGIN" wordmark (same baked Michroma as the main menu), then a
+			// clear gap to the MODS button — nothing overlaps. The mark is lifted
+			// well above the button to make room for the wordmark beneath it.
+			OriginUi.glow(g, cx, bt - 76, 104, 0.16f * in);
+			OriginUi.logo(g, cx, bt - 76, 46, in);
+			if (!OriginScreenRenderer.renderWordmarkAt(g, cx, bt - 44, 13, in)) {
+				String o = "ORIGIN";
+				g.drawString(font, o, cx - font.width(o) / 2, bt - 48, withAlpha(OriginTheme.TEXT, in), false);
+			}
 
-			// dark, clean MODS button — perfectly centered in the screen
+			// dark, clean MODS button — perfectly centered, no hover lift. Label
+			// stays the default Minecraft font (Will: revert the baked-font MODS).
 			boolean hoverBtn = in(mouseX, mouseY, btnX(), bt, btnX() + BTN_W, bt + BTN_H);
-			float hb = OriginUi.anim("quick:mods", hoverBtn, 120.0);
-			OriginUi.panel(g, btnX(), bt - Math.round(hb), BTN_W, BTN_H, 9,
+			OriginUi.panel(g, btnX(), bt, BTN_W, BTN_H, 9,
 					withAlpha(hoverBtn ? 0xE6181818 : 0xD0101010, in),
-					withAlpha(hoverBtn ? 0x66FFFFFF : OriginTheme.STROKE_STRONG, in));
-			g.drawString(font, "MODS", cx - font.width("MODS") / 2, bt + 10 - Math.round(hb),
+					withAlpha(hoverBtn ? OriginTheme.STROKE_HOVER : OriginTheme.STROKE_STRONG, in));
+			g.drawString(font, "MODS", cx - font.width("MODS") / 2, bt + 10,
 					withAlpha(OriginTheme.TEXT, in), false);
 		}
 	}
@@ -224,6 +243,11 @@ public class HudEditorScreen extends Screen {
 				resizeFixedY = freeTop(pos.anchor) ? y + h : y;
 				resizeBaseW = size[0];
 				resizeBaseH = size[1];
+				// Reference for proportional resizing: the element scales relative
+				// to how far the cursor is from the fixed corner vs. at this grab,
+				// so it never snaps to the cursor on the first move.
+				resizeStartScale = pos.scale;
+				resizeGrabDist = Math.max(1.0, Math.hypot(mx - resizeFixedX, my - resizeFixedY));
 				return true;
 			}
 			if (mx >= x - 4 && mx < x + w + 4 && my >= y - 4 && my < y + h + 4) {
@@ -250,15 +274,21 @@ public class HudEditorScreen extends Screen {
 				// one HudPos instance: pos() loads a fresh object each call, so
 				// setting scale and saving must use the SAME reference.
 				HudPos pos = e.pos();
-				// scale from the anchored corner: how far the cursor is from it,
-				// relative to the element's base size (dominant axis wins)
-				double sx = Math.abs(mx - resizeFixedX) / resizeBaseW;
-				double sy = Math.abs(my - resizeFixedY) / resizeBaseH;
+				// Distance from the anchored corner to the cursor. Growth direction
+				// follows the handle: pulling the free corner AWAY from the anchor
+				// (down+right on a bottom-right handle) grows; toward it shrinks —
+				// same for all four corners since the handle is always opposite the
+				// anchor. A deadzone makes the grab forgiving.
+				double d = Math.hypot(mx - resizeFixedX, my - resizeFixedY);
+				if (Math.abs(d - resizeGrabDist) < RESIZE_DEADZONE) {
+					return true;
+				}
+				double raw = resizeStartScale * (d / resizeGrabDist);
 				// cap so the growing edge can't leave the screen either
 				double availW = freeLeft(pos.anchor) ? resizeFixedX : (width - resizeFixedX);
 				double availH = freeTop(pos.anchor) ? resizeFixedY : (height - resizeFixedY);
 				double maxS = Math.min(2.5, Math.min(availW / resizeBaseW, availH / resizeBaseH));
-				pos.scale = Math.max(0.5, Math.min(maxS, Math.max(sx, sy)));
+				pos.scale = Math.max(0.5, Math.min(maxS, raw));
 				pos.save(e.id());
 			}
 			return true;
@@ -271,6 +301,18 @@ public class HudEditorScreen extends Screen {
 			double maxY = Math.max(4, height - dragH - 4);
 			dragX = Math.max(4, Math.min(maxX, mx - dragOffX));
 			dragY = Math.max(4, Math.min(maxY, my - dragOffY));
+			// Assistive snap-to-center: if the element's center is within SNAP of a
+			// center line, pull it exactly onto the line. Because dragX/dragY track
+			// the cursor, moving the cursor past SNAP naturally releases the snap —
+			// the guide is helpful, never a trap.
+			double ccx = dragX + dragW / 2.0;
+			double ccy = dragY + dragH / 2.0;
+			if (Math.abs(ccx - width / 2.0) <= SNAP) {
+				dragX = width / 2.0 - dragW / 2.0;
+			}
+			if (Math.abs(ccy - height / 2.0) <= SNAP) {
+				dragY = height / 2.0 - dragH / 2.0;
+			}
 			return true;
 		}
 		return super.mouseDragged(mx, my, button, dx, dy);

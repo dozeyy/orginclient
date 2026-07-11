@@ -22,9 +22,9 @@ import com.origin.client.client.theme.OriginTheme;
 
 // Draws vanilla buttons/sliders/checkboxes in the Origin style: a 9-sliced
 // rounded-rect fill + hairline border (baked alpha masks tinted to theme
-// colors), the label in the default Minecraft font, and a couple-px hover lift
-// -- eased on wall-clock time via OriginTheme, matching the website's button
-// feel (DESIGN_SYSTEM.md §3/§6d). Called from the widget mixins, which cancel
+// colors) and the label in the default Minecraft font. Hover is communicated by
+// the border brightening only -- no vertical lift (Will). Eased on wall-clock
+// time via OriginTheme. Called from the widget mixins, which cancel
 // the vanilla drawing on every screen, so no widgets are added or removed --
 // the existing widgets keep their positions, actions, and clicks. Per-widget
 // hover animation state is kept in a WeakHashMap keyed by the widget.
@@ -34,14 +34,15 @@ public final class OriginButtonRenderer {
 	private static final int FILL_NORMAL = 0x07FFFFFF;
 	private static final int FILL_HOVER = 0x0FFFFFFF;
 	private static final int BORDER_NORMAL = 0x1CFFFFFF;
-	private static final int BORDER_HOVER = 0x4DFFFFFF;
+	// Hover brightens the outline to a MUCH lighter gray (A2) — one shared token
+	// so every hovered Origin box reads the same, here and in OriginUi panels.
+	private static final int BORDER_HOVER = OriginTheme.STROKE_HOVER;
 	private static final int LABEL_COLOR = OriginTheme.TEXT;
 	// Disabled (active=false, e.g. Telemetry Data): same shape, clearly dimmed.
 	private static final int FILL_DISABLED = 0x04FFFFFF;
 	private static final int BORDER_DISABLED = 0x10FFFFFF;
 	private static final int LABEL_DISABLED = OriginTheme.MUTED;
 	private static final int CORNER_DISPLAY = 6;
-	private static final double LIFT_PX = 2.0;
 	// Short + eased = the website's snappy hover; no per-button glow (the
 	// cursor-follow glow in OriginScreenRenderer blooms on hover instead).
 	private static final double HOVER_MS = 90.0;
@@ -95,7 +96,9 @@ public final class OriginButtonRenderer {
 		boolean enabled = button.active;
 		double hv = hoverEase(button, enabled && button.isHovered());
 
-		int drawY = (int) Math.round(y - LIFT_PX * hv);
+		// No hover lift (Will): the box stays put; hover reads through the border
+		// brightening only.
+		int drawY = y;
 		double cx = x + w / 2.0;
 		double cy = drawY + h / 2.0;
 

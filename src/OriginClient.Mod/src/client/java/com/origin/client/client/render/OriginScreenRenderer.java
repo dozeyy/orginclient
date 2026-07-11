@@ -406,6 +406,45 @@ public final class OriginScreenRenderer {
 	}
 
 	/**
+	 * Draw the baked "ORIGIN" wordmark centered on (cx, cy) at the given ink
+	 * height, anywhere. Used by the HUD editor's Right-Shift header. Returns
+	 * false (caller falls back to the vanilla font) if the texture is missing or
+	 * Origin rendering has failed for the session.
+	 */
+	public static boolean renderWordmarkAt(GuiGraphics guiGraphics, double cx, double cy, double targetInkHeight, float alpha) {
+		if (broken) {
+			return false;
+		}
+		try {
+			ensureLoaded();
+			if (wordmarkId == null || wmInkH <= 0) {
+				return false;
+			}
+			drawBakedInk(guiGraphics, wordmarkId, wmTexW, wmTexH, wmInkX, wmInkY, wmInkW, wmInkH, cx, cy, targetInkHeight, alpha);
+			return true;
+		} catch (Throwable t) {
+			return fail(t);
+		}
+	}
+
+	/** Shared: blit a baked-text texture so its ink box centers on (cx, cy), ink scaled to targetInkHeight. */
+	private static void drawBakedInk(GuiGraphics guiGraphics, ResourceLocation tex, int texW, int texH,
+									 int inkX, int inkY, int inkW, int inkH, double cx, double cy, double targetInkHeight, float alpha) {
+		float scale = (float) (targetInkHeight / inkH);
+		double icx = (inkX + inkW / 2.0) * scale;
+		double icy = (inkY + inkH / 2.0) * scale;
+		PoseStack pose = guiGraphics.pose();
+		pose.pushPose();
+		pose.translate(cx - icx, cy - icy, 0);
+		pose.scale(scale, scale, 1f);
+		RenderSystem.enableBlend();
+		RenderSystem.setShaderColor(1f, 1f, 1f, alpha);
+		guiGraphics.blit(tex, 0, 0, 0, 0, texW, texH, texW, texH);
+		RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+		pose.popPose();
+	}
+
+	/**
 	 * Main menu: a small account chip (player head + username) in the top-left,
 	 * inside the frame. Identity presence, like premium launchers. Head via the
 	 * skin manager (default skin shows first, the real one pops in async); if the

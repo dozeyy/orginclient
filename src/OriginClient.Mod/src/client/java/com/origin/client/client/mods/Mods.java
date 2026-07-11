@@ -141,7 +141,7 @@ public final class Mods {
 		add("zoom", "Zoom", "Smooth, configurable zoom.", true,
 				ModOption.keybind("key", "Zoom Key", GLFW.GLFW_KEY_C),
 				ModOption.toggle("toggleZoom", "Toggle Zoom", false).tip("Press once to zoom, press again to unzoom (instead of holding)."),
-				ModOption.toggle("smoothCamera", "Smooth Camera Movement", true).tip("Eases camera motion so the view glides instead of snapping."),
+				ModOption.toggle("smoothCamera", "Smooth Camera Movement", false).tip("Eases camera motion so the view glides instead of snapping."),
 				ModOption.toggle("smoothZoom", "Smooth Zoom In/Out", true).tip("Animates the FOV change when zooming instead of an instant jump."),
 				ModOption.toggle("scrollZoom", "Scroll to Zoom", true).tip("While zoomed, scroll the mouse wheel to change the zoom level."),
 				ModOption.slider("scrollSpeed", "Scroll Zoom Speed", 0.1, 2.0, 0.1, 1.0, "%.1fx").under("scrollZoom"),

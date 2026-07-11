@@ -19,6 +19,18 @@ public static partial class PerformanceModCatalog
 {
     private static readonly Dictionary<string, VersionPerfProfile> Data = new()
     {
+        // EXCEPTION (2026-07-11, hand-added, do not regenerate over this): the
+        // "26.2" entry. The auto-generation snapshot (2026-07-06) predates the
+        // 26.2 full release, so the generator only saw the 26.1.x line as
+        // Partial (Lithium/FerriteCore/Krypton, no Sodium/Iris). 26.2 shipped
+        // with the full shader-capable Fabric stack — verified live on Modrinth
+        // 2026-07-11: Sodium mc26.2-0.9.1-fabric, Iris 1.11.2+26.2-fabric,
+        // Lithium 0.25.2, FerriteCore 9.0.0. Krypton has no 26.2 build yet
+        // (networking-only, omitted); Indium is unnecessary on Sodium 0.9.x
+        // (it ships its own Fabric Rendering API impl, unlike the 0.5.x era that
+        // needed Indium). This is the standalone stack the launcher installs
+        // alongside the originclient-26.2.jar (BundlesPerfStack:false).
+        ["26.2"] = new("26.2", PerfStackTier.Full, new PerfMod("mc26.2-0.9.1-fabric", "https://cdn.modrinth.com/data/AANobbMI/versions/2Yom1N68/sodium-fabric-0.9.1%2Bmc26.2.jar", "sodium-fabric-0.9.1+mc26.2.jar"), null, new PerfMod("mc26.2-0.25.2-fabric", "https://cdn.modrinth.com/data/gvQqBUqZ/versions/UPNexAfy/lithium-fabric-0.25.2%2Bmc26.2.jar", "lithium-fabric-0.25.2+mc26.2.jar"), new PerfMod("9.0.0-fabric", "https://cdn.modrinth.com/data/uXXizFIs/versions/d5ddUdiB/ferritecore-9.0.0-fabric.jar", "ferritecore-9.0.0-fabric.jar"), null, Iris: new PerfMod("1.11.2+26.2-fabric", "https://cdn.modrinth.com/data/YL57xq9U/versions/oaD6KQls/iris-fabric-1.11.2%2Bmc26.2.jar", "iris-fabric-1.11.2+mc26.2.jar")),
         ["26.1.2"] = new("26.1.2", PerfStackTier.Partial, null, null, new PerfMod("mc26.1.2-0.24.6-fabric", "https://cdn.modrinth.com/data/gvQqBUqZ/versions/fQBdPR1m/lithium-fabric-0.24.6%2Bmc26.1.2.jar", "lithium-fabric-0.24.6+mc26.1.2.jar"), new PerfMod("9.0.0-fabric", "https://cdn.modrinth.com/data/uXXizFIs/versions/d5ddUdiB/ferritecore-9.0.0-fabric.jar", "ferritecore-9.0.0-fabric.jar"), new PerfMod("0.3.0", "https://cdn.modrinth.com/data/fQEb0iXm/versions/kYAGItyj/krypton-0.3.0.jar", "krypton-0.3.0.jar")),
         ["26.1.1"] = new("26.1.1", PerfStackTier.Partial, null, null, new PerfMod("mc26.1.2-0.24.6-fabric", "https://cdn.modrinth.com/data/gvQqBUqZ/versions/fQBdPR1m/lithium-fabric-0.24.6%2Bmc26.1.2.jar", "lithium-fabric-0.24.6+mc26.1.2.jar"), new PerfMod("9.0.0-fabric", "https://cdn.modrinth.com/data/uXXizFIs/versions/d5ddUdiB/ferritecore-9.0.0-fabric.jar", "ferritecore-9.0.0-fabric.jar"), new PerfMod("0.3.0", "https://cdn.modrinth.com/data/fQEb0iXm/versions/kYAGItyj/krypton-0.3.0.jar", "krypton-0.3.0.jar")),
         ["26.1"] = new("26.1", PerfStackTier.Partial, null, null, new PerfMod("mc26.1.2-0.24.6-fabric", "https://cdn.modrinth.com/data/gvQqBUqZ/versions/fQBdPR1m/lithium-fabric-0.24.6%2Bmc26.1.2.jar", "lithium-fabric-0.24.6+mc26.1.2.jar"), new PerfMod("9.0.0-fabric", "https://cdn.modrinth.com/data/uXXizFIs/versions/d5ddUdiB/ferritecore-9.0.0-fabric.jar", "ferritecore-9.0.0-fabric.jar"), new PerfMod("0.3.0", "https://cdn.modrinth.com/data/fQEb0iXm/versions/kYAGItyj/krypton-0.3.0.jar", "krypton-0.3.0.jar")),

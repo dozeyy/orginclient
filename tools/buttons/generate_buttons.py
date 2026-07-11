@@ -21,7 +21,7 @@ Output: ../../src/OriginClient.Mod/.../assets/originclient/textures/ui/
 import json
 from pathlib import Path
 
-from PIL import Image, ImageDraw
+from PIL import Image, ImageChops, ImageDraw
 
 HERE = Path(__file__).resolve().parent
 
@@ -32,6 +32,10 @@ TEX = 96          # square texture size for fill/border
 CORNER = 24       # corner region size (px) used for 9-slicing; also the radius
 BORDER_PX = 4     # border stroke in texture px (~1px in-game after down-scale)
 SS = 4            # supersample for anti-aliasing
+# Keep the fill this many texture-px inside the border's OUTER edge, so the
+# darker fill can never show a fringe past the lighter border under GL_LINEAR
+# filtering / LANCZOS down-scale (A1: "no overhang, no subpixel bleed").
+FILL_INSET_PX = 1
 
 
 def _to_rgba(alpha_L):
@@ -40,20 +44,34 @@ def _to_rgba(alpha_L):
 
 
 def bake_fill():
+    # Inset the fill by FILL_INSET_PX and shrink its radius to match, so its
+    # rounded corner tucks just inside the border's outer arc everywhere.
     big = TEX * SS
+    inset = FILL_INSET_PX * SS
     img = Image.new("L", (big, big), 0)
-    ImageDraw.Draw(img).rounded_rectangle([0, 0, big - 1, big - 1], radius=CORNER * SS, fill=255)
+    ImageDraw.Draw(img).rounded_rectangle(
+        [inset, inset, big - 1 - inset, big - 1 - inset],
+        radius=(CORNER - FILL_INSET_PX) * SS, fill=255)
     return _to_rgba(img.resize((TEX, TEX), Image.LANCZOS))
 
 
 def bake_border():
+    # A TRUE ring: an outer rounded-rect at the full extent (identical geometry
+    # to the fill's outer edge before its 1px inset) minus an inner rounded-rect
+    # inset by the stroke width. This guarantees the border's outer edge is the
+    # outermost lit pixel and its corner arc concentrically contains the fill's —
+    # the earlier "inset rect, same radius" made the fill's corner poke outside.
     big = TEX * SS
-    img = Image.new("L", (big, big), 0)
-    half = BORDER_PX * SS / 2.0
-    ImageDraw.Draw(img).rounded_rectangle(
-        [half, half, big - 1 - half, big - 1 - half],
-        radius=CORNER * SS, outline=255, width=BORDER_PX * SS)
-    return _to_rgba(img.resize((TEX, TEX), Image.LANCZOS))
+    stroke = BORDER_PX * SS
+    outer = Image.new("L", (big, big), 0)
+    ImageDraw.Draw(outer).rounded_rectangle(
+        [0, 0, big - 1, big - 1], radius=CORNER * SS, fill=255)
+    inner = Image.new("L", (big, big), 0)
+    ImageDraw.Draw(inner).rounded_rectangle(
+        [stroke, stroke, big - 1 - stroke, big - 1 - stroke],
+        radius=max(1, (CORNER - BORDER_PX) * SS), fill=255)
+    ring = ImageChops.subtract(outer, inner)
+    return _to_rgba(ring.resize((TEX, TEX), Image.LANCZOS))
 
 
 def main():

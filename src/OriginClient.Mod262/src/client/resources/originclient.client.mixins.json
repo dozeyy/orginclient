@@ -1,0 +1,33 @@
+{
+	"required": false,
+	"package": "com.origin.client.client.mixin",
+	"compatibilityLevel": "JAVA_25",
+	"client": [
+		"LoadingOverlayMixin",
+		"TitleScreenMixin",
+		"AbstractButtonMixin",
+		"ScreenBackgroundMixin",
+		"AbstractSliderButtonMixin",
+		"MinecraftScreenTrackerMixin",
+		"MenuBlurMixin",
+		"CameraMixin",
+		"MouseHandlerMixin",
+		"PauseScreenMixin",
+		"ParticleEngineMixin",
+		"SingleQuadParticleMixin",
+		"FramerateLimitTrackerMixin",
+		"ToastManagerMixin",
+		"ChatTimestampMixin",
+		"ClientLevelParticleMixin",
+		"LevelWeatherMixin",
+		"LightmapRenderStateExtractorMixin",
+		"EntityNametagMixin",
+		"LevelRendererBlockOutlineMixin"
+	],
+	"injectors": {
+		"defaultRequire": 0
+	},
+	"overwrites": {
+		"requireAnnotations": true
+	}
+}

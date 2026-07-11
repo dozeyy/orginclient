@@ -17,8 +17,8 @@ import java.util.List;
 // The Right Shift panel, redesigned as a premium desktop-app surface:
 // navigating into a mod replaces the WHOLE overlay with that mod's settings
 // page (fade + subtle scale, like moving between windows — never a nested
-// panel), every control is a baked high-res asset (Apple-style switches,
-// rounded panels, 96px icons), and the only pixelated thing on screen is
+// panel), every control is a baked high-res asset (rounded red/green box
+// toggles, rounded panels, 96px icons), and the only pixelated thing on screen is
 // Minecraft's font, by design. The centered Origin mark in the header is
 // the entry point to HUD editing; the HUD Editor chip goes to the same
 // workspace.
@@ -50,6 +50,11 @@ public class OriginModMenuScreen extends Screen {
 	}
 
 	private String dragMod = null, dragKey = null;
+	// The exact option being dragged, captured on grab. Settings-tab rows live
+	// under the synthetic @general/@performance ids, which Mods.byId can't
+	// resolve — holding the ModOption directly is what makes those sliders
+	// actually drag (they were click-only before).
+	private ModOption dragOpt = null;
 	private int dragTrackX0, dragTrackX1;
 	private String capMod = null, capKey = null;
 
@@ -309,7 +314,7 @@ public class OriginModMenuScreen extends Screen {
 		boolean backing = !clear;
 		OriginUi.panel(g, vbX, hy, 24, 20, 8,
 				withAlpha(chipFill(vbHover), alpha),
-				withAlpha(vbHover ? OriginTheme.STROKE_STRONG : OriginTheme.STROKE, alpha));
+				withAlpha(vbHover ? OriginTheme.STROKE_HOVER : OriginTheme.STROKE, alpha));
 		OriginUi.icon(g, "blockoverlay", vbX + 4, hy + 2, 16, withAlpha(backing ? OriginTheme.TEXT : OriginTheme.MUTED, alpha));
 
 		int hbW = font.width("HUD Editor") + 16;
@@ -317,7 +322,7 @@ public class OriginModMenuScreen extends Screen {
 		boolean hbHover = in(mouseX, mouseY, hbX, hy, hbX + hbW, hy + 20);
 		OriginUi.panel(g, hbX, hy, hbW, 20, 8,
 				withAlpha(chipFill(hbHover), alpha),
-				withAlpha(hbHover ? OriginTheme.STROKE_STRONG : OriginTheme.STROKE, alpha));
+				withAlpha(hbHover ? OriginTheme.STROKE_HOVER : OriginTheme.STROKE, alpha));
 		g.drawString(font, "HUD Editor", hbX + 8, hy + 6, withAlpha(OriginTheme.TEXT, alpha), clear);
 
 		if (tab == Tab.SETTINGS) {
@@ -372,30 +377,40 @@ public class OriginModMenuScreen extends Screen {
 			int w = font.width(labels[i]) + 28;
 			boolean active = tab == tabs[i];
 			boolean hover = in(mx, my, tx, hy, tx + w, hy + 20);
-			int fill = clear ? (active ? 0xE0181818 : (hover ? 0xD0141414 : 0xC0101010))
-					: (active ? 0x2EFFFFFF : (hover ? 0x1EFFFFFF : 0x12FFFFFF));
-			OriginUi.panel(g, tx, hy, w, 20, 8, withAlpha(fill, alpha),
-					withAlpha(active ? 0x55FFFFFF : OriginTheme.STROKE, alpha));
-			g.drawString(font, labels[i], tx + 14, hy + 6,
-					withAlpha(active ? OriginTheme.TEXT : OriginTheme.TEXT_DIM, alpha), clear);
+			drawTab(g, tx, hy, w, 20, labels[i], active, hover, alpha);
 			tx += w + 8;
 		}
+	}
+
+	// A tab reads as a tab, not a button: no filled box — just the label over an
+	// underline. EVERY tab's underline is the SAME length (Will) — the hovered-
+	// highlight span (tx+4..tx+w-4) — only its brightness changes: bright accent
+	// when active, the much-lighter gray on hover, faint stroke otherwise.
+	private void drawTab(GuiGraphics g, int tx, int ty, int w, int h, String label, boolean active, boolean hover, float alpha) {
+		int textColor = active ? OriginTheme.TEXT : (hover ? OriginTheme.TEXT_DIM : OriginTheme.MUTED);
+		g.drawString(font, label, tx + (w - font.width(label)) / 2, ty + (h - 8) / 2,
+				withAlpha(textColor, alpha), clear);
+		int underY = ty + h - 2;
+		int under = active ? OriginTheme.ACCENT : (hover ? OriginTheme.STROKE_HOVER : OriginTheme.STROKE);
+		g.fill(tx + 4, underY, tx + w - 4, underY + 2, withAlpha(under, alpha));
 	}
 
 	private void renderCard(GuiGraphics g, Mods.Mod mod, int[] r, int mx, int my, float alpha) {
 		boolean hover = in(mx, my, r[0], r[1], r[2], r[3]);
 		float hv = OriginUi.anim("cell:" + mod.id(), hover, 130.0);
 		boolean on = Mods.on(mod.id());
-		int cx = r[0], cy = r[1] - Math.round(hv);
+		// No hover lift (Will): the card stays put; hover reads through the border
+		// brightening + fill only.
+		int cx = r[0], cy = r[1];
 
 		OriginUi.panel(g, cx, cy, cellW, cellH, 10,
 				withAlpha(clear ? (hover ? 0xD8141414 : 0xC8101010) : (hover ? 0x24FFFFFF : 0x14FFFFFF), alpha),
-				withAlpha(hover ? OriginTheme.STROKE_STRONG : OriginTheme.STROKE, alpha));
+				withAlpha(hover ? OriginTheme.STROKE_HOVER : OriginTheme.STROKE, alpha));
 
 		// icon stays fully white in every state — only the toggle button below
 		// communicates enabled/disabled
 		int iconSize = 30 + Math.round(2 * hv);
-		OriginUi.icon(g, mod.id(), cx + (cellW - iconSize) / 2, cy + 12 - Math.round(hv), iconSize,
+		OriginUi.icon(g, mod.id(), cx + (cellW - iconSize) / 2, cy + 12, iconSize,
 				withAlpha(OriginTheme.TEXT, alpha));
 
 		String name = font.width(mod.name()) > cellW - 12
@@ -434,11 +449,7 @@ public class OriginModMenuScreen extends Screen {
 			int w = font.width(labels[i]) + 24;
 			boolean active = subTab == subs[i];
 			boolean hover = in(mx, my, tx, sty, tx + w, sty + 20);
-			OriginUi.panel(g, tx, sty, w, 20, 8,
-					withAlpha(active ? 0x2EFFFFFF : (hover ? 0x1EFFFFFF : 0x12FFFFFF), alpha),
-					withAlpha(active ? 0x55FFFFFF : OriginTheme.STROKE, alpha));
-			g.drawString(font, labels[i], tx + 12, sty + 6,
-					withAlpha(active ? OriginTheme.TEXT : OriginTheme.TEXT_DIM, alpha), false);
+			drawTab(g, tx, sty, w, 20, labels[i], active, hover, alpha);
 			tx += w + 8;
 		}
 
@@ -485,7 +496,7 @@ public class OriginModMenuScreen extends Screen {
 		boolean backHover = in(mouseX, mouseY, x0, hy, x0 + 24, hy + 20);
 		OriginUi.panel(g, x0, hy, 24, 20, 8,
 				withAlpha(backHover ? 0x2EFFFFFF : 0x16FFFFFF, alpha),
-				withAlpha(backHover ? OriginTheme.STROKE_STRONG : OriginTheme.STROKE, alpha));
+				withAlpha(backHover ? OriginTheme.STROKE_HOVER : OriginTheme.STROKE, alpha));
 		g.drawString(font, "<", x0 + 9, hy + 6, withAlpha(OriginTheme.TEXT, alpha), false);
 
 		OriginUi.icon(g, mod.id(), x0 + 32, hy - 3, 26, withAlpha(OriginTheme.TEXT, alpha));
@@ -615,7 +626,12 @@ public class OriginModMenuScreen extends Screen {
 				int tw = Math.min(140, (x1 - x0) / 3);
 				int tx = x1 - 10 - tw;
 				OriginUi.slider(g, tx, y + 11, tw, tt, modId.equals(dragMod) && o.key.equals(dragKey));
-				String val = o.format.contains("%%") ? String.format(o.format, v * 100) : String.format(o.format, v);
+				// "%%" sliders that store a FRACTION (max<=1, e.g. opacity/scale)
+				// display as a percent (v*100); ones already stored in percent units
+				// (Entity/Tile Distance, max=100) print the value as-is — otherwise
+				// 100 rendered as "10000%".
+				boolean pctOfFraction = o.format.contains("%%") && o.max <= 1.0;
+				String val = pctOfFraction ? String.format(o.format, v * 100) : String.format(o.format, v);
 				g.drawString(font, val, tx - font.width(val) - 10, y + 9, withAlpha(OriginTheme.TEXT, alpha), false);
 			}
 			case COLOR -> {
@@ -774,6 +790,7 @@ public class OriginModMenuScreen extends Screen {
 				if (mx >= tx && mx <= tx + tw) {
 					dragMod = modId;
 					dragKey = o.key;
+					dragOpt = o;
 					dragTrackX0 = tx;
 					dragTrackX1 = tx + tw;
 					applySlider(o, mx);
@@ -826,15 +843,11 @@ public class OriginModMenuScreen extends Screen {
 		if (OriginColorPicker.mouseDragged(mx, my, button)) {
 			return true;
 		}
-		if (dragMod != null) {
-			Mods.Mod m = Mods.byId(dragMod);
-			if (m != null) {
-				for (ModOption o : m.options()) {
-					if (o.key.equals(dragKey)) {
-						applySlider(o, mx);
-					}
-				}
-			}
+		if (dragMod != null && dragOpt != null) {
+			// Drag the captured option directly — works for both real mods and the
+			// synthetic @general/@performance settings ids (which Mods.byId can't
+			// resolve, so the old byId-lookup made these sliders click-only).
+			applySlider(dragOpt, mx);
 			return true;
 		}
 		return super.mouseDragged(mx, my, button, dx, dy);
@@ -847,6 +860,7 @@ public class OriginModMenuScreen extends Screen {
 		}
 		dragMod = null;
 		dragKey = null;
+		dragOpt = null;
 		return super.mouseReleased(mx, my, button);
 	}
 
