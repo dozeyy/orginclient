@@ -278,7 +278,8 @@
                                           HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
                                           VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
                                           IsHitTestVisible="False"
-                                          Content="{TemplateBinding SelectionBoxItem}"/>
+                                          Content="{TemplateBinding SelectionBoxItem}"
+                                          ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"/>
                         <Popup x:Name="Popup"
                                IsOpen="{TemplateBinding IsDropDownOpen}"
                                Placement="Bottom"

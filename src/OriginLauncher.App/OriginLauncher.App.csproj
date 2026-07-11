@@ -18,6 +18,8 @@
 
   <ItemGroup>
     <Resource Include="Assets\origin.ico" />
+    <!-- Version-select grid card artwork (one per version family). -->
+    <Resource Include="Assets\Versions\*.png" />
   </ItemGroup>
 
   <!--

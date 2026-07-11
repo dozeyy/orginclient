@@ -5,6 +5,58 @@ every session — read at session start alongside `./CLAUDE.md`.
 
 ---
 
+## 2026-07-11 — Launcher redesign: master-detail version picker (shipped) + crash window
+Replaced Home's version ComboBox with a full-screen artwork picker.
+- New files: Core/Versions/VersionCatalog.cs (9 version families, newest→oldest;
+  each has Title, Tagline, Description, ImagePath, member versions; "supported"
+  derived from VersionManager.OriginSupportedVersions = single source of truth,
+  so adding an OriginBuild auto-un-greys a card), UI/Controls/VersionSelectOverlay
+  .xaml(.cs) (in-HomePage overlay), Assets/Versions/*.png (9 cards, PIL-converted
+  from Downloads incl. webp/avif→png, 960x600 for crispness), UI/Windows/
+  CrashWindow + CrashReporter (see below).
+- UX: 3x3 grid landing; clicking a card → master-detail (families stacked down
+  the left, right pane = hero image + tagline + long description + facts line +
+  feature chips + specific-version dropdown + big LAUNCH + MODS). Coming-soon
+  families (all but 1.21/1.20) are GRAYED OUT (gray wash + 0.72 opacity) with a
+  COMING SOON chip. LAUNCH raises LaunchRequested → HomePage.OnLaunchRequested
+  reuses the exact Play path (extracted PlayButton_Click body into LaunchAsync).
+  MODS opens instances/{version}/mods. HomePage holds _selectedVersion in memory
+  (Mojang ComboBox load removed → faster cold start).
+- **KEY BUG (cost hours): a Border with MouseLeftButtonUp in an ItemsControl
+  DataTemplate does NOT fire on click** (MouseEnter did — proven by a crash — so
+  handlers were wired; the Up just never routed). Fix: cards are ListBox items,
+  selection-on-click is reliable. Use ListBox, not Border+mouse events, for
+  clickable cards.
+- **Two infra traps burned lots of time:**
+  1. The dev build launched from bin/Debug has version < latest release, so
+     clicking the in-app update badge made UpdateService download the release
+     single-file exe and OVERWRITE bin/Debug — the picker "self-updated away."
+     Fix for dev testing: build with -p:Version=99.0.0 so it never looks stale.
+     (A 163MB single-file exe in bin/Debug = it was clobbered by the updater;
+     a real debug apphost is ~195KB.)
+  2. Verified the WPF UI headlessly via **UI Automation** (the computer-use
+     screenshot tool can't target a non-Start-Menu dev exe): drive buttons with
+     InvokePattern, cards with SelectionItemPattern, hit-test with FromPoint,
+     and capture with System.Drawing CopyFromScreen. Synthetic mouse
+     (SetCursorPos/mouse_event) needs the process DPI-aware
+     (SetProcessDpiAwarenessContext(-4)) or UIA's logical coords mismatch
+     physical cursor coords.
+- Other fixes: ComboBox closed-box showed VersionEntry.ToString() → added
+  ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}" to Theme/Inputs
+  .xaml's Input.ComboBox (fixes it app-wide). Overlay content inset left 92px to
+  clear the floating nav rail.
+- CRASH WINDOW (Will asked): App.xaml.cs now handles DispatcherUnhandledException
+  (recoverable — show report, Handled=true, launcher survives) +
+  AppDomain.UnhandledException (fatal). CrashReporter writes crash_*.log under
+  logs/ and shows CrashWindow: friendly summary + copy-paste report (exception
+  type/message/stack + OS/.NET/version) with a Copy button. CrashWindow is
+  hardcoded-styled (no theme StaticResources) so it renders even if a resource
+  is what broke.
+- Shipped as-is per Will (1.18 card keeps its lush-cave photo; Will has a newer
+  Caves & Cliffs image to swap in a follow-up — I can't extract an inline chat
+  attachment to disk, needs saving to Downloads). SettingsPage still has its own
+  separate version ComboBox — left as-is, out of scope.
+
 ## 2026-07-10 — Shader Performance Mode fixed across 1.21.1 + 1.20 (ported from 1.20.4; 1.20 was silently dead)
 Ported the 1.20.4 shader-perf fix to the two shipping modules + shipped. Two
 findings beyond a straight copy, both javap-verified against each module's

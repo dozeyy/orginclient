@@ -9,9 +9,21 @@
     <Grid>
         <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
 
-            <ComboBox x:Name="VersionComboBox" MinWidth="160" HorizontalAlignment="Center"
-                      HorizontalContentAlignment="Center" Margin="0,0,0,12"
-                      SelectionChanged="VersionComboBox_SelectionChanged"/>
+            <!-- Opens the full-screen version picker (VersionSelectOverlay).
+                 Shows the current selection; the grid does the real choosing. -->
+            <Button x:Name="VersionButton" Style="{StaticResource Button.Secondary}"
+                    MinWidth="220" Margin="0,0,0,12" Padding="16,9"
+                    HorizontalContentAlignment="Stretch" Click="VersionButton_Click">
+                <Grid>
+                    <StackPanel HorizontalAlignment="Left" VerticalAlignment="Center">
+                        <TextBlock Text="VERSION" Style="{StaticResource Text.Eyebrow}"/>
+                        <TextBlock x:Name="VersionButtonText" Text="—" Style="{StaticResource Text.Body}" Margin="0,1,0,0"/>
+                    </StackPanel>
+                    <Path Data="M0,0 L5,5 L10,0" Stroke="{StaticResource Brush.TextDim}" StrokeThickness="1.7"
+                          StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                          Width="10" Height="5" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="12,0,0,0"/>
+                </Grid>
+            </Button>
 
             <!-- Loader: exactly two options per version — Vanilla + Fabric where
                  the perf-mod catalog has data, or Vanilla + Forge (with OptiFine)
@@ -55,6 +67,9 @@
                        HorizontalAlignment="Center" Margin="0,20,0,0"/>
         </StackPanel>
 
+        <!-- Version picker sits above Home content but below the launch overlay
+             so a launch that starts while it's (somehow) open still covers it. -->
+        <controls:VersionSelectOverlay x:Name="VersionOverlay"/>
         <controls:LaunchLoadingOverlay x:Name="LoadingOverlay"/>
     </Grid>
 </UserControl>

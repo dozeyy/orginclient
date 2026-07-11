@@ -17,10 +17,14 @@ public partial class HomePage : UserControl
 {
     private readonly LauncherSettings _settings;
     private readonly VersionManager _versionManager = new();
-    private bool _isLoading = true;
     private bool _isLaunching;
     private bool _settingLoaderProgrammatically;
     private StoredAccount? _selectedAccount;
+
+    // The version the player has chosen in the grid picker. Source of truth for
+    // Home (the old Mojang-populated ComboBox is gone); persisted to settings on
+    // change. Coerced to a version Origin actually ships if a stale one is read.
+    private string? _selectedVersion;
 
     // In-flight launch provisioning. The newest launch action always wins
     // (CLAUDE.md hard requirement): the overlay's Cancel aborts this token,
@@ -32,17 +36,16 @@ public partial class HomePage : UserControl
         InitializeComponent();
         _settings = SettingsStore.Load();
         LoadingOverlay.CancelRequested += (_, _) => _launchCts?.Cancel();
+        VersionOverlay.VersionSelected += OnVersionSelected;
+        VersionOverlay.LaunchRequested += OnLaunchRequested;
+        InitVersionSelection();
         RefreshAccountState();
-        _ = LoadVersionsAsync();
     }
 
-    // The version the player currently has selected, sourced live from the
-    // dropdown rather than settings.json — the default selection is never
-    // persisted (VersionComboBox_SelectionChanged early-returns while
-    // _isLoading), so disk would read null on first run while Home visibly
-    // shows a version. Null when no real version is selectable (load failed).
-    public string? CurrentVersion =>
-        VersionComboBox.IsEnabled ? VersionComboBox.SelectedItem as string : null;
+    // The version the player currently has selected. Held in memory (and mirrored
+    // to settings on an explicit pick); the newest-supported default is shown but
+    // not persisted until chosen, matching the previous behavior.
+    public string? CurrentVersion => _selectedVersion;
 
     // Called by MainWindow whenever the account switcher panel adds or
     // selects an account, so Home reflects it without needing to navigate away and back.
@@ -65,7 +68,7 @@ public partial class HomePage : UserControl
     private void UpdatePlayState()
     {
         var hasAccount = _selectedAccount != null;
-        var hasVersion = VersionComboBox.SelectedItem is string;
+        var hasVersion = _selectedVersion != null;
         // Read fresh (not the cached _settings): the toggle lives on the
         // Settings page, which persists to disk; a page switch must pick the
         // change up without app-restart plumbing.
@@ -89,58 +92,38 @@ public partial class HomePage : UserControl
         }
     }
 
-    private async Task LoadVersionsAsync()
+    // No network round-trip anymore: the grid is a fixed catalog of the versions
+    // Origin ships, so selection is instant (better cold-start too). Coerce a
+    // stale/unsupported persisted value to the newest supported version.
+    private void InitVersionSelection()
     {
-        try
-        {
-            var versions = await _versionManager.GetReleaseVersionsAsync();
-            if (versions.Count == 0)
-            {
-                ShowVersionLoadFailure();
-                return;
-            }
-
-            VersionComboBox.ItemsSource = versions;
-            VersionComboBox.SelectedItem = _settings.SelectedVersion ?? versions.FirstOrDefault();
-        }
-        catch (Exception ex)
-        {
-            // Broad on purpose: a narrower catch (e.g. HttpRequestException only)
-            // silently swallows timeouts/DNS failures too, leaving the dropdown
-            // blank with no indication why. Always show *something* instead.
-            System.Diagnostics.Debug.WriteLine($"[HomePage] Version load failed: {ex}");
-            ShowVersionLoadFailure();
-        }
-        finally
-        {
-            _isLoading = false;
-            UpdateLoaderControls();
-            UpdatePlayState();
-        }
-    }
-
-    private void ShowVersionLoadFailure()
-    {
-        VersionComboBox.ItemsSource = new[] { "No versions found — check your connection" };
-        VersionComboBox.SelectedIndex = 0;
-        VersionComboBox.IsEnabled = false;
-    }
-
-    private void VersionComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
-    {
-        // IsEnabled guard too, not just _isLoading: ShowVersionLoadFailure's
-        // placeholder text is technically a string, and _isLoading is still
-        // true when it's assigned — but that's timing-fragile, so also
-        // refuse to ever persist the placeholder as a "real" selected version.
-        if (_isLoading || !VersionComboBox.IsEnabled) return;
-        _settings.SelectedVersion = VersionComboBox.SelectedItem as string;
-        // Version changed — go back to the auto-recommended loader for it
-        // rather than carrying over a choice that made sense for the old one.
-        _settings.SelectedLoader = null;
-        SettingsStore.Save(_settings);
+        _selectedVersion = VersionCatalog.IsSupported(_settings.SelectedVersion)
+            ? _settings.SelectedVersion
+            : VersionCatalog.DefaultVersion;
+        SetVersionButtonText(_selectedVersion);
         UpdateLoaderControls();
         UpdatePlayState();
     }
+
+    // Raised by the grid picker when the player confirms a specific version.
+    private void OnVersionSelected(string version)
+    {
+        _selectedVersion = version;
+        _settings.SelectedVersion = version;
+        // Version changed — go back to the auto-recommended loader for it rather
+        // than carrying over a choice that made sense for the old one.
+        _settings.SelectedLoader = null;
+        SettingsStore.Save(_settings);
+        SetVersionButtonText(version);
+        UpdateLoaderControls();
+        UpdatePlayState();
+    }
+
+    private void SetVersionButtonText(string? version) =>
+        VersionButtonText.Text = version ?? "Select a version";
+
+    private void VersionButton_Click(object sender, RoutedEventArgs e) =>
+        VersionOverlay.Show(_selectedVersion);
 
     // Origin is a Fabric mod, so Fabric is the recommendation on every version
     // the launcher offers (all of which have a Fabric perf/shader catalog entry).
@@ -152,7 +135,7 @@ public partial class HomePage : UserControl
 
     private void UpdateLoaderControls()
     {
-        if (VersionComboBox.SelectedItem is not string version) return;
+        if (_selectedVersion is not { } version) return;
         var modernFabric = PerformanceModCatalog.RecommendsFabric(version);
         var loader = _settings.SelectedLoader ?? RecommendedLoader(version);
         // Fabric isn't offered on the classics anymore — if an old saved choice
@@ -192,7 +175,7 @@ public partial class HomePage : UserControl
         _settings.SelectedLoader = loader;
         SettingsStore.Save(_settings);
 
-        var version = VersionComboBox.SelectedItem as string;
+        var version = _selectedVersion;
         OptiFineRow.Visibility = loader == LoaderKind.Forge ? Visibility.Visible : Visibility.Collapsed;
         OptiFineToggle.IsChecked = loader == LoaderKind.Forge
             && version != null
@@ -211,7 +194,7 @@ public partial class HomePage : UserControl
     private async void OptiFineToggle_Checked(object sender, RoutedEventArgs e)
     {
         if (_settingLoaderProgrammatically) return;
-        if (VersionComboBox.SelectedItem is not string version) return;
+        if (_selectedVersion is not { } version) return;
 
         if (!OptiFineCacheStore.IsCached(version))
         {
@@ -255,11 +238,21 @@ public partial class HomePage : UserControl
         SettingsStore.Save(_settings);
     }
 
-    private async void PlayButton_Click(object sender, RoutedEventArgs e)
+    private async void PlayButton_Click(object sender, RoutedEventArgs e) => await LaunchAsync();
+
+    // The version picker's Launch button: adopt the chosen version, then launch
+    // through the exact same path as Play.
+    private async void OnLaunchRequested(string version)
+    {
+        OnVersionSelected(version);
+        await LaunchAsync();
+    }
+
+    private async Task LaunchAsync()
     {
         var offlineTest = SettingsStore.Load().OfflineTestMode;
         if (_isLaunching || (_selectedAccount == null && !offlineTest)) return;
-        if (VersionComboBox.SelectedItem is not string version) return;
+        if (_selectedVersion is not { } version) return;
 
         // Mandatory updates (Will's rule): a launcher older than the latest
         // published release must update before it can launch the game. The
@@ -382,7 +375,7 @@ public partial class HomePage : UserControl
                 // message the try/catch above just set. Only re-sync IsEnabled here.
                 PlayButton.IsEnabled =
                     (_selectedAccount != null || SettingsStore.Load().OfflineTestMode)
-                    && VersionComboBox.SelectedItem is string;
+                    && _selectedVersion != null;
             }
             cts.Dispose();
         }
