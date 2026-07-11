@@ -65,6 +65,16 @@ public sealed class VersionManager
             // 1.20.4 API family (src/OriginClient.Mod1204) — same install model
             // as 1.20: Origin jar + standalone perf/shader catalog stack.
             ["1.20.4"] = new("originclient-1.20.4.jar", BundlesPerfStack: false),
+            // 26.2 (src/OriginClient.Mod262) — STAGED, not yet active. The module
+            // is scaffolded and its Java 25 / unobfuscated-Loom toolchain is
+            // proven, but the render layer is mid-port to 26.2's retained-mode GUI
+            // and no originclient-26.2.jar builds yet. Listing it here would make
+            // the launcher offer an Origin build with no jar to install (broken),
+            // so it stays commented until the port compiles + runClient-verifies.
+            // The 26.2 perf/shader stack IS live in PerformanceModCatalog, so 26.2
+            // is already offered as a Fabric+shaders version (vanilla menus) via
+            // HasShaderStack. Re-enable this line to add the Origin menus:
+            //   ["26.2"] = new("originclient-26.2.jar", BundlesPerfStack: false),
         };
 
     // Versions always offered in the picker even if the shader-stack gate below

@@ -71,33 +71,35 @@ public final class OriginUi {
 		RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
 	}
 
-	/** Apple-style switch, wDisp x (wDisp*8/15). Returns knob progress 0..1. */
+	/**
+	 * Rounded-box toggle (C4): a rectangular track with curved corners, a knob
+	 * that slides LEFT = off / RIGHT = on, green when on and red when off. Built
+	 * from the shared rounded-rect masks so it stays crisp at any size. Same
+	 * signature/geometry as before (wDisp x wDisp*8/15) so existing layouts and
+	 * hit-tests are unchanged. Returns knob progress 0..1.
+	 */
 	public static float switchAt(GuiGraphics g, String id, int x, int y, int wDisp, boolean on, boolean enabled) {
-		ensureLoaded();
 		int hDisp = wDisp * 8 / 15;
 		float k = anim("sw:" + id, on, 170.0);
-		if (!ok) {
-			g.fill(x, y, x + wDisp, y + hDisp, on ? 0x66E0E0E0 : 0x33FFFFFF);
-			int kw = hDisp - 2;
-			int kx = x + 1 + Math.round(k * (wDisp - kw - 2));
-			g.fill(kx, y + 1, kx + kw, y + 1 + kw, 0xFFE8E8E8);
-			return k;
-		}
-		RenderSystem.enableBlend();
-		RenderSystem.defaultBlendFunc();
-		// Off end is a solid Apple-style neutral track (opaque so it reads the
-		// same in clear/backed modes) instead of a faint translucent white that
-		// looked broken; On end unchanged.
-		int trackOn = enabled ? 0xD9DDDDDD : 0x5AFFFFFF;
-		tint(OriginTheme.lerpColor(enabled ? 0xFF48484A : 0x22FFFFFF, trackOn, k));
-		g.blit(trackTex, x, y, wDisp, hDisp, 0f, 0f, 120, 64, 120, 64);
-		RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
-		// knob: 72px art holds a 52px disc + shadow padding -> draw oversized
-		int knobDisp = Math.round(hDisp * 72f / 52f);
-		int pad = (knobDisp - hDisp) / 2;
-		int travel = wDisp - hDisp;
-		int kx = x - pad + Math.round(k * travel);
-		g.blit(knobTex, kx + 1, y - pad, knobDisp, knobDisp, 0f, 0f, 72, 72, 72, 72);
+
+		// Track: red(off) -> green(on); disabled desaturates to gray so the whole
+		// control reads as unavailable without changing shape.
+		int track = enabled
+				? OriginTheme.lerpColor(OriginTheme.SWITCH_OFF, OriginTheme.SWITCH_ON, k)
+				: OriginTheme.lerpColor(0xFF3C3C3C, 0xFF565656, k);
+		// Rounded RECTANGLE (not a pill) — a modest corner so it reads clearly
+		// different from the old iOS-style switch.
+		int trackCorner = Math.max(3, Math.round(hDisp * 0.30f));
+		panel(g, x, y, wDisp, hDisp, trackCorner, track, OriginTheme.SWITCH_STROKE);
+
+		// Knob: a near-white rounded square sliding between the track's inset ends.
+		int pad = Math.max(2, Math.round(hDisp * 0.15f));
+		int knob = hDisp - 2 * pad;
+		int travel = Math.max(0, wDisp - 2 * pad - knob);
+		int kx = x + pad + Math.round(k * travel);
+		int knobCorner = Math.max(2, Math.round(knob * 0.30f));
+		panel(g, kx, y + pad, knob, knob, knobCorner,
+				enabled ? OriginTheme.SWITCH_KNOB : 0xFFB8B8B8, OriginTheme.SWITCH_STROKE);
 		return k;
 	}
 

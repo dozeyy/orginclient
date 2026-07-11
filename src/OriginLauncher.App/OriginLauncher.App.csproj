@@ -76,6 +76,14 @@
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
       <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
     </Content>
+    <!-- 26.2 — Origin client only; perf/shader stack installed standalone. -->
+    <Content Condition="Exists('..\OriginClient.Mod262\build\libs\originclient-26.2-0.4.1.jar')"
+             Include="..\OriginClient.Mod262\build\libs\originclient-26.2-0.4.1.jar">
+      <Link>Bundled\OriginClient\originclient-26.2.jar</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+    </Content>
   </ItemGroup>
 
 </Project>
