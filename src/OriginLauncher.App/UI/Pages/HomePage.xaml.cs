@@ -142,10 +142,9 @@ public partial class HomePage : UserControl
         UpdatePlayState();
     }
 
-    // Fabric only where the modern perf/shader stack exists. The classics
-    // (1.8.9, 1.12.2) are Forge now: Legacy Fabric was dropped there because it
-    // can't run shaders (no Iris/Sodium pre-1.16), so Forge + OptiFine — the
-    // only shader path on those versions — is the recommendation instead.
+    // Origin is a Fabric mod, so Fabric is the recommendation on every version
+    // the launcher offers (all of which have a Fabric perf/shader catalog entry).
+    // Forge remains only as a bare fallback for a version with no Fabric stack.
     private LoaderKind RecommendedLoader(string version) =>
         PerformanceModCatalog.RecommendsFabric(version)
             ? LoaderKind.Fabric

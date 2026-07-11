@@ -35,17 +35,6 @@ public static class FabricApiInstaller
         InstallProjectAsync(ProjectSlug, "fabric-api-", "[\"fabric\"]",
             "Installing Fabric API...", mcVersion, modsFolder, progress, ct);
 
-    // The legacy ecosystem's equivalent, for Legacy Fabric instances
-    // (pre-1.14, see LegacyFabricInstaller): most legacy-fabric mods depend
-    // on it the way modern mods depend on Fabric API. No loaders filter —
-    // Modrinth's loader tag for the legacy ecosystem isn't worth guessing;
-    // the game_versions filter alone pins the right builds, since the
-    // project only publishes legacy-fabric jars.
-    public static Task InstallLegacyAsync(
-        string mcVersion, string modsFolder, IProgress<string>? progress = null, CancellationToken ct = default) =>
-        InstallProjectAsync("legacy-fabric-api", "legacy-fabric-api-", null,
-            "Installing Legacy Fabric API...", mcVersion, modsFolder, progress, ct);
-
     private static async Task InstallProjectAsync(
         string slug, string presentPrefix, string? loadersFilter, string progressText,
         string mcVersion, string modsFolder, IProgress<string>? progress, CancellationToken ct)

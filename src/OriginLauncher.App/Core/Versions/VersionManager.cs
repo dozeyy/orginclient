@@ -39,11 +39,13 @@ public sealed class VersionManager
     // Minecraft releases the perf mods haven't caught up to (they reappear the
     // moment the catalog is regenerated with their Sodium/Iris builds).
     //
-    // The two classic pillars 1.8.9 and 1.12.2 are kept explicitly: they launch
-    // via Legacy Fabric and predate Sodium/Iris entirely, so the catalog gate
-    // can't include them. (1.16.5 is the oldest catalog-shader version, so it's
-    // covered by the gate and doesn't need pinning.)
-    private static readonly string[] PinnedVersions = { "1.8.9", "1.12.2" };
+    // 1.21.1 is pinned because it is the Origin Client mod's own target version:
+    // the mod jar-in-jars its own Sodium/Iris, so the standalone catalog entry
+    // for 1.21.1 deliberately omits Iris (to avoid a double Sodium) — which would
+    // otherwise make the shader-stack gate hide the one version that carries the
+    // full Origin experience. Pin it so it is always offered. (Legacy Forge/
+    // classics support was removed — Origin is Fabric-only again, per VERSIONS.md.)
+    private static readonly string[] PinnedVersions = { "1.21.1" };
 
     // Must match minecraft_version in src/OriginClient.Mod/gradle.properties.
     // The bundled jar's own Mixins/fabric.mod.json target this exact MC
@@ -54,12 +56,6 @@ public sealed class VersionManager
     // one case where the bundled jar replaces PerfModInstaller instead of
     // sitting alongside it.
     private const string OriginClientModVersion = "1.21.1";
-
-    // Classic pillars where Origin ships as a Forge mod (MCP-mapped, own Java-8
-    // build) with OptiFine for shaders — not the Fabric build. Must match the
-    // bundled originclient-<ver>-forge.jar files (OriginPaths) and the Forge
-    // module dirs (src/OriginClient.Forge189, .Forge1122).
-    private static readonly string[] ForgeOriginVersions = { "1.8.9", "1.12.2" };
 
     public async Task<IReadOnlyList<string>> GetReleaseVersionsAsync()
     {
@@ -144,18 +140,6 @@ public sealed class VersionManager
 
         switch (loader)
         {
-            // Pre-1.14 "Fabric" = Legacy Fabric (the community port of the
-            // same loader; official Fabric starts at 1.14). Same player-facing
-            // toggle — the launcher owning the loader flavor is the product
-            // model (VERSIONS.md). No Origin Client jar and no perf catalog
-            // here: neither targets these versions yet (menus stay vanilla on
-            // legacy versions until the Tier C port).
-            case LoaderKind.Fabric when LegacyFabricInstaller.Supports(version):
-            {
-                versionName = await LegacyFabricInstaller.InstallAsync(version, path, progress, ct);
-                await FabricApiInstaller.InstallLegacyAsync(version, modsFolder, progress, ct);
-                break;
-            }
             case LoaderKind.Fabric:
             {
                 progress?.Report("Installing Fabric loader...");
@@ -241,19 +225,17 @@ public sealed class VersionManager
             }
             case LoaderKind.Forge:
             {
+                // Forge is a plain loader option only — Origin Client itself does
+                // NOT ship on Forge (it is a Fabric mod; the classics run it via
+                // Legacy Fabric, see VERSIONS.md). We install the loader and,
+                // when the user asks for it, OptiFine; no Origin jar goes in.
                 progress?.Report("Installing Forge loader...");
                 var forgeInstaller = new ForgeInstaller(launcher);
                 versionName = await forgeInstaller.Install(version);
 
                 Directory.CreateDirectory(modsFolder);
-                bool originClassic = ForgeOriginVersions.Contains(version);
 
-                // OptiFine is the only shader path on the classics, so for an
-                // Origin classic we provision it out of the box (download if the
-                // cache is cold), not just when the OptiFine toggle is on — "the
-                // shaders pre-installed". Fail-soft: any download failure leaves a
-                // working Forge instance without shaders rather than blocking.
-                if (optiFineEnabled || originClassic)
+                if (optiFineEnabled)
                 {
                     if (!OptiFineCacheStore.IsCached(version))
                     {
@@ -273,29 +255,6 @@ public sealed class VersionManager
                             OptiFineCacheStore.JarPathFor(version),
                             Path.Combine(modsFolder, "OptiFine.jar"),
                             overwrite: true);
-                    }
-                }
-
-                // Install the matching Origin Client Forge jar so the classic
-                // versions get the same branded menus + QoL as 1.21.1 Fabric.
-                // Purge any stale Origin jar first (same discipline as the Fabric
-                // path) so an older bundled build never keeps loading in-game.
-                if (originClassic)
-                {
-                    var forgeJar = OriginPaths.BundledForgeOriginClientJar(version);
-                    if (File.Exists(forgeJar))
-                    {
-                        progress?.Report("Installing Origin Client...");
-                        foreach (var file in Directory.EnumerateFiles(modsFolder))
-                        {
-                            var fn = Path.GetFileName(file);
-                            if (fn.StartsWith("originclient", StringComparison.OrdinalIgnoreCase)
-                                && fn.EndsWith(ModManager.JarSuffix, StringComparison.OrdinalIgnoreCase))
-                            {
-                                try { File.Delete(file); } catch { /* locked/removed already */ }
-                            }
-                        }
-                        File.Copy(forgeJar, Path.Combine(modsFolder, "originclient.jar"), overwrite: true);
                     }
                 }
                 break;

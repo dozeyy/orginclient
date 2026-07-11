@@ -2346,3 +2346,145 @@ game exited (especially on a crash), so Play was gone.
   `Mods.flush()` + `OriginConfig.save` + `options.save()`) writes all three
   stores once on clean quit; per-version isolation is automatic (config/ +
   options.txt live in each version's instance dir).
+
+## 2026-07-10 — Origin ported to Forge for the classics (1.8.9 + 1.12.2)
+- Goal (Will): 1.8.9 + 1.12.2 get a full Origin client on **Forge + OptiFine**
+  with shaders, same look/feel as 1.21.1 Fabric. Legacy Fabric was ruled out —
+  it genuinely can't do shaders on the classics (no Iris pre-1.16.5, OptiFabric
+  is 1.14+), so OptiFine-on-Forge is the only shader path there.
+- **Working legacy toolchains (proven building in this repo, produce jars):**
+  - `src/OriginClient.Forge189`: Gradle **3.1** wrapper · ForgeGradle **2.1**
+    · MixinGradle 0.6 · Mixin **0.7.10** · MCP **stable_22** · Forge
+    1.8.9-11.15.1.2318 · Java 8.
+  - `src/OriginClient.Forge1122`: Gradle **4.10.3** · ForgeGradle **2.3** ·
+    Mixin **0.7.11** · MCP **snapshot_20171003** · Forge 1.12.2-14.23.5.2847.
+  - Both run their Gradle under a **Java 8 JDK** (portable Temurin 8 at
+    `C:\Users\Will\.jdks\jdk8u492-b09` — machine only had a Java 8 JRE before).
+    Mixins bootstrap via an FMLCorePlugin coremod (`com.origin.client.forge.
+    MixinLoader`) + MixinTweaker in the jar manifest; jar is shadowed + reobf'd.
+  - Toolchain modeled on the manuthebyte/template-forge-mixin-1.8.9 config.
+- **Per-version API gotchas found by compiling** (1.8.9 stable_22 vs 1.12.2):
+  - `FOVUpdateEvent`: 1.8.9 = public field `newfov`; 1.12.2 = private, use
+    `setNewfov()`. `RenderGameOverlayEvent.type`: 1.8.9 public, 1.12.2 use
+    `getType()`. `mc.thePlayer` (1.8.9) → `mc.player` (1.12.2). `fontRendererObj`
+    → `fontRenderer`. `Tessellator.getWorldRenderer()`/`WorldRenderer` →
+    `getBuffer()`/`BufferBuilder`. FPS: 1.8.9 `debugFPS` is private (parse the
+    public `mc.debug` string), 1.12.2 has `Minecraft.getDebugFPS()`.
+    TickEvent bus: 1.8.9 fires on FML bus (`FMLCommonHandler.instance().bus()`),
+    1.12.2 on `MinecraftForge.EVENT_BUS` — dual-register to be safe.
+- Ported (fixed-function GL reimpl of the GuiGraphics layer; SAME baked
+  ring/wordmark/grain/vignette assets copied in, so look matches): branded main
+  menu (GuiMainMenu mixin, `super.drawScreen` keeps buttons), HUD FPS/coords,
+  Right-Shift mod menu, zoom/fullbright/toggle-sprint-sneak. Config
+  `originclient.json`, same schema shape as Fabric. All fail-soft.
+- Launcher: bundles both Forge jars (csproj), `VersionManager` Forge path
+  installs the matching jar + auto-provisions OptiFine for classics;
+  `OriginPaths.BundledForgeOriginClientJar(ver)`. CI builds both Forge modules
+  under Java 8 before the launcher publish.
+- **NOT yet visually verified in-game** (can't launch a client here). Needs a
+  real 1.8.9/1.12.2 launch to confirm: branded-menu render, OptiFine + Origin
+  coremod coexistence, feature behaviour. Compile-clean only. Core feature set,
+  not yet full 1.21.1 parity (freelook, keystrokes, more HUD readouts = next).
+
+## 2026-07-10 — Forge classics brought to full Fabric-client parity
+- Goal (Will): the 1.8.9 + 1.12.2 Forge ports "looked terrible, not like my
+  mods" — the earlier port was only a core subset. Rebuilt both to match the
+  Fabric 1.21.1 client detail-for-detail: same premium mod menu, HUD system,
+  color picker, and full feature set.
+- Ported 1:1 from `src/OriginClient.Mod` onto the classic APIs (same baked UI
+  assets, so it renders pixel-identical — only MC's font is pixelated):
+  - `gui/`: `OriginUi` (9-slice panels, Apple switch, 96px icon atlas, glow,
+    logo — GL_LINEAR), `OriginModMenuScreen` (grid + MODS/SETTINGS tabs +
+    per-mod settings pages + search + cursor glow + version stamp),
+    `OriginColorPicker` (HSV field/hue/alpha, chroma, presets).
+  - `mods/`: `Mods` registry (every mod, name, desc, defaults, full option
+    schema — keybind defaults use LWJGL `Keyboard` codes), `ModOption`,
+    `ModsConfig` (`originclient-mods.json`, atomic write), `ClickStats`,
+    `MotionBlur` (frame-blend, GL11 only, OptiFine-safe).
+  - `hud/`: `HudElements` (FPS/CPS/Coords/Keystrokes/Potions/Armor/ServerIP/
+    Sprint-state, anchored+scaled+live), `HudEditorScreen` (drag/resize over
+    live game), `HudPos`.
+  - `feature/OriginClientEvents`: zoom (smooth FOV/scroll/sensitivity), fly
+    boost, toggle sprint/sneak, fullbright+boost, weather, time changer,
+    nametag hide, chat (scale+timestamps), scoreboard toggle, CPS capture.
+    `feature/FreelookState` + `render/OriginScoreboard` + `render/WorldOverlays`
+    (block outline/overlay, chunk borders, hitboxes — all evented, no mixins).
+- Mixins (all 5 remap to real SRG targets — verified in the built refmap, strong
+  proof targets resolve): `MixinGuiMainMenu`, `MixinEntity`
+  (freelook: 1.8.9 `setAngles` / 1.12.2 `turn`), particle changer
+  (1.8.9 `MixinEffectRenderer` / 1.12.2 `MixinParticleManager`),
+  `MixinMinecraft` (`getLimitFramerate` caps), `MixinTileEntityRendererDispatcher`
+  (1.12.2 needs the `render(...FI)V` descriptor — overloaded).
+- Key 1.12.2 deltas beyond the earlier list: Forge events use getters/setters
+  (`FOVUpdateEvent.setNewfov`, `MouseEvent.getButton/isButtonstate/getDwheel`,
+  `CameraSetup.setYaw/Pitch`, `RenderLivingEvent.getEntity`); chat via
+  `ChatType`/`getMessage`/`setMessage`; `sendStatusMessage(msg,true)` for
+  action-bar; `Block.getSelectedBoundingBox(state,world,pos)`; `Vec3d.x/y/z`;
+  `Material.AIR`; potions via registry (`PotionEffect.getPotion()`, `MobEffects`).
+  1.8.9 quirk: old Gson has no `JsonArray.add(double)` — wrap in `JsonPrimitive`.
+- Options that couldn't be honestly implemented on classic APIs were DROPPED,
+  not faked (Iris shader tuning, GLFW raw input, some 1.8.9 chat internals).
+- Both build clean under Java 8: `originclient-1.8.9-forge-0.4.1.jar` +
+  `originclient-1.12.2-forge-0.4.1.jar`. Version kept at 0.4.1 (the launcher
+  csproj + CI reference the exact filename — do NOT bump without updating those).
+- Still NOT visually verified in-game (no client launch here). Compile-clean +
+  resolved refmap only. Needs a real 1.8.9/1.12.2 launch to eyeball look/feel +
+  OptiFine coexistence.
+
+## 2026-07-10 (later) — Reverted the Forge detour; Fabric-only again + fixed hidden 1.21.1
+- The Forge 1.8.9/1.12.2 ports were a detour off the documented plan (VERSIONS.md:
+  Fabric everywhere, Legacy Fabric for classics). In-game they exposed real gaps
+  (mod only loads from mods/ not classpath in dev; no widget/screen/loading
+  styling; OptiFine can't run in a deobf ForgeGradle dev workspace — NoClassDefFound
+  `adm`). Will: "remove 1.8.9 and 1.12.2 completely, make the 1.21.1 Fabric version
+  work everywhere, it should play the exact same."
+- **Deleted** `src/OriginClient.Forge189` + `src/OriginClient.Forge1122` and every
+  reference: launcher csproj Content items, `OriginPaths.BundledForgeOriginClientJar`,
+  `VersionManager.ForgeOriginVersions` + the Forge-installs-Origin-jar/OptiFine-for-
+  classics logic (Forge is now a bare loader option only, no Origin jar), CI Forge
+  build steps. `OriginClient.Mod` (the 1.21.1 Fabric client) was NEVER touched — git
+  confirms it's fully intact.
+- **Root cause of "you removed 1.21.1"**: the version picker shows a version only if
+  it's in `PinnedVersions` OR `HasShaderStack` (Sodium != null && Iris != null). The
+  `["1.21.1"]` catalog entry has Sodium but NO Iris (deliberate — the Origin mod
+  jar-in-jars its own Iris, so a standalone Iris would double up), and 1.21.1 wasn't
+  pinned → the launcher HID 1.21.1, the mod's own target version. Fix:
+  `PinnedVersions = { "1.21.1" }` (dropped the classics, pinned Origin's version).
+- **Latest 1.21.x**: the newest 1.21.x catalog entries (1.21.6/8/11) were `Partial`
+  (Sodium/Lithium but no Iris) → hidden. Upgraded `["1.21.11"]` to Full with current
+  Modrinth builds: Sodium 0.8.13, Iris 1.10.4 (Indium not needed — modern Sodium 0.6+
+  implements the Fabric Rendering API itself), keeping Lithium 0.21.4/FerriteCore
+  8.2.0/Krypton 0.2.10. So the picker now offers 1.21.1 (full Origin) + 1.21.11
+  (latest, full perf+shaders).
+- Launcher `dotnet build` succeeds. **Still open**: the Origin client MOD only targets
+  1.21.1 (`fabric.mod.json ~1.21.1`), so 1.21.11 gets Fabric + perf/shaders but VANILLA
+  menus — the Origin UI on 1.21.11 needs a per-version mod build (Tier A; note the
+  1.21.2+ GuiGraphics.blit change per VERSIONS.md). Not done — pending Will's call.
+
+## 2026-07-10 (later 2) — Fabric-only 1.20+; multi-version mod build attempted, reverted
+- Will: keep Origin as the 1.21.1 Fabric client, drop the classics, offer it on
+  1.20+; "the UI Origin for every version we have."
+- Launcher (done, builds): removed all pre-1.20 catalog entries; PinnedVersions
+  = {1.21.1}; upgraded 1.21.11 to a Full stack (Sodium 0.8.13 + Iris 1.10.4). The
+  picker now offers 1.20, 1.20.1, 1.20.4, 1.21, 1.21.1, 1.21.11.
+- Multi-version MOD build (Stonecutter) — ATTEMPTED then REVERTED. Set it up
+  (settings.gradle plugin + `stonecutter { create(rootProject){ versions(...);
+  vcsVersion="1.21.1" } }`, Kotlin controller `stonecutter.gradle.kts`; Groovy
+  controller is unsupported — "Limited Groovy DSL support"). Scaffold WORKS: it
+  generated all 6 version subprojects and `:1.21.1:build` produced a valid 159-file
+  mod jar. BLOCKER: the non-active version nodes fail `remapJar` with
+  "Cannot nest jars into none mod jar" — the base `jar` from splitEnvironmentSourceSets
+  is near-empty and the JiJ nest of the bundled libs fails; a known Loom
+  split-sourceset × Stonecutter interaction that needs iterative debugging AND
+  per-version runtime testing (which I can't do — the Fabric game window isn't a
+  grantable computer-use app). Also each node needs its own fabric_api_version
+  (versions/<v>/gradle.properties) and the real 1.20.5-components / 1.21.2-blit
+  source deltas via `//? if` conditionals — none of which were reached.
+- Reverted the mod to its known-good single-version build (build/libs/
+  originclient-0.4.1.jar) to protect the shipping 1.21.1 path that the csproj +
+  CI depend on. So: 1.21.1 = full Origin; 1.20/1.20.1/1.20.4/1.21/1.21.11 = Fabric
+  + perf/shaders but VANILLA menus until the per-version mod builds are finished.
+- Next time: likely drop splitEnvironmentSourceSets (single sourceset) to fix the
+  JiJ nesting under Stonecutter, do NOT bundle perf mods for non-1.21.1 (let the
+  launcher's catalog install them), then work the API deltas version by version
+  with Will testing each build in-game.

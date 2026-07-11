@@ -1,5 +1,24 @@
 # Origin Client across Minecraft versions & loaders
 
+> **CURRENT STATE (2026-07-10) — read this first; it supersedes the history below.**
+> Origin is **Fabric only**. The classics (1.8.9, 1.12.2) and the whole
+> Forge/Legacy-Fabric/OptiFine path were **removed** — that experiment didn't
+> hold up in-game and pulled away from this codebase. The launcher's supported
+> set is now **1.20 and up** (currently 1.20, 1.20.1, 1.20.4, 1.21, 1.21.1,
+> 1.21.11), all on official Fabric.
+>
+> The Origin **mod** currently ships for **1.21.1 only** (`fabric.mod.json`
+> targets `~1.21.1`); on the other offered versions the launcher installs Fabric
+> + the perf/shader stack but the menus stay vanilla until each per-version build
+> lands. Bringing the UI to 1.20+ is a per-version port (one jar per MC version):
+> a `src/OriginClient.Mod120` module was scaffolded for 1.20 and compiles against
+> MC 1.20 but is **not finished** — the 1.20→1.21.1 gap is ~35 API changes (vertex
+> API rename in 1.21, `Holder<MobEffect>`, `DeltaTracker`/`SpriteIconButton`
+> absent, `mouseScrolled` arity, skin/`countRenderedSections`/`setUniform`), and
+> each version needs in-game verification. Stonecutter (one codebase → per-version
+> jars) is the intended long-term tool; a first attempt hit a Loom split-sourceset
+> JiJ-nesting blocker and was reverted to protect the shipping 1.21.1 build.
+
 The product promise: **whatever version/config the player picks in Origin
 Launcher, the game boots and the Origin menus work — flawlessly or not at all,
 never broken.** That is delivered in two layers:
