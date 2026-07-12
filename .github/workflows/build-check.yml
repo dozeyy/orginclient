@@ -44,6 +44,18 @@ jobs:
         working-directory: src/OriginClient.Mod1204
         run: .\gradlew.bat build --no-daemon
 
+      # NOTE (1.21.11): src/OriginClient.Mod12111 is a COMPLETE Tier-A port of the
+      # 1.21.1 module (only the 1.21.2 blit rework differs — look/feel identical),
+      # Java 21, same runner. It is intentionally NOT built here yet because Loom
+      # can't resolve the 1.21.11 game version until it's available to the runner;
+      # a hard step would fail the whole check. Its OriginBuilds install line is
+      # staged (commented) for the same reason. Re-add this step once the version
+      # resolves + the rewritten blit descriptors are javap-verified — see
+      # src/OriginClient.Mod12111/PORT-12111.md:
+      #   - name: Build Origin Client mod (1.21.11)
+      #     working-directory: src/OriginClient.Mod12111
+      #     run: .\gradlew.bat build --no-daemon
+
       # NOTE (26.2): src/OriginClient.Mod262 is scaffolded and its toolchain is
       # proven (Java 25 + unobfuscated Loom config — it resolves + compiles
       # against MC 26.2), but the render layer is mid-port to 26.2's retained-mode

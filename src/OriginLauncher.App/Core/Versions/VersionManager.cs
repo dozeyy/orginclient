@@ -72,6 +72,18 @@ public sealed class VersionManager
             // 1.20.4 API family (src/OriginClient.Mod1204) — same install model
             // as 1.20: Origin jar + standalone perf/shader catalog stack.
             ["1.20.4"] = new("originclient-1.20.4.jar", BundlesPerfStack: false),
+            // 1.21.11 (src/OriginClient.Mod12111) — STAGED, not yet active. The
+            // module is a complete Tier-A port of the 1.21.1 build (only the
+            // 1.21.2 blit rework differs; look/feel identical), and the 1.21.11
+            // perf/shader stack is already Full in PerformanceModCatalog — so
+            // 1.21.11 is already offered as a Fabric+shaders version (vanilla
+            // menus) via HasShaderStack. This line stays commented until the jar
+            // is built + runClient-verified on a machine with Loom/Mojang access
+            // (CLAUDE.md's ship bar; sandbox/CI can't resolve the version yet).
+            // Every rewritten blit descriptor is javap-pending — see
+            // src/OriginClient.Mod12111/PORT-12111.md. Re-enable to add the
+            // Origin menus (install model matches 1.20.4: Origin jar + catalog):
+            //   ["1.21.11"] = new("originclient-1.21.11.jar", BundlesPerfStack: false),
             // 26.2 (src/OriginClient.Mod262) — STAGED, not yet active. The module
             // is scaffolded and its Java 25 / unobfuscated-Loom toolchain is
             // proven, but the render layer is mid-port to 26.2's retained-mode GUI
