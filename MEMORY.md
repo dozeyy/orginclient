@@ -3072,3 +3072,66 @@ while the first game was still running).
   the existing window (SetForegroundWindow + SW_RESTORE) and shuts down. Two
   instances racing settings.json / provisioning was a real corruption class.
   Verified: double Start-Process → 1 process running.
+
+## 2026-07-12 — Fill out the rest of 1.21.x (1.21 live; 1.21.2–1.21.11 family)
+Extended the 1.21 line after grounding in the shader-catalog gate
+(`HasShaderStack` = version in Data AND Sodium != null AND Iris != null). Of the
+1.21 line, only **1.21, 1.21.1, 1.21.11** are Full (offered); **1.21.3–1.21.10**
+are Partial and **1.21.2** is absent, so they're hidden regardless of a mod build.
+
+**1.21 (`src/OriginClient.Mod121`) — LIVE.** Family A (pre-1.21.2 blit); source
+is byte-identical to the 1.21.1 module (1.21 and 1.21.1 share the old
+GuiGraphics.blit signature — no render changes). Standalone install model (1.21's
+Sodium mc1.21-0.5.11 differs from 1.21.1's bundled 0.6.13), MC 1.21 / Java 21,
+range `>=1.21- <1.21.1`. Wired LIVE: OriginBuilds `["1.21"]`, csproj bundle, and
+REAL CI build steps in both workflows — 1.21 is a real version so the GitHub
+runner resolves + compiles it (unlike the fictional 1.21.11). `fabric_api_version`
+guessed 0.102.1+1.21; CI will flag if the pin's wrong (iterate). runClient at home
+is the remaining check; a runtime miss fail-softs to vanilla.
+
+**1.21.2–1.21.11 (`src/OriginClient.Mod12111`) — family coverage, STAGED.** The
+1.21.11 module now covers the whole post-1.21.2 blit-rework family: one jar, source
+byte-identical across the range, `fabric.mod.json` widened to `>=1.21.2- <1.22`,
+and OriginBuilds maps every version string (1.21.2..1.21.11) to
+`originclient-1.21.11.jar` (Mod120 model). All staged (commented) behind two
+gates: shaders (only 1.21.11 Full today) + runClient. Deliberately did NOT spin up
+9 near-duplicate modules — the family shares one build, and the shader gate hides
+the rest until `PerformanceModCatalog.Data.cs` is regenerated from Modrinth (an
+at-home/network task). Per-version javap+runClient before each flip. Guide:
+`src/OriginClient.Mod12111/PORT-12111.md`.
+
+## 2026-07-12 — Merge 26.2 to main; scaffold the 1.21.11 Origin build
+Two things this session.
+
+**1. 26.2 merged to main.** The 26.2 mod port + Voxy support were released as
+launcher v1.0.19 and CI-green (build-check #38/#39, release #19) but lived only
+on `release` + `claude/26.2-mod-port` — `main` was left behind at 66a0cb0, so any
+branch cut from main missed 26.2. Opened PR #15 (claude/26.2-mod-port → main),
+rebase-merged it. `main` now == `release` tree (verified). No new release fired
+(release branch untouched).
+
+**2. 1.21.11 Origin build (src/OriginClient.Mod12111) — complete port, STAGED.**
+1.21.11 is a Tier-A modern version: its only version-forced delta from 1.21.1 is
+the **1.21.2 `GuiGraphics.blit` rework** (prepend `RenderType::guiTextured`; the
+region-scaled overload moves u/v ahead of dst; the atlas-sprite overload →
+`blitSprite(RenderType, sprite, x, y, w, h)`). Everything else — theme, assets,
+mods registry, HUD layout, the whole mixin layer — is byte-identical to the
+1.21.1 module, so look/feel match 1.21.1 exactly (the goal). Install model =
+1.20.4/26.2 (Origin-only jar + standalone catalog perf stack; the 1.21.11 catalog
+entry was already Full: Sodium 0.8.13, Iris 1.10.4). 33 blit sites rewritten
+across OriginUi / OriginButtonRenderer / OriginScreenRenderer / HudElements /
+ShaderBrowserScreen; the two world-line renderers (BlockOverlay/ChunkBorder use
+`RenderType.lines()`) are untouched. setShaderColor/blend/PoseStack all kept —
+that removal is a later 26.x change, not 1.21.2.
+- Wired: csproj Content bundle (conditional-Exists) + VersionManager.OriginBuilds
+  line + build-check/launcher-release steps — all STAGED (commented / NOTE) like
+  26.2, because Loom can't resolve the 1.21.11 game version in the sandbox or on
+  the runner yet, and CLAUDE.md forbids shipping a version before runClient. The
+  1.21.11 picker card auto-un-greys the moment the OriginBuilds line is
+  uncommented (VersionCatalog derives Supported from OriginSupportedVersions).
+- TO FLIP LIVE (at home, needs Loom/Mojang access): confirm coords on
+  fabricmc.net/develop, `./gradlew build`, **javap every rewritten blit/blitSprite
+  descriptor** (the whole risk surface — arg order + the sprite overload),
+  `runClient` for zero mixin-apply failures + Origin UI + a shader pack, then
+  uncomment OriginBuilds + the two CI steps. Full guide:
+  src/OriginClient.Mod12111/PORT-12111.md.
