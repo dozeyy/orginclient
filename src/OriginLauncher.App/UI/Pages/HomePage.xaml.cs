@@ -273,7 +273,7 @@ public partial class HomePage : UserControl
                 ? $"Launched {version} — signed in as {session.Username}"
                 : $"Launched {version} — offline test session";
             bootWatchStarted = true;
-            _ = WatchBootAsync(process, logPath, runningMessage);
+            _ = WatchBootAsync(process, version, logPath, runningMessage);
         }
         catch (OperationCanceledException)
         {
@@ -333,7 +333,7 @@ public partial class HomePage : UserControl
     // cheap and non-blocking. The 90s ceiling is a fail-open safety net for a
     // machine where window detection misbehaves — the button must never spin
     // forever.
-    private async Task WatchBootAsync(System.Diagnostics.Process process, string? logPath, string runningMessage)
+    private async Task WatchBootAsync(System.Diagnostics.Process process, string version, string? logPath, string runningMessage)
     {
         try
         {
@@ -348,11 +348,18 @@ public partial class HomePage : UserControl
                 {
                     int exitCode;
                     try { exitCode = process.ExitCode; } catch { exitCode = -1; }
-                    StatusText.Text = exitCode == 0
-                        ? "Minecraft closed — click Play to launch again."
-                        : logPath != null
-                            ? $"Minecraft crashed while starting (exit code {exitCode}) — log saved to {logPath}"
-                            : $"Minecraft crashed while starting (exit code {exitCode}).";
+                    if (exitCode == 0)
+                    {
+                        StatusText.Text = "Minecraft closed — click Play to launch again.";
+                        return;
+                    }
+                    StatusText.Text = logPath != null
+                        ? $"Minecraft crashed while starting (exit code {exitCode}) — log saved to {logPath}"
+                        : $"Minecraft crashed while starting (exit code {exitCode}).";
+                    // Queued (not awaited) so this method's finally releases the
+                    // launching state first — the crash window's "retry" path
+                    // calls LaunchAsync, which refuses while _isLaunching is set.
+                    _ = Dispatcher.BeginInvoke(async () => await ShowCrashReportAsync(version, logPath));
                     return;
                 }
 
@@ -381,6 +388,34 @@ public partial class HomePage : UserControl
             PlayButton.IsEnabled =
                 (_selectedAccount != null || SettingsStore.Load().OfflineTestMode)
                 && _selectedVersion != null;
+        }
+    }
+
+    // Post-mortem for a boot-time crash: name the culprit mod(s) when the
+    // evidence supports it, offer "retry with only Origin's mods". Analysis
+    // reads files + jars, so it runs off the UI thread.
+    private async Task ShowCrashReportAsync(string version, string? logPath)
+    {
+        try
+        {
+            var analysis = await Task.Run(() => CrashAnalyzer.Analyze(version, logPath));
+            var window = new UI.Windows.CrashReportWindow(analysis, logPath)
+            {
+                Owner = Window.GetWindow(this)
+            };
+            window.ShowDialog();
+            if (window.RetryWithoutExternalMods)
+            {
+                SaveExternalMods(false);
+                SyncExternalModsToggle();
+                await LaunchAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            // The crash screen must never add a second failure on top of the
+            // game's — fall back to the status line that's already set.
+            System.Diagnostics.Debug.WriteLine($"[HomePage] Crash analysis failed: {ex}");
         }
     }
 
