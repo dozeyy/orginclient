@@ -18,7 +18,7 @@ public static class OriginPaths
     public static string ShaderCache => Path.Combine(Root, "shader-cache");
 
     // Read-only assets shipped alongside the exe (see the Content items in
-    // OriginLauncher.App.csproj that copy them out of each OriginClient.Mod*
+    // OriginLauncher.App.csproj that copy them out of each mods/versions/1.21.1*
     // Gradle build output) — not user data, so they live next to the app
     // binary rather than under %LocalAppData%. Resolved from the running
     // process's own directory so this works identically from a dev build and

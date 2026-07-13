@@ -58,21 +58,21 @@ public sealed class VersionManager
         {
             // Full Origin experience, self-contained perf stack.
             ["1.21.1"] = new("originclient-1.21.1.jar", BundlesPerfStack: true),
-            // 1.20 API family (src/OriginClient.Mod120) — perf stack installed
+            // 1.20 API family (src/mods/versions/1.20) — perf stack installed
             // standalone from the catalog alongside it.
             ["1.20"]   = new("originclient-1.20.jar",   BundlesPerfStack: false),
             ["1.20.1"] = new("originclient-1.20.jar",   BundlesPerfStack: false),
-            // 1.20.4 API family (src/OriginClient.Mod1204) — same install model
+            // 1.20.4 API family (src/mods/versions/1.20.4) — same install model
             // as 1.20: Origin jar + standalone perf/shader catalog stack.
             ["1.20.4"] = new("originclient-1.20.4.jar", BundlesPerfStack: false),
-            // 1.21 (src/OriginClient.Mod121) — LIVE. Same pre-1.21.2-blit-rework
+            // 1.21 (src/mods/versions/1.21) — LIVE. Same pre-1.21.2-blit-rework
             // API family as 1.21.1 (byte-identical source), but its own mapped
             // build + the standalone install model (1.21's Sodium mc1.21-0.5.11
             // differs from 1.21.1's bundled 0.6.13). 1.21 is a real version + Full
             // in the catalog, so it ships like 1.20.4. runClient at home confirms
             // mixin-apply; a runtime miss fail-softs to vanilla (never crashes).
             ["1.21"] = new("originclient-1.21.jar", BundlesPerfStack: false),
-            // 1.21.2 – 1.21.11 (src/OriginClient.Mod12111) — the post-1.21.2
+            // 1.21.2 – 1.21.11 (src/mods/staged/1.21.11) — the post-1.21.2
             // blit-rework API family. ONE Origin jar (originclient-1.21.11.jar)
             // covers the whole range: the source is byte-identical across it, so
             // every version in the family installs the same jar (the Mod120 model,
@@ -82,7 +82,7 @@ public sealed class VersionManager
             //   1. Verification: the jar must be built + javap'd + runClient'd on a
             //      machine with Loom/Mojang access before shipping (CLAUDE.md's
             //      bar); sandbox/CI can't resolve these versions yet. Guide:
-            //      src/OriginClient.Mod12111/PORT-12111.md.
+            //      src/mods/staged/1.21.11/PORT-12111.md.
             //   2. Shaders: of this family, ONLY 1.21.11 is Full in
             //      PerformanceModCatalog — 1.21.3–1.21.10 are Partial and 1.21.2
             //      is absent, so HasShaderStack hides them regardless of a mapping.
@@ -100,7 +100,7 @@ public sealed class VersionManager
             //   ["1.21.9"]  = new("originclient-1.21.11.jar", BundlesPerfStack: false),
             //   ["1.21.10"] = new("originclient-1.21.11.jar", BundlesPerfStack: false),
             //   ["1.21.11"] = new("originclient-1.21.11.jar", BundlesPerfStack: false),
-            // 26.2 (src/OriginClient.Mod262) — STAGED, not yet active. The module
+            // 26.2 (src/mods/staged/26.2) — STAGED, not yet active. The module
             // is scaffolded and its Java 25 / unobfuscated-Loom toolchain is
             // proven, but the render layer is mid-port to 26.2's retained-mode GUI
             // and no originclient-26.2.jar builds yet. Listing it here would make
