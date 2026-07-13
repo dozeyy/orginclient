@@ -1,0 +1,8 @@
+# Files under src/ that this 1.21.5 module DELIBERATELY diverges from
+# src/mods/shared/ on. tools/shared-sync/sync.py never copies these
+# into this module. One path per line, relative to this module's src/.
+#
+# 1.21.5 is a sub-family port of the 1.21.x render-system rewrite
+# (see src/mods/VERSIONS.md for the API boundaries).
+client/java/com/origin/client/client/mixin/GameRendererAccessor.java
+client/java/com/origin/client/client/mixin/ToastComponentMixin.java

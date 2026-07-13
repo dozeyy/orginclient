@@ -5,6 +5,109 @@ every session — read at session start alongside `./CLAUDE.md`.
 
 ---
 
+## 2026-07-13 — 1.21.10 + 1.21.11 LIVE + the "1.21.x is NOT one family" finding
+Will asked for 1.21.2–1.21.11 "all like 1.21.1". Reality: only 1.21.10+1.21.11
+ship from this pass. Minecraft rewrote its render/GUI/input system in STAGES
+across 1.21.2→1.21.11, so it is NOT one API family — a single compiled jar
+NoClassDefFoundErrors on versions below its build target. Verified boundaries
+(per-version boot sweep through the real launcher): 1.21.2 GuiGraphics.blit
+rework; 1.21.5 HitboxRenderState; 1.21.6 Matrix3x2fStack pose + setShaderColor
+removed; 1.21.9 new input API + KeyMapping.Category; 1.21.10 Fabric API moved
+WorldRenderEvents into the .world subpackage. So 1.21.2–1.21.9 each need their
+OWN sub-family port (real ports, not config flips) — deferred, and kept OUT of
+OriginBuilds so the picker greys them (mandate #2: no vanilla-menu ship). The
+render-pipeline-era port below is the 1.21.10/1.21.11 build. Three parts:
+
+**Catalog:** `gen_catalog.py` against live Modrinth found FULL Sodium+Iris for
+all of 1.21.2–1.21.10 (they'd caught up since the last snapshot) — no version
+had to be dropped. Entries spliced into PerformanceModCatalog.Data.cs
+preserving all three hand-pin EXCEPTION blocks. 1.21.2 rides the
+1.21.3-tagged Sodium/Iris builds (Modrinth marks them compatible).
+Also: the module's fabric_api pin 0.130.3+1.21.11 never existed upstream —
+real newest is 0.141.4+1.21.11 (same failure class as the 1.21 pin fix).
+
+**The port (the big one).** "Only the blit rework differs" was written blind
+(sandbox couldn't resolve 1.21.11); compiling against the real mapped jar
+surfaced ~120 errors. 1.21.11 is the RENDER-PIPELINE ERA. The rename table
+(gold for the 26.2 port):
+- ResourceLocation → net.minecraft.resources.**Identifier** (methods survive)
+- RenderType → client.renderer.**rendertype**.RenderType; lines()/debugQuads()
+  moved to **RenderTypes** (plural)
+- blit(RenderType::guiTextured, …) → blit(**RenderPipelines.GUI_TEXTURED**, …)
+  with optional trailing **ARGB color int** — that color arg REPLACES
+  RenderSystem.setShaderColor (gone, with enableBlend/defaultBlendFunc; blend
+  lives in the pipeline). Origin's nine-slice helpers now take an argb param.
+- GuiGraphics.pose() → **Matrix3x2fStack** (JOML): pushMatrix/popMatrix,
+  2-arg float translate/scale, rotate(radians). World rendering KEEPS
+  PoseStack (don't blanket-rename — hitboxes/chunk borders/overlays are 3D).
+- Input rework: mouseClicked(**MouseButtonEvent**, boolean),
+  mouseReleased(event), mouseDragged(event, dx, dy), keyPressed(**KeyEvent**),
+  charTyped(**CharacterEvent**); Button.onPress(**InputWithModifiers**) —
+  synthesize `new KeyEvent(257,0,0)` to press programmatically.
+- Fabric world events: …rendering.v1.**world**.WorldRenderEvents; LAST →
+  END_MAIN; BLOCK_OUTLINE → BEFORE_BLOCK_OUTLINE with
+  **BlockOutlineRenderState** (pos()/interactionShape(); camera pos from
+  wctx.worldState().cameraRenderState.pos — Camera lost its public getter,
+  a CameraAccessor mixin covers the two mixin call sites).
+- DynamicTexture(**Supplier<String>**, NativeImage); per-texture setFilter is
+  GONE (sampling is pipeline-owned) — watch for jaggy scaled UI textures.
+- Misc: ToastComponent→ToastManager (file+mixins.json renamed),
+  ReceivingLevelScreen REMOVED from the game (mixin deleted),
+  Options.invertYMouse→invertMouseY, Level.isClientSide field→method,
+  MobEffects.MOVEMENT_SPEED/DAMAGE_BOOST→SPEED/STRENGTH,
+  Inventory.armor→EntityEquipment via getItemBySlot,
+  Gui.getMobEffectSprite(effect) returns an Identifier,
+  KeyMapping categories are typed (Category.register(Identifier)),
+  SkinManager.getInsecureSkin→createLookup(profile,false).get(),
+  getMinBuildHeight/getMaxBuildHeight→getMinY/getMaxY,
+  NativeImage.setPixelRGBA→setPixelABGR (same packing),
+  WorldVersion.getName()→name(), InputConstants.isKeyDown takes Window,
+  AbstractButton.renderWidget+renderDefaultSprite FINAL → override
+  renderContents, GameRenderer post effects private → invoker accessor
+  (setPostEffect/clearPostEffect); the live "Amount" uniform is gone, so
+  MotionBlur now steps through the baked motion_blur_1/2/3.json variants.
+The module now forks 10 files from shared/ (overrides.txt regenerated from
+the byte-diff; sync --check green across all 6 modules).
+
+**Verification (this is what caught the family myth):** a headless harness
+reuses VersionManager + LaunchProfileBuilder + an offline session to boot each
+version through the REAL launcher pipeline, waits for the game window, and
+scans the log for mixin-apply failures / fail-soft degradation / originclient
+presence. 1.21.2–1.21.9 all crashed or degraded; only 1.21.10 + 1.21.11 came
+back clean (BOOTED, Origin UI active, zero mixin failures). Also fixed by the
+sweep: the Sodium×Iris "breaks" ranges — the generator pairs each version's
+NEWEST Sodium with its NEWEST Iris, but newer Sodium often declares
+"breaks iris <X"; Fabric refuses that pair at load. Hand-pinned compatible
+pairs (e.g. 1.21.11 = Sodium 0.8.12 + Iris 1.10.7). Wiring: OriginBuilds =
+1.21.10/1.21.11 only; the picker gate changed from HasShaderStack to
+OriginBuilds.ContainsKey (a shader-only version would ship vanilla menus —
+mandate #2), which also let PinnedVersions/RecommendsFabric go.
+LESSON: the mixin dual-hook trick (two @Inject, require/expect 0) does NOT
+span a changed method signature — Mixin throws "Invalid descriptor" for the
+non-matching shape regardless of require. Each build must carry exactly the
+one descriptor its API era uses. LESSON: class RENAMES (ResourceLocation→
+Identifier) are compile-only — mods run against stable intermediary names, so
+those are NOT runtime boundaries; only genuinely-new classes/methods are.
+
+**Follow-up same day (Will: "just the popular ones"):** built 1.21.5 and
+1.21.8 as their own sub-family modules and shipped 1.21.5/1.21.8/1.21.10/
+1.21.11 — four separate boot-verified builds. Method-descriptor migrations
+that hit each build (render-state era): shouldShowName(Entity,double);
+renderNameTag(EntityRenderState,…) drops the entity + partialTick (player
+check via PlayerRenderState); renderHitboxes(PoseStack,EntityRenderState,
+HitboxesRenderState,MultiBufferSource) with per-box HitboxRenderState records;
+BlockEntityRenderDispatcher.render pose param is PoseStack ≤1.21.8 but
+Matrix3x2fStack ≥1.21.10. The 1.21.5 module templates 1.21.3/1.21.4; the
+1.21.8 module templates 1.21.6/1.21.7; the 1.21.11 module templates 1.21.9
+(revert its Fabric-API .world path). Remaining unshipped: 1.21.2 (Sodium
+CloudRenderer mixin crash, separate) + 1.21.3/4/6/7/9.
+
+LESSON: javac caps at 100 errors — "0 errors in file X" means nothing until
+the total is under the cap. LESSON: `cmd /c move` succeeds where git/
+PowerShell renames hit phantom Windows directory locks.
+
+---
+
 ## 2026-07-12/13 — The big reorganization (repo, releases, launcher, crash screen)
 One pass covering structure, release hygiene, and launcher cleanup. All phases
 committed separately on `claude/mods-restructure`, merged after green CI.
