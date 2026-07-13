@@ -40,16 +40,42 @@ changes unless you change it or deliberately run the sync.
 | `1.20` | 1.20, 1.20.1 | `>=1.20- <1.20.2` | Origin jar + standalone catalog stack | 17 (via JDK 21) |
 | `1.20.4` | 1.20.3, 1.20.4 | `>=1.20.3- <1.20.5` | standalone stack | 17 (via JDK 21) |
 | `1.21` | 1.21 | `>=1.21- <1.21.1` | standalone stack (source byte-identical to 1.21.1 — shared pre-1.21.2 blit API) | 21 |
+| `1.21.11` | 1.21.10, 1.21.11 | `>=1.21.10- <1.22` | standalone stack | 21 |
 
-All four are runClient-verified with zero mixin-apply failures and full
-shader integration (Iris + Sodium from the catalog pins).
+All are boot-verified with zero mixin-apply failures and full shader
+integration (Iris + Sodium from the catalog pins). The `1.21.11` module is
+the render-pipeline-era port (Identifier/RenderPipelines/input events — its
+overrides.txt lists exactly what it forks from `shared/`).
+
+### Why 1.21.2–1.21.9 aren't here yet (the hard truth about the 1.21.x line)
+
+"1.21.2–1.21.11 is one build like 1.21.1" turned out to be false. Across
+that range Minecraft rewrote its render/GUI/input system in **stages**, and
+each stage introduces a genuinely-new-at-that-version class the compiled jar
+references — so a single jar `NoClassDefFoundError`s on the versions below
+its build target (proven by a per-version boot sweep through the real
+launcher). The verified runtime boundaries:
+
+| Boundary at | What appears |
+|---|---|
+| 1.21.2 | `GuiGraphics.blit` render-pipeline rework |
+| 1.21.5 | hitboxes extracted into `HitboxRenderState` |
+| 1.21.6 | GUI transforms → `Matrix3x2fStack`; `setShaderColor` removed |
+| 1.21.9 | new input-event API (`MouseButtonEvent`) + typed `KeyMapping.Category` |
+| 1.21.10 | Fabric API moved `WorldRenderEvents` into the `.world` subpackage |
+
+So 1.21.2–1.21.9 need **≈4 more sub-family Origin builds** (each a real
+port with its own mixin-descriptor work + boot verification), not a config
+flip. Until built and boot-verified they stay out of `OriginBuilds`, so the
+picker greys them out ("Coming Soon") — shipping a vanilla-menu version would
+violate mandate #2. Partial ports for the 1.21.3–1.21.8 sub-families were
+scaffolded during this work but are not verified and did not ship.
 
 ## Staged versions (in `staged/`)
 
 | Module | Covers | Blocking | Guide |
 |--------|--------|----------|-------|
-| `1.21.11` | 1.21.2 – 1.21.11 (one jar, `>=1.21.2- <1.22`) | per-version: shader catalog must be Full AND the jar runClient-verified. Only 1.21.11's shaders are Full today; 1.21.3–1.21.10 are Partial, 1.21.2 absent. | `staged/1.21.11/PORT-12111.md` |
-| `26.2` | 26.2 | render layer mid-port to the retained-mode GUI; does not compile (most source parked in `disabled262/`). Java 25. | `staged/26.2/PORT-262.md` |
+| `26.2` | 26.2 | render layer mid-port to the retained-mode GUI; does not compile (most source parked in `disabled262/`). Java 25. The 1.21.11 module's port (see its overrides.txt) solved many of the same API moves — start there. | `staged/26.2/PORT-262.md` |
 
 ## Flipping a staged version live — the 3 coupling points
 

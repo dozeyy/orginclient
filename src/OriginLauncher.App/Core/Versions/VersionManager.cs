@@ -70,34 +70,31 @@ public sealed class VersionManager
             // in the catalog, so it ships like 1.20.4. runClient at home confirms
             // mixin-apply; a runtime miss fail-softs to vanilla (never crashes).
             ["1.21"] = new("originclient-1.21.jar", BundlesPerfStack: false),
-            // 1.21.2 – 1.21.11 (src/mods/staged/1.21.11) — the post-1.21.2
-            // blit-rework API family. ONE Origin jar (originclient-1.21.11.jar)
-            // covers the whole range: the source is byte-identical across it, so
-            // every version in the family installs the same jar (the Mod120 model,
-            // where 1.20 + 1.20.1 share one jar). fabric.mod.json declares
-            // >=1.21.2- <1.22 to match. All lines STAGED (commented) for two
-            // independent reasons:
-            //   1. Verification: the jar must be built + javap'd + runClient'd on a
-            //      machine with Loom/Mojang access before shipping (CLAUDE.md's
-            //      bar); sandbox/CI can't resolve these versions yet. Guide:
-            //      src/mods/staged/1.21.11/PORT-12111.md.
-            //   2. Shaders: of this family, ONLY 1.21.11 is Full in
-            //      PerformanceModCatalog — 1.21.3–1.21.10 are Partial and 1.21.2
-            //      is absent, so HasShaderStack hides them regardless of a mapping.
-            //      They light up per-version as their catalog entry gains Sodium +
-            //      Iris (regenerate PerformanceModCatalog.Data.cs from Modrinth).
-            // Uncomment a line once BOTH its shaders exist and the jar is
-            // runClient-verified on that version:
-            //   ["1.21.2"]  = new("originclient-1.21.11.jar", BundlesPerfStack: false),
-            //   ["1.21.3"]  = new("originclient-1.21.11.jar", BundlesPerfStack: false),
-            //   ["1.21.4"]  = new("originclient-1.21.11.jar", BundlesPerfStack: false),
-            //   ["1.21.5"]  = new("originclient-1.21.11.jar", BundlesPerfStack: false),
-            //   ["1.21.6"]  = new("originclient-1.21.11.jar", BundlesPerfStack: false),
-            //   ["1.21.7"]  = new("originclient-1.21.11.jar", BundlesPerfStack: false),
-            //   ["1.21.8"]  = new("originclient-1.21.11.jar", BundlesPerfStack: false),
-            //   ["1.21.9"]  = new("originclient-1.21.11.jar", BundlesPerfStack: false),
-            //   ["1.21.10"] = new("originclient-1.21.11.jar", BundlesPerfStack: false),
-            //   ["1.21.11"] = new("originclient-1.21.11.jar", BundlesPerfStack: false),
+            // 1.21.10 – 1.21.11 (src/mods/versions/1.21.11) — the render-
+            // pipeline + world-event-v2 API era. ONE Origin jar
+            // (originclient-1.21.11.jar) covers both; fabric.mod.json declares
+            // >=1.21.10- <1.22. BOTH boot-verified through the launcher
+            // pipeline with zero mixin-apply failures + full Origin UI (2026-07-13).
+            //
+            // IMPORTANT — this jar canNOT go lower than 1.21.10. Verified
+            // runtime boundaries below it (each a genuinely-new-at-that-version
+            // class the compiled jar references, so it NoClassDefFounds on older
+            // versions — proven by the per-version boot sweep):
+            //   • 1.21.10: Fabric API moved WorldRenderEvents into the .world
+            //     subpackage (1.21.9 crashes: NoClassDefFoundError …world/WorldRenderEvents).
+            //   • 1.21.9:  new input-event API (MouseButtonEvent) + typed
+            //     KeyMapping.Category (class_304$class_11900).
+            //   • 1.21.6:  GuiGraphics transforms moved to Matrix3x2fStack;
+            //     RenderSystem.setShaderColor removed (color rides the pipeline).
+            //   • 1.21.5:  hitboxes extracted into HitboxRenderState.
+            // 1.21.2–1.21.9 therefore each need their OWN sub-family Origin
+            // build (a real port, not a config flip) before they can be listed
+            // here. Until built + boot-verified, they are deliberately absent,
+            // so the picker greys them out ("Coming Soon") — a vanilla-menu
+            // ship would violate mandate #2. Partial ports for the 1.21.3–1.21.8
+            // sub-families exist in the scratch work but aren't verified yet.
+            ["1.21.10"] = new("originclient-1.21.11.jar", BundlesPerfStack: false),
+            ["1.21.11"] = new("originclient-1.21.11.jar", BundlesPerfStack: false),
             // 26.2 (src/mods/staged/26.2) — STAGED, not yet active. The module
             // is scaffolded and its Java 25 / unobfuscated-Loom toolchain is
             // proven, but the render layer is mid-port to 26.2's retained-mode GUI
@@ -109,16 +106,6 @@ public sealed class VersionManager
             // HasShaderStack. Re-enable this line to add the Origin menus:
             //   ["26.2"] = new("originclient-26.2.jar", BundlesPerfStack: false),
         };
-
-    // Versions always offered in the picker even if the shader-stack gate below
-    // wouldn't include them. 1.21.1's catalog entry deliberately omits Iris (its
-    // jar already carries Sodium, so a standalone Iris would double up) — without
-    // pinning, HasShaderStack would hide the one version with the full Origin
-    // experience. Every version carrying its own bundled perf stack must be pinned
-    // for the same reason; versions whose perf stack comes from the catalog are
-    // already surfaced by HasShaderStack and don't need pinning.
-    private static readonly string[] PinnedVersions =
-        OriginBuilds.Where(b => b.Value.BundlesPerfStack).Select(b => b.Key).Distinct().ToArray();
 
     // Every Minecraft version that ships an Origin Client build (i.e. gets the
     // Origin menus, not just Fabric + perf). Single source of truth for anything
@@ -153,13 +140,14 @@ public sealed class VersionManager
         var versions = await ManifestLauncher.GetAllVersionsAsync();
         var releases = versions.Where(v => v.Type == "release").ToList();
 
-        // Only offer versions that actually work end-to-end: the classic
-        // pillars, plus any modern release the perf catalog has a full
-        // Sodium + Iris stack for. This deliberately hides brand-new Minecraft
-        // versions until the perf mods (and therefore shaders) support them.
-        releases = releases.Where(v =>
-            PinnedVersions.Contains(v.Name)
-            || PerformanceModCatalog.HasShaderStack(v.Name)).ToList();
+        // Only offer versions that ship a verified Origin build. Mandate #2:
+        // a version with shaders but no Origin menus (vanilla-looking) is NOT
+        // an acceptable shipped state, so "offered" must mean "has an Origin
+        // build in OriginBuilds" — not merely "has a shader stack". This keeps
+        // the SettingsPage version list in lockstep with the grid picker (whose
+        // supported set is OriginBuilds.Keys) and guarantees the launcher never
+        // provisions a jarless, vanilla-menu instance.
+        releases = releases.Where(v => OriginBuilds.ContainsKey(v.Name)).ToList();
 
         return releases.Select(v => v.Name).ToList();
     }

@@ -73,16 +73,13 @@ jobs:
         working-directory: src/mods/versions/1.21
         run: .\gradlew.bat build --no-daemon
 
-      # NOTE (1.21.11): src/mods/staged/1.21.11 is a complete Tier-A port of the
-      # 1.21.1 build (only the 1.21.2 blit rework differs). It is NOT built/shipped
-      # here yet — Loom can't resolve the 1.21.11 game version on the runner until
-      # it's available, and shipping unverified would violate the runClient bar in
-      # CLAUDE.md. The OriginBuilds line and csproj bundle are staged to match.
-      # Re-add this step (and uncomment those) once the version resolves and the
-      # port is runClient-verified — see src/mods/staged/1.21.11/PORT-12111.md:
-      #   - name: Build Origin Client mod (1.21.11)
-      #     working-directory: src/mods/staged/1.21.11  # move to versions/ when flipping live
-      #     run: .\gradlew.bat build --no-daemon
+      # 1.21.10 + 1.21.11 (src/mods/versions/1.21.11): ONE jar for the
+      # render-pipeline + world-event-v2 era, bundled as
+      # Bundled/OriginClient/originclient-1.21.11.jar. LIVE 2026-07-13. Lower
+      # 1.21.x versions need separate sub-family ports (src/mods/VERSIONS.md).
+      - name: Build Origin Client mod (1.21.10–1.21.11)
+        working-directory: src/mods/versions/1.21.11
+        run: .\gradlew.bat build --no-daemon
 
       # NOTE (26.2): src/mods/staged/26.2 is scaffolded with a proven Java 25 /
       # unobfuscated-Loom toolchain, but its render layer is mid-port to 26.2's
@@ -129,7 +126,8 @@ jobs:
             "originclient-1.21.1.jar",
             "originclient-1.20.jar",
             "originclient-1.20.4.jar",
-            "originclient-1.21.jar"
+            "originclient-1.21.jar",
+            "originclient-1.21.11.jar"
           )
           $dir = "publish\Bundled\OriginClient"
           $missing = $expected | Where-Object { -not (Test-Path (Join-Path $dir $_)) }

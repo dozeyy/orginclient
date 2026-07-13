@@ -85,13 +85,10 @@
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
       <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
     </Content>
-    <!-- 1.21.11 — Origin client only; perf/shader stack installed standalone.
-         Bundled once the module is built; the OriginBuilds entry that installs
-         it is staged (commented) until runClient-verified — see
-         src/mods/staged/1.21.11/PORT-12111.md. Conditional on Exists so this
-         is a harmless no-op until the jar is produced. -->
-    <Content Condition="Exists('..\mods\staged\1.21.11\build\libs\originclient-1.21.11-0.4.1.jar')"
-             Include="..\mods\staged\1.21.11\build\libs\originclient-1.21.11-0.4.1.jar">
+    <!-- 1.21.2–1.21.11 family — ONE jar for the whole post-1.21.2 range;
+         Origin client only, perf/shader stack installed standalone. LIVE. -->
+    <Content Condition="Exists('..\mods\versions\1.21.11\build\libs\originclient-1.21.11-0.4.1.jar')"
+             Include="..\mods\versions\1.21.11\build\libs\originclient-1.21.11-0.4.1.jar">
       <Link>Bundled\OriginClient\originclient-1.21.11.jar</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
