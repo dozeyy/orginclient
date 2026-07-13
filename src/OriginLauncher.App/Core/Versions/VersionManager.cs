@@ -70,6 +70,15 @@ public sealed class VersionManager
             // in the catalog, so it ships like 1.20.4. runClient at home confirms
             // mixin-apply; a runtime miss fail-softs to vanilla (never crashes).
             ["1.21"] = new("originclient-1.21.jar", BundlesPerfStack: false),
+            // 1.21.5 (src/mods/versions/1.21.5) — the GuiGraphics.blit-rework +
+            // HitboxRenderState era (still setShaderColor + PoseStack transforms).
+            // Its own mapped build; boot-verified clean (2026-07-13). Will asked
+            // for the popular gap versions (1.21.5, 1.21.8) specifically.
+            ["1.21.5"] = new("originclient-1.21.5.jar", BundlesPerfStack: false),
+            // 1.21.8 (src/mods/versions/1.21.8) — the Matrix3x2fStack + no-
+            // setShaderColor era, still on the pre-1.21.9 input API + String key
+            // categories + old WorldRenderEvents path. Own build, boot-verified.
+            ["1.21.8"] = new("originclient-1.21.8.jar", BundlesPerfStack: false),
             // 1.21.10 – 1.21.11 (src/mods/versions/1.21.11) — the render-
             // pipeline + world-event-v2 API era. ONE Origin jar
             // (originclient-1.21.11.jar) covers both; fabric.mod.json declares
@@ -87,12 +96,14 @@ public sealed class VersionManager
             //   • 1.21.6:  GuiGraphics transforms moved to Matrix3x2fStack;
             //     RenderSystem.setShaderColor removed (color rides the pipeline).
             //   • 1.21.5:  hitboxes extracted into HitboxRenderState.
-            // 1.21.2–1.21.9 therefore each need their OWN sub-family Origin
-            // build (a real port, not a config flip) before they can be listed
-            // here. Until built + boot-verified, they are deliberately absent,
-            // so the picker greys them out ("Coming Soon") — a vanilla-menu
-            // ship would violate mandate #2. Partial ports for the 1.21.3–1.21.8
-            // sub-families exist in the scratch work but aren't verified yet.
+            // Each 1.21.x sub-family needs its OWN build (a real port, not a
+            // config flip). Shipped so far: 1.21.5 + 1.21.8 (above) and
+            // 1.21.10 + 1.21.11 (here) — the popular ones Will picked, each
+            // boot-verified. Still absent (so the picker greys them "Coming
+            // Soon" — a vanilla-menu ship would violate mandate #2): 1.21.2,
+            // 1.21.3, 1.21.4, 1.21.6, 1.21.7, 1.21.9. Each needs its own port +
+            // boot verify; the 1.21.5/1.21.8 modules are the templates for the
+            // sub-families around them.
             ["1.21.10"] = new("originclient-1.21.11.jar", BundlesPerfStack: false),
             ["1.21.11"] = new("originclient-1.21.11.jar", BundlesPerfStack: false),
             // 26.2 (src/mods/staged/26.2) — STAGED, not yet active. The module

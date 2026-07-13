@@ -40,12 +40,13 @@ changes unless you change it or deliberately run the sync.
 | `1.20` | 1.20, 1.20.1 | `>=1.20- <1.20.2` | Origin jar + standalone catalog stack | 17 (via JDK 21) |
 | `1.20.4` | 1.20.3, 1.20.4 | `>=1.20.3- <1.20.5` | standalone stack | 17 (via JDK 21) |
 | `1.21` | 1.21 | `>=1.21- <1.21.1` | standalone stack (source byte-identical to 1.21.1 — shared pre-1.21.2 blit API) | 21 |
-| `1.21.11` | 1.21.10, 1.21.11 | `>=1.21.10- <1.22` | standalone stack | 21 |
+| `1.21.5` | 1.21.5 | `>=1.21.3- <1.21.6` | standalone stack (blit-rework + HitboxRenderState era) | 21 |
+| `1.21.8` | 1.21.8 | `>=1.21.6- <1.21.9` | standalone stack (Matrix3x2fStack + no-setShaderColor era) | 21 |
+| `1.21.11` | 1.21.10, 1.21.11 | `>=1.21.10- <1.22` | standalone stack (render-pipeline + world-event-v2 era) | 21 |
 
 All are boot-verified with zero mixin-apply failures and full shader
-integration (Iris + Sodium from the catalog pins). The `1.21.11` module is
-the render-pipeline-era port (Identifier/RenderPipelines/input events — its
-overrides.txt lists exactly what it forks from `shared/`).
+integration (Iris + Sodium from the catalog pins). Each module's
+overrides.txt lists exactly what it forks from `shared/` for its API era.
 
 ### Why 1.21.2–1.21.9 aren't here yet (the hard truth about the 1.21.x line)
 
@@ -64,12 +65,15 @@ launcher). The verified runtime boundaries:
 | 1.21.9 | new input-event API (`MouseButtonEvent`) + typed `KeyMapping.Category` |
 | 1.21.10 | Fabric API moved `WorldRenderEvents` into the `.world` subpackage |
 
-So 1.21.2–1.21.9 need **≈4 more sub-family Origin builds** (each a real
-port with its own mixin-descriptor work + boot verification), not a config
-flip. Until built and boot-verified they stay out of `OriginBuilds`, so the
-picker greys them out ("Coming Soon") — shipping a vanilla-menu version would
-violate mandate #2. Partial ports for the 1.21.3–1.21.8 sub-families were
-scaffolded during this work but are not verified and did not ship.
+So each 1.21.x sub-family needs its **own** Origin build (a real port with
+its own mixin-descriptor work + boot verification), not a config flip.
+**Shipped (Will picked the popular versions):** 1.21.5, 1.21.8, 1.21.10,
+1.21.11. **Not yet built:** 1.21.2, 1.21.3, 1.21.4, 1.21.6, 1.21.7, 1.21.9 —
+each stays out of `OriginBuilds`, so the picker greys it "Coming Soon"
+(shipping a vanilla-menu version would violate mandate #2). The 1.21.5 and
+1.21.8 modules are the templates for the sub-families around them (1.21.5 →
+1.21.3/1.21.4; 1.21.8 → 1.21.6/1.21.7; the 1.21.11 module → 1.21.9 once its
+Fabric-API `.world` path is reverted).
 
 ## Staged versions (in `staged/`)
 

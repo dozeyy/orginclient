@@ -60,13 +60,13 @@ docs/RELEASING.md         how shipping works (tag flow)
 - Staged work NEVER lives next to shipped work — `staged/` is the boundary.
 
 ## Supported versions
-1.20, 1.20.1, 1.20.4, 1.21, 1.21.1, 1.21.10, 1.21.11 are LIVE; 26.2 staged.
-1.21.2–1.21.9 are NOT one build — Minecraft rewrote its render/GUI/input
-system in stages across the 1.21.x line, so they need ≈4 more sub-family
-Origin ports (real ports, not config flips) before they can ship. Per-version
-status, the API boundaries, install models, and the promotion checklist live
-in `src/mods/VERSIONS.md` — keep that file the single source of truth, not
-this one. All Fabric.
+1.20, 1.20.1, 1.20.4, 1.21, 1.21.1, 1.21.5, 1.21.8, 1.21.10, 1.21.11 are LIVE;
+26.2 staged. The 1.21.x line is NOT one build — Minecraft rewrote its
+render/GUI/input system in stages, so each sub-family is its own port. The
+popular gap versions (1.21.5, 1.21.8) shipped; 1.21.2/3/4/6/7/9 aren't built
+yet and stay greyed in the picker. Per-version status, the API boundaries,
+install models, and the promotion checklist live in `src/mods/VERSIONS.md` —
+keep that file the single source of truth, not this one. All Fabric.
 
 **Verification bar:** compiling clean only proves mixin *targets exist*.
 `@Inject` descriptor and `@Shadow` mismatches only surface at mixin **apply**
@@ -120,19 +120,19 @@ floating corner controls. In-game menus match this exactly.
   Voxy, and PerformanceMode all removed end to end.
 - Crash system v1: `CrashAnalyzer` + `CrashReportWindow` (boot crashes name
   the culprit mod; Origin-only retry). In-game debug screen still open.
-- 1.21.10 + 1.21.11 went LIVE 2026-07-13: catalog regenerated from Modrinth,
-  the module ported to the render-pipeline era (Identifier/RenderPipelines/
-  ARGB blits/input events — the API-rename table is in MEMORY.md), both
-  boot-verified clean through the real launcher pipeline. 1.21.2–1.21.9 need
-  their own sub-family ports first (see VERSIONS.md for the boundaries) —
-  the "one build for the whole family" assumption was wrong.
+- 1.21.5, 1.21.8, 1.21.10, 1.21.11 went LIVE 2026-07-13, each a separate
+  sub-family port of the staged 1.21.x rewrite (render-pipeline era rename
+  table in MEMORY.md), all four boot-verified clean through the real launcher.
+  The "one build for the whole 1.21.2–1.21.11 family" assumption was wrong;
+  1.21.2/3/4/6/7/9 still need their own ports (VERSIONS.md has the boundaries).
 
 ## Roadmap
 - [x] 1.20 / 1.20.1, 1.20.4, 1.21.1 — full Origin experience, verified.
 - [x] 1.21 — wired live; runClient at home is the remaining confidence check.
-- [x] 1.21.10 + 1.21.11 — live (`src/mods/versions/1.21.11`), boot-verified.
-- [ ] 1.21.2 – 1.21.9 — need ≈4 sub-family ports (render-system rewrite in
-  stages; boundaries in `src/mods/VERSIONS.md`). Not one build.
+- [x] 1.21.5, 1.21.8, 1.21.10, 1.21.11 — live, each its own sub-family port,
+  boot-verified (`src/mods/versions/{1.21.5,1.21.8,1.21.11}`).
+- [ ] 1.21.2/3/4/6/7/9 — remaining sub-families (templates: the 1.21.5 and
+  1.21.8 modules; boundaries in `src/mods/VERSIONS.md`).
 - [~] 26.2 — staged, render layer mid-port (`src/mods/staged/26.2/PORT-262.md`).
 - [x] Crash system v1 — boot-crash blame + Origin-only retry.
 - [ ] Crash system v2 — in-game Origin debug screen, log-cause detection.

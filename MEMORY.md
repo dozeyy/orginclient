@@ -89,6 +89,19 @@ one descriptor its API era uses. LESSON: class RENAMES (ResourceLocation→
 Identifier) are compile-only — mods run against stable intermediary names, so
 those are NOT runtime boundaries; only genuinely-new classes/methods are.
 
+**Follow-up same day (Will: "just the popular ones"):** built 1.21.5 and
+1.21.8 as their own sub-family modules and shipped 1.21.5/1.21.8/1.21.10/
+1.21.11 — four separate boot-verified builds. Method-descriptor migrations
+that hit each build (render-state era): shouldShowName(Entity,double);
+renderNameTag(EntityRenderState,…) drops the entity + partialTick (player
+check via PlayerRenderState); renderHitboxes(PoseStack,EntityRenderState,
+HitboxesRenderState,MultiBufferSource) with per-box HitboxRenderState records;
+BlockEntityRenderDispatcher.render pose param is PoseStack ≤1.21.8 but
+Matrix3x2fStack ≥1.21.10. The 1.21.5 module templates 1.21.3/1.21.4; the
+1.21.8 module templates 1.21.6/1.21.7; the 1.21.11 module templates 1.21.9
+(revert its Fabric-API .world path). Remaining unshipped: 1.21.2 (Sodium
+CloudRenderer mixin crash, separate) + 1.21.3/4/6/7/9.
+
 LESSON: javac caps at 100 errors — "0 errors in file X" means nothing until
 the total is under the cap. LESSON: `cmd /c move` succeeds where git/
 PowerShell renames hit phantom Windows directory locks.
