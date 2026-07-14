@@ -403,7 +403,9 @@ public class OriginModMenuScreen extends GuiScreen {
 
         double ccx = x + w / 2.0;
         double iconSize = 30 + 2 * hv;
-        OriginUi.icon(def.id, ccx - iconSize / 2.0, y + 18 + (30 - iconSize) / 2.0, iconSize, 1.0);
+        // Icon top pinned at y+12 (exact 1.21.1) and grown DOWNWARD — matches
+        // the modern card. The old y+18 + re-centering fudge sat it too low.
+        OriginUi.icon(def.id, ccx - iconSize / 2.0, y + 12, iconSize, 1.0);
         OriginUi.label(ellipsize(def.name, (int) (w - 12)), ccx, y + 47, OriginTheme.TEXT);
 
         // OPTIONS sub-button.

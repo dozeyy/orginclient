@@ -48,6 +48,7 @@ public final class Features {
         if (event.phase != TickEvent.Phase.END || mc.theWorld == null) return;
         tickZoom();
         tickFullbright();
+        tickTimeChanger();
         tickWeather();
     }
 
@@ -100,13 +101,15 @@ public final class Features {
             // Gamma is ignored by OptiFine shader packs (they compute their
             // own lighting) — a client-side Night Vision effect is the one
             // signal shaders universally honor, so fullbright works with and
-            // without shaders. Refreshed before it can expire; never touches
-            // a longer server-given effect.
+            // without shaders. Applied ONCE with a very long duration: each
+            // re-add forces a lightmap rebuild (a frame hitch), so refreshing
+            // it every few seconds caused a periodic stutter. A ~14-hour
+            // duration means it never needs re-applying in a session.
             net.minecraft.potion.PotionEffect existing = mc.thePlayer != null
                 ? mc.thePlayer.getActivePotionEffect(net.minecraft.potion.Potion.nightVision) : null;
-            if (mc.thePlayer != null && (existing == null || (nightVisionApplied && existing.getDuration() < 250))) {
+            if (mc.thePlayer != null && existing == null) {
                 mc.thePlayer.addPotionEffect(new net.minecraft.potion.PotionEffect(
-                    net.minecraft.potion.Potion.nightVision.id, 620, 0, true, false));
+                    net.minecraft.potion.Potion.nightVision.id, 1000000, 0, true, false));
                 nightVisionApplied = true;
             }
         } else {
@@ -123,31 +126,78 @@ public final class Features {
         }
     }
 
-    // Time is pinned on the RENDER tick, not the client tick: the integrated
-    // server sends a time-update packet every second, and applying our time
-    // only once per tick let occasional frames render the server's time — the
-    // "blinks to day randomly" report. Pinning immediately before every frame
-    // means the packet's value can never reach the renderer.
-    @SubscribeEvent
-    public void onRenderTick(TickEvent.RenderTickEvent event) {
-        if (event.phase != TickEvent.Phase.START) return;
-        if (!Mods.isOn("timechanger")) { timePassageApplied = Long.MIN_VALUE; return; }
+    // Singleplayer time is set AUTHORITATIVELY on the integrated server:
+    // gamerule doDaylightCycle off + set the server world's time once. The
+    // server then broadcasts that frozen time, so the client never sees a
+    // conflicting value — no blink, and (critically) ZERO per-frame work. The
+    // earlier render-tick pin re-read the JSON config and called setWorldTime
+    // every rendered frame (300+/s), and the Gson boxing churn was the cause
+    // of the "super inconsistent FPS" regression. Multiplayer, where we can't
+    // touch the server, still uses a light client-side render pin below.
+    private long timeApplied = Long.MIN_VALUE;
+    private boolean passageWas;
+    private boolean daylightDisabled;
+    private long mpCachedTarget = Long.MIN_VALUE;
+
+    private void tickTimeChanger() {
+        if (!Mods.isOn("timechanger")) {
+            if (daylightDisabled && mc.isIntegratedServerRunning())
+                setServerDaylight(true);
+            daylightDisabled = false;
+            timeApplied = Long.MIN_VALUE;
+            mpCachedTarget = Long.MIN_VALUE;
+            return;
+        }
         WorldClient world = mc.theWorld;
         if (world == null) return;
         long target = (((long) Mods.num("timechanger", "time")) % 24000 + 24000) % 24000;
-        if (Mods.bool("timechanger", "timePassage")) {
-            // Jump to the chosen time once, then let it run naturally.
-            if (timePassageApplied != target) {
-                world.setWorldTime(target);
-                timePassageApplied = target;
+        boolean passage = Mods.bool("timechanger", "timePassage");
+
+        if (mc.isIntegratedServerRunning()) {
+            net.minecraft.world.WorldServer sw = serverWorld(world);
+            if (sw != null && (timeApplied != target || passageWas != passage || daylightDisabled == passage)) {
+                setServerDaylight(passage);
+                daylightDisabled = !passage;
+                sw.setWorldTime(target);
+                timeApplied = target;
+                passageWas = passage;
             }
         } else {
-            timePassageApplied = Long.MIN_VALUE;
-            world.setWorldTime(target);
+            // Multiplayer: cache the target here (client tick) so the per-frame
+            // render pin never touches the JSON config.
+            mpCachedTarget = passage ? Long.MIN_VALUE : target;
         }
     }
 
-    private long timePassageApplied = Long.MIN_VALUE;
+    private net.minecraft.world.WorldServer serverWorld(WorldClient client) {
+        try {
+            return mc.getIntegratedServer().worldServerForDimension(client.provider.getDimensionId());
+        } catch (Throwable t) {
+            return null;
+        }
+    }
+
+    private void setServerDaylight(boolean on) {
+        try {
+            net.minecraft.world.WorldServer sw = serverWorld(mc.theWorld);
+            if (sw != null)
+                sw.getGameRules().setOrCreateGameRule("doDaylightCycle", Boolean.toString(on));
+        } catch (Throwable t) {
+            // Best effort — falls back to the client-side pin behaviour.
+        }
+    }
+
+    // Multiplayer-only client-side pin: cheap (no JSON, no allocation), and a
+    // no-op in singleplayer (mpCachedTarget stays MIN_VALUE there).
+    @SubscribeEvent
+    public void onRenderTick(TickEvent.RenderTickEvent event) {
+        if (event.phase != TickEvent.Phase.START) return;
+        long target = mpCachedTarget;
+        if (target == Long.MIN_VALUE) return;
+        WorldClient world = mc.theWorld;
+        if (world != null && world.getWorldTime() % 24000 != target)
+            world.setWorldTime(target);
+    }
 
     private void tickWeather() {
         if (!Mods.isOn("weather")) return;

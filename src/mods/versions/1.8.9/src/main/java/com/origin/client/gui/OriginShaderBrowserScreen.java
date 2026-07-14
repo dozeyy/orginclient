@@ -41,15 +41,20 @@ public class OriginShaderBrowserScreen extends GuiScreen {
         }
     }
 
-    // Curated for the legacy versions: Sildur's targets 1.7.10+ explicitly.
-    // Ordered lightest -> heaviest so the list doubles as a perf guide.
+    // Curated for the legacy versions — every pack here is verified to list
+    // 1.8.9 + 1.12.2 support on its Modrinth page (OptiFine shaders). Ordered
+    // lightest -> heaviest so the list doubles as a perf guide. URLs are
+    // pinned to specific Modrinth CDN files.
     private static final Pack[] PACKS = {
         new Pack("Sildur's Enhanced Default (Fast)", "Vanilla look + shadows — the lightest option",
             "Sildur's Enhanced Default v1.19 Fast.zip",
             "https://cdn.modrinth.com/data/2jvH1Rcl/versions/sNDsk0x8/Sildur%27s%20Enhanced%20Default%20v1.19%20Fast.zip"),
-        new Pack("Sildur's Enhanced Default (Fancy)", "Vanilla look + shadows and water effects",
-            "Sildur's Enhanced Default v1.19 Fancy.zip",
-            "https://cdn.modrinth.com/data/2jvH1Rcl/versions/iGZzk9Qi/Sildur%27s%20Enhanced%20Default%20v1.19%20Fancy.zip"),
+        new Pack("KUDA", "Classic well-rounded shader, light on FPS",
+            "kuda-shaders-v6.5.26.zip",
+            "https://cdn.modrinth.com/data/55swHbGZ/versions/eGkgDd8B/kuda-shaders-v6.5.26.zip"),
+        new Pack("Tea", "Clean, soft lighting — very performant",
+            "Tea_V2.0.0_Dev7.zip",
+            "https://cdn.modrinth.com/data/7eXucZxq/versions/5gkAG9Q0/Tea_V2.0.0_Dev7.zip"),
         new Pack("Sildur's Vibrant Lite", "Full shading on a budget — great FPS",
             "Sildur's Vibrant Shaders v2.01 Lite.zip",
             "https://cdn.modrinth.com/data/z8EjLYqN/versions/bxUlVfyu/Sildur%27s%20Vibrant%20Shaders%20v2.01%20Lite.zip"),
@@ -59,6 +64,12 @@ public class OriginShaderBrowserScreen extends GuiScreen {
         new Pack("Sildur's Vibrant High", "Rich lighting and water",
             "Sildur's Vibrant Shaders v2.01 High.zip",
             "https://cdn.modrinth.com/data/z8EjLYqN/versions/tQJEI9MM/Sildur%27s%20Vibrant%20Shaders%20v2.01%20High.zip"),
+        new Pack("Complementary Reimagined", "Gorgeous and highly compatible",
+            "ComplementaryReimagined_r5.8.1.zip",
+            "https://cdn.modrinth.com/data/HVnmMxH1/versions/yCCduG44/ComplementaryReimagined_r5.8.1.zip"),
+        new Pack("BSL", "Popular cinematic look with rich reflections",
+            "BSL_v10.1.3.zip",
+            "https://cdn.modrinth.com/data/Q1vvjJYV/versions/hIibTfxn/BSL_v10.1.3.zip"),
         new Pack("Sildur's Vibrant Extreme", "Everything on — needs a strong GPU",
             "Sildur's Vibrant Shaders v2.01 Extreme.zip",
             "https://cdn.modrinth.com/data/z8EjLYqN/versions/BO6K7uVU/Sildur%27s%20Vibrant%20Shaders%20v2.01%20Extreme.zip"),

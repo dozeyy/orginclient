@@ -185,34 +185,26 @@ public class HudEditorScreen extends GuiScreen {
         if (quick) drawQuickHeader(mouseX, mouseY);
     }
 
-    // The quick-header chrome renders in fixed-eff-2 units (2 physical px per
-    // unit) like the mod menu, so it stays crisp and identically sized at any
-    // GUI scale — the HUD elements themselves stay in native GUI units
-    // because that's the space they live in in-game.
-    private double quickScale() { return 2.0 / new ScaledResolution(mc).getScaleFactor(); }
-    private double quickW() { return Math.max(320, mc.displayWidth / 2.0); }
-    private double quickH() { return Math.max(240, mc.displayHeight / 2.0); }
-    private double quickBtnY() { return quickH() - quickH() / 4; }
-
-    /** Mouse (native GUI units) -> quick-chrome eff-2 units. */
-    private double toQuick(int guiCoord) { return guiCoord / quickScale(); }
+    // The quick-header chrome is drawn in the screen's native GUI units and
+    // centered EXACTLY like the modern module: button top at screen vertical
+    // center (height-28)/2, everything stacked above it, all on cx=width/2.
+    // The old eff-2 / lower-third math was what made it read off-center.
+    private static final int BTN_W = 132, BTN_H = 28;
+    private int quickBtnX() { return (width - BTN_W) / 2; }
+    private int quickBtnY() { return (height - BTN_H) / 2; }
 
     private void drawQuickHeader(int mouseX, int mouseY) {
-        double cx = quickW() / 2.0;
-        double btnY = quickBtnY();
-        double qmx = toQuick(mouseX), qmy = toQuick(mouseY);
-        GlStateManager.pushMatrix();
-        GlStateManager.scale((float) quickScale(), (float) quickScale(), 1f);
-        OriginUi.glow(cx, btnY - 76, 104, 0.16);
-        OriginUi.logo(cx, btnY - 76, 46, 1.0);
-        OriginScreenRenderer.drawWordmark(cx, btnY - 44, 13, 1f);
+        double cx = width / 2.0;
+        int bt = quickBtnY();
+        OriginUi.glow(cx, bt - 76, 104, 0.16);
+        OriginUi.logo(cx, bt - 76, 46, 1.0);
+        OriginScreenRenderer.drawWordmark(cx, bt - 44, 13, 1f);
 
-        boolean hover = in(qmx, qmy, cx - 66, btnY, 132, 28);
-        OriginUi.panel(cx - 66, btnY, 132, 28, 9,
+        boolean hover = in(mouseX, mouseY, quickBtnX(), bt, BTN_W, BTN_H);
+        OriginUi.panel(quickBtnX(), bt, BTN_W, BTN_H, 9,
                        hover ? 0xE6181818 : 0xD0101010,
                        hover ? OriginTheme.STROKE_HOVER : OriginTheme.STROKE_STRONG);
-        OriginUi.label("MODS", cx, btnY + 14, OriginTheme.TEXT);
-        GlStateManager.popMatrix();
+        OriginUi.label("MODS", cx, bt + 14, OriginTheme.TEXT);
     }
 
     // ------------------------------------------------------------------
@@ -236,7 +228,7 @@ public class HudEditorScreen extends GuiScreen {
             if (mouseButton != 0) return;
             ScaledResolution sr = new ScaledResolution(mc);
 
-            if (quick && in(toQuick(mouseX), toQuick(mouseY), quickW() / 2.0 - 66, quickBtnY(), 132, 28)) {
+            if (quick && in(mouseX, mouseY, quickBtnX(), quickBtnY(), BTN_W, BTN_H)) {
                 mc.displayGuiScreen(new com.origin.client.gui.OriginModMenuScreen());
                 return;
             }

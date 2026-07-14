@@ -22,8 +22,6 @@ import net.minecraftforge.fml.common.gameevent.TickEvent;
  */
 public final class OriginRuntime {
 
-    private boolean loadingRendererSwapped = false;
-
     public static void register() {
         OriginKeyBindings.register();
         registerSafely(new OriginRuntime());
@@ -46,10 +44,12 @@ public final class OriginRuntime {
         if (event.phase != TickEvent.Phase.END) return;
         Minecraft mc = Minecraft.getMinecraft();
 
-        // Swap in the Origin loading renderer once Minecraft has created the
-        // vanilla one (it doesn't exist yet at mod-init time).
-        if (!loadingRendererSwapped && mc.loadingScreen != null) {
-            loadingRendererSwapped = true;
+        // Claim mc.loadingScreen for the Origin loading scene, and RE-claim it
+        // if anything else replaces it. OptiFine installs its own
+        // LoadingScreenRenderer after mod init (and can re-create it), which is
+        // why a one-shot swap left the world-load screen vanilla — this instanceof
+        // check quietly takes it back next tick. Cheap (once per client tick).
+        if (mc.loadingScreen != null && !(mc.loadingScreen instanceof OriginLoadingRenderer)) {
             try {
                 mc.loadingScreen = new OriginLoadingRenderer(mc);
             } catch (Throwable t) {
