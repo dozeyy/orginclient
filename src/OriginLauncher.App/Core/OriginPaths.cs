@@ -37,11 +37,8 @@ public static class OriginPaths
         Directory.CreateDirectory(Instances);
         Directory.CreateDirectory(Accounts);
         Directory.CreateDirectory(Logs);
-
-        // The OptiFine feature was removed with the Forge path (Fabric-only
-        // mandate); clear the cache an older launcher build left behind.
-        // Best-effort — a locked file just means it goes next run.
-        try { Directory.Delete(Path.Combine(Root, "optifine-cache"), recursive: true); }
-        catch { /* absent or locked — fine either way */ }
+        // optifine-cache under Root is live again — the legacy versions
+        // (1.8.9/1.12.2, Forge + OptiFine) returned 2026-07-14. It's owned by
+        // Core/Loaders/OptiFineInstaller.cs.
     }
 }

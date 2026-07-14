@@ -1,0 +1,16 @@
+[
+{
+  "modid": "originclient",
+  "name": "Origin Client",
+  "description": "The Origin Client experience: restyled title screen, loading screens, mods menu and HUD.",
+  "version": "${version}",
+  "mcversion": "${mcversion}",
+  "url": "",
+  "updateUrl": "",
+  "authorList": ["Origin"],
+  "credits": "",
+  "logoFile": "",
+  "screenshots": [],
+  "dependencies": []
+}
+]

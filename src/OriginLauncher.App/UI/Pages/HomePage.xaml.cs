@@ -192,7 +192,10 @@ public partial class HomePage : UserControl
         _isLaunching = true;
         PlayButton.IsEnabled = false;
         SetPlayLaunching(true);
-        LoadingOverlay.Show(version, "Fabric");
+        // Loader label only — the player never chooses one; the legacy
+        // versions (1.8.9/1.12.2) quietly run Forge+OptiFine, everything
+        // else Fabric.
+        LoadingOverlay.Show(version, Core.Loaders.LegacyForgeInstaller.IsLegacy(version) ? "Forge" : "Fabric");
 
         // Set true once the game process has actually started: from that point
         // WatchBootAsync owns the launching state (spinner + _isLaunching) and

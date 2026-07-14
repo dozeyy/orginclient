@@ -100,6 +100,18 @@ jobs:
         working-directory: src/mods/versions/1.21.11
         run: .\gradlew.bat build --no-daemon
 
+      # LEGACY Forge modules (gg.essential.loom, Gradle 8.7). Gradle itself
+      # runs on the Java 21 above; the Java 8 compile/run toolchain is
+      # auto-provisioned by the foojay resolver in each module's
+      # settings.gradle — no extra setup-java needed.
+      - name: Build Origin Client mod (1.8.9, Forge)
+        working-directory: src/mods/versions/1.8.9
+        run: .\gradlew.bat build --no-daemon
+
+      - name: Build Origin Client mod (1.12.2, Forge)
+        working-directory: src/mods/versions/1.12.2
+        run: .\gradlew.bat build --no-daemon
+
       # NOTE (26.2): src/mods/staged/26.2 is scaffolded and its toolchain is
       # proven (Java 25 + unobfuscated Loom config — it resolves + compiles
       # against MC 26.2), but the render layer is mid-port to 26.2's retained-mode

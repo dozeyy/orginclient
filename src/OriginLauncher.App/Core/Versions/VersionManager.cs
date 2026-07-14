@@ -129,6 +129,18 @@ public sealed class VersionManager
             // 1.20.2 — same 1.20.2+ renderBackground family as the live 1.20.4 (zero
             // code deltas; background mixin descriptors javap-verified identical).
             ["1.20.2"] = new("originclient-1.20.2.jar", BundlesPerfStack: false),
+            // --- LEGACY (Forge + OptiFine) — added 2026-07-14 ---
+            // 1.8.9 and 1.12.2 are the pre-Fabric era: Fabric never supported
+            // them, and OptiFine is the only shader/perf layer that exists
+            // there — so these two versions (and ONLY these) install Forge +
+            // OptiFine instead of Fabric + Sodium/Iris, silently, exactly like
+            // the Fabric path (the Lunar model: the player never sees a loader
+            // choice anywhere). Each ships its own from-scratch Origin build
+            // (src/mods/versions/1.8.9, /1.12.2 — Forge events, no mixins).
+            // BundlesPerfStack is inert for legacy entries: the legacy install
+            // branch never consults the Fabric perf catalog at all.
+            ["1.8.9"]  = new("originclient-1.8.9.jar",  BundlesPerfStack: false),
+            ["1.12.2"] = new("originclient-1.12.2.jar", BundlesPerfStack: false),
             // 26.2 (src/mods/staged/26.2) — STAGED, not yet active. The module
             // is scaffolded and its Java 25 / unobfuscated-Loom toolchain is
             // proven, but the render layer is mid-port to 26.2's retained-mode GUI
@@ -192,9 +204,10 @@ public sealed class VersionManager
     private static MinecraftPath BuildInstancePath(string version) =>
         new(Path.Combine(OriginPaths.Instances, version));
 
-    // Every launch is Fabric (CLAUDE.md mandate — the Lunar/Feather model):
-    // install Fabric + the matching Origin build + the perf/shader stack,
-    // then build the launch process. Caller still has to call Process.Start().
+    // Every launch installs its loader quietly (the Lunar/Feather model — no
+    // loader choice exists anywhere): Fabric + the Origin build + the
+    // perf/shader stack for modern versions, Forge + OptiFine + the legacy
+    // stack for 1.8.9/1.12.2. Caller still has to call Process.Start().
     // progress reports human-readable stage text — drives LaunchLoadingOverlay.
     public async Task<Process> InstallAndBuildProcessAsync(
         string version, MLaunchOption option,
@@ -223,6 +236,56 @@ public sealed class VersionManager
         // class entirely, for any config-writing mod, on any version.
         Directory.CreateDirectory(modsFolder);
         Directory.CreateDirectory(configFolder);
+
+        // LEGACY BRANCH (1.8.9 / 1.12.2): Forge + OptiFine + the era's perf
+        // stack instead of Fabric + Sodium/Iris — the pre-Fabric versions have
+        // no Fabric option and OptiFine is their only shader layer. Quiet and
+        // choiceless exactly like the Fabric path below. Self-contained: the
+        // branch finishes with its own game-file download + process build and
+        // returns — the code after it is the Fabric path.
+        if (LegacyForgeInstaller.IsLegacy(version))
+        {
+            var forgeVersionName = await LegacyForgeInstaller.InstallAsync(version, path, progress, ct);
+
+            if (OriginBuilds.TryGetValue(version, out var legacyBuild)
+                && File.Exists(OriginPaths.BundledOriginClientJar(legacyBuild.JarFileName)))
+            {
+                progress?.Report("Installing Origin Client...");
+                // Same stale-jar sweep as the Fabric path: always ship the
+                // launcher's own bundled build, whatever an older launcher left.
+                foreach (var file in Directory.EnumerateFiles(modsFolder))
+                {
+                    var fn = Path.GetFileName(file);
+                    if (fn.StartsWith("originclient", StringComparison.OrdinalIgnoreCase)
+                        && fn.EndsWith(ModManager.JarSuffix, StringComparison.OrdinalIgnoreCase))
+                    {
+                        try { File.Delete(file); } catch { /* locked/removed already */ }
+                    }
+                }
+                File.Copy(OriginPaths.BundledOriginClientJar(legacyBuild.JarFileName),
+                          Path.Combine(modsFolder, "originclient.jar"), overwrite: true);
+            }
+
+            // OptiFine is the shader mandate on legacy. Non-fatal on failure —
+            // the game still boots (vanilla renderer), and the next launch
+            // retries the download.
+            var optifineOk = await OptiFineInstaller.InstallAsync(version, modsFolder, progress, ct);
+            if (!optifineOk)
+                progress?.Report("OptiFine unavailable right now — launching without shaders");
+
+            await LegacyStackInstaller.InstallAsync(version, modsFolder, progress, ct);
+            LegacyStackInstaller.SeedSplashTheme(configFolder);
+            SanitizeCorruptConfigs(configFolder);
+
+            // NOTE: the Fabric-only conveniences don't apply here — the
+            // fabric.modsFolder Origin-only launch and the Fabric-family
+            // dedupe both key on Fabric loader semantics. "Play with external
+            // mods" is treated as always-on for legacy instances.
+            progress?.Report("Downloading game files...");
+            var legacyFileProgress = new Progress<InstallerProgressChangedEventArgs>(e =>
+                progress?.Report($"Downloading game files ({e.ProgressedTasks}/{e.TotalTasks})"));
+            return await launcher.InstallAndBuildProcessAsync(forgeVersionName, option, legacyFileProgress, null, ct);
+        }
 
         progress?.Report("Installing Fabric loader...");
         var fabricInstaller = new FabricInstaller(new HttpClient());

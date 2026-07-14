@@ -26,16 +26,21 @@ application
   Mojmap, Gradle + Loom. Lives under `src/mods/` — see layout below.
 
 ## The mandate (non-negotiable)
-1. **Fabric only.** No Forge, no NeoForge, no OptiFine. The launcher always
-   installs Fabric + the matching Origin build quietly (Lunar/Feather model).
-   There is no loader choice anywhere in the UI or the code.
+1. **No loader choice, ever** (the Lunar/Feather model): the launcher always
+   installs the right stack for the picked version quietly. **Fabric** for
+   every version Fabric supports (all of 1.20+); **Forge + OptiFine** ONLY for
+   the two legacy versions 1.8.9 and 1.12.2, which predate Fabric entirely —
+   added 2026-07-14 on Will's explicit direction (amending the previous
+   "Fabric only" rule; OptiFine is the only shader layer that exists there).
+   No NeoForge. No loader selector anywhere in the UI or the code.
 2. **Every supported version gets the FULL Origin experience.** Identical look
    across versions — title screen, every loading/progress screen, mod menu, and
    HUD must match the Origin design on every supported version. Vanilla menus
    are NOT an acceptable shipped state; fail-soft-to-vanilla exists only as a
    crash-safety net, never the intended result.
-3. **Every supported version has shader integration.** Iris + Sodium work on
-   every version Origin offers. A version doesn't ship until its shaders work.
+3. **Every supported version has shader integration.** Iris + Sodium on the
+   Fabric versions, OptiFine shaders on the legacy two. A version doesn't
+   ship until its shaders work.
 4. **Never broken.** Whatever version the player picks, the game boots and the
    Origin surfaces work — or degrade silently to vanilla, never crash. Boot
    crashes surface the CrashReportWindow naming the culprit mod when evidence
@@ -60,13 +65,17 @@ docs/RELEASING.md         how shipping works (tag flow)
 - Staged work NEVER lives next to shipped work — `staged/` is the boundary.
 
 ## Supported versions
-1.20, 1.20.1, 1.20.4, 1.21, 1.21.1, 1.21.5, 1.21.8, 1.21.10, 1.21.11 are LIVE;
-26.2 staged. The 1.21.x line is NOT one build — Minecraft rewrote its
-render/GUI/input system in stages, so each sub-family is its own port. The
-popular gap versions (1.21.5, 1.21.8) shipped; 1.21.2/3/4/6/7/9 aren't built
-yet and stay greyed in the picker. Per-version status, the API boundaries,
-install models, and the promotion checklist live in `src/mods/VERSIONS.md` —
-keep that file the single source of truth, not this one. All Fabric.
+1.20, 1.20.1, 1.20.4, 1.21, 1.21.1, 1.21.5, 1.21.8, 1.21.10, 1.21.11 are LIVE
+(Fabric), **plus the legacy pair 1.8.9 and 1.12.2 (Forge + OptiFine), LIVE
+2026-07-14** — each a from-scratch Forge-event port of the Origin surfaces
+(no mixins, `.no-shared-sync`, boot- and shader-verified through the real
+launcher pipeline). 26.2 staged. The 1.21.x line is NOT one build — Minecraft
+rewrote its render/GUI/input system in stages, so each sub-family is its own
+port. The popular gap versions (1.21.5, 1.21.8) shipped; 1.21.2/3/4/6/7/9
+aren't built yet and stay greyed in the picker. Per-version status, API
+boundaries, install models, and the promotion checklist live in
+`src/mods/VERSIONS.md` — keep that file the single source of truth, not this
+one.
 
 **Verification bar:** compiling clean only proves mixin *targets exist*.
 `@Inject` descriptor and `@Shadow` mismatches only surface at mixin **apply**
@@ -91,6 +100,12 @@ players. Full rules: `docs/RELEASING.md`.
   perf via Sodium/Lithium/FerriteCore. 1.21.1 bundles its perf stack
   jar-in-jar; other versions get the stack standalone from
   `PerformanceModCatalog` (`VersionManager.OriginBuilds` records which model).
+- Legacy mod (1.8.9 / 1.12.2): Java 8, Forge, MCP mappings via
+  gg.essential.loom (Gradle 8.7, foojay-provisioned JDK 8), NO mixins — all
+  Forge events. Launcher side: `LegacyForgeInstaller` (bundled version JSON +
+  universal jar), `OptiFineInstaller` (download-at-install, SHA-1-pinned,
+  official-site-then-mirrors, never redistributed), `LegacyStackInstaller`
+  (era perf mods + FML splash theme). Shaders via OptiFine.
 
 ## Brand
 Origin mark = 3 tilted stroke-only rings sharing one center (0°/60°/120°, atom/
@@ -109,7 +124,13 @@ floating corner controls. In-game menus match this exactly.
 - Newest launch action cancels any in-flight one.
 - One control, one job: no UI handler may mutate a setting other than its own.
 
-## Current state (2026-07-13)
+## Current state (2026-07-14)
+- **1.8.9 + 1.12.2 went LIVE 2026-07-14** (Will's direct order, amending the
+  Fabric-only mandate): full Origin experience re-implemented from scratch on
+  legacy Forge (byte-identical art assets, ported theme/scene math, Forge
+  events instead of mixins), installed silently as Forge + OptiFine + era
+  perf stack. Both boot- and shader-verified end to end through the real
+  launcher pipeline (Sildur's Vibrant loaded in-world on both).
 - Launcher shipping via tag flow (latest launcher-v1.0.21+; auto-update).
   Auth chain: MSA→Xbox→XSTS confirmed; Minecraft `login_with_xbox` returns 403
   (leading theory: new-app-registration propagation) — `OfflineTestMode` in
@@ -131,6 +152,8 @@ floating corner controls. In-game menus match this exactly.
 - [x] 1.21 — wired live; runClient at home is the remaining confidence check.
 - [x] 1.21.5, 1.21.8, 1.21.10, 1.21.11 — live, each its own sub-family port,
   boot-verified (`src/mods/versions/{1.21.5,1.21.8,1.21.11}`).
+- [x] 1.8.9 + 1.12.2 — legacy pair live (Forge + OptiFine, own from-scratch
+  modules), boot- and shader-verified 2026-07-14.
 - [ ] 1.21.2/3/4/6/7/9 — remaining sub-families (templates: the 1.21.5 and
   1.21.8 modules; boundaries in `src/mods/VERSIONS.md`).
 - [~] 26.2 — staged, render layer mid-port (`src/mods/staged/26.2/PORT-262.md`).

@@ -111,8 +111,12 @@ public partial class VersionSelectOverlay : UserControl
             ?? group.Versions.FirstOrDefault();
 
         var playable = group.Versions.Count(v => v.Supported);
+        // Legacy families run the pre-Fabric stack — the facts line is the one
+        // place the stack is even named, and it must not lie about the loader.
+        var legacy = group.Versions.Any(v => v.Supported && Core.Loaders.LegacyForgeInstaller.IsLegacy(v.Id));
+        var stackText = legacy ? "Forge + OptiFine shaders" : "Fabric + Sodium + Iris shaders";
         FactsText.Text = group.AnySupported
-            ? $"{group.Versions.Count} versions · {playable} playable now · Fabric + Sodium + Iris shaders"
+            ? $"{group.Versions.Count} versions · {playable} playable now · {stackText}"
             : $"{group.Versions.Count} versions · not yet available in Origin";
 
         ChipsPanel.Visibility = group.AnySupported ? Visibility.Visible : Visibility.Collapsed;

@@ -1,0 +1,69 @@
+plugins {
+	id 'java'
+	// Essential's architectury-loom fork — the maintained legacy-Forge toolchain.
+	id 'gg.essential.loom' version '1.3.12'
+	// Legacy Forge ships Pack200-compressed binpatches; Pack200 left the JDK at
+	// 14, so loom needs an explicit provider or setup dies with
+	// "No provider for Pack200 has been found".
+	id 'dev.architectury.architectury-pack200' version '0.1.3'
+}
+
+version = project.mod_version
+group = project.maven_group
+
+base {
+	// The launcher bundles this by exact name shape: originclient-1.8.9-<ver>.jar
+	archivesName = "originclient-${project.minecraft_version}"
+}
+
+loom {
+	forge {
+		// No mixins in the legacy modules — everything is Forge-event driven.
+		pack200Provider = new dev.architectury.pack200.java.Pack200Adapter()
+	}
+}
+
+repositories {
+	mavenCentral()
+	maven { url = 'https://maven.minecraftforge.net' }
+	maven { url = 'https://repo.essential.gg/repository/maven-public' }
+}
+
+dependencies {
+	minecraft "com.mojang:minecraft:${project.minecraft_version}"
+	mappings project.mcp_mappings
+	forge "net.minecraftforge:forge:${project.forge_version}"
+}
+
+java {
+	// 1.8.9 runs on Java 8 and nothing newer — compile AND runClient on a real
+	// JDK 8 toolchain (auto-provisioned via foojay, see settings.gradle).
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(8)
+	}
+}
+
+// DEV ONLY: legacy FML's mod container scans just the classes dir, so
+// processed resources must land there too or every Origin texture 404s in
+// runClient (magenta checkers). The shipped jar is unaffected either way.
+sourceSets.main.output.resourcesDir = sourceSets.main.java.classesDirectory
+
+tasks.withType(JavaCompile).configureEach {
+	options.encoding = 'UTF-8'
+}
+
+// Loom's run tasks don't inherit the java{} toolchain — left alone they launch
+// the game on the Gradle daemon's JVM (21), and launchwrapper dies with the
+// URLClassLoader ClassCastException. Pin the actual game process to Java 8.
+tasks.withType(JavaExec).configureEach {
+	javaLauncher = javaToolchains.launcherFor {
+		languageVersion = JavaLanguageVersion.of(8)
+	}
+}
+
+processResources {
+	inputs.property 'version', project.version
+	filesMatching('mcmod.info') {
+		expand 'version': project.version, 'mcversion': project.minecraft_version
+	}
+}

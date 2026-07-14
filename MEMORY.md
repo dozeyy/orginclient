@@ -3319,3 +3319,56 @@ notes called for) failed instantly: Fabric resolver refused the mod set.
   ZERO "Mixin apply" failures, no Origin-renderer fail-soft events. 1.21's
   verification bar is met; 1.21.2–1.21.11 remain staged (shader catalog +
   runClient per version), 1.21.2 absent from the catalog entirely.
+
+## 2026-07-14 — 1.8.9 + 1.12.2 LIVE: the legacy pair, Forge + OptiFine (Will's direct order, Fabric-only mandate amended)
+Will ordered the two pre-Fabric classics built "exactly the way Lunar's was
+built" — Forge + OptiFine, silent install, full Origin look, shaders, best
+perf mods. Both went live same-day, boot- AND shader-verified end to end
+through the real launcher pipeline (screenshot-verified in-world with
+Sildur's Vibrant on both; Will hand-tested live during verification).
+- **Modules:** `src/mods/versions/{1.8.9,1.12.2}` — from-scratch re-implementations
+  of every Origin surface (title scene, loading screens, mod menu + color picker,
+  HUD + editor, feature mods) against MCP-era APIs. `shared/` is uncompilable
+  there, so each carries `.no-shared-sync` (new sync.py module-level opt-out) and
+  parity is by design-spec port: byte-identical PNG assets + verbatim
+  theme/easing/scene constants. NO mixins — GuiOpenEvent/DrawScreenEvent/
+  RenderGameOverlayEvent takeovers, so the mixin-apply failure class doesn't
+  exist; fail-soft is the same volatile-latch pattern.
+- **Toolchain:** gg.essential.loom 1.3.12 (NEU/Skytils lineage), Gradle 8.7,
+  architectury-pack200 0.1.3 (Pack200 left the JDK at 14), foojay-provisioned
+  JDK 8. Gotchas burned in: run tasks need an explicit Java-8 javaLauncher pin
+  (else launchwrapper dies on the daemon's Java 21 with the URLClassLoader
+  ClassCastException); dev resources must be redirected into the classes dir
+  (`sourceSets.main.output.resourcesDir = sourceSets.main.java.classesDirectory`)
+  or every texture 404s in runClient; 1.12.2 dev pins Forge **2847** (last
+  old-format `userdev` — 2860 only ships userdev3) while runtime installs 2860;
+  MCP stable for 1.12.2 is `39-1.12` (no -1.12.2 artifact); `mcDataDir` is
+  `gameDir` in stable_39.
+- **Launcher:** `LegacyForgeInstaller` (bundled version JSONs extracted from the
+  official installers + universal jar placed at its library path — no installer
+  execution; CmlLib auto-provisions Java 8 from jre-legacy), `OptiFineInstaller`
+  (M5/G5 SHA-1-pinned, optifine.net scrape → BMCLAPI → archive.org chain, cached
+  in optifine-cache, installs as managed `optifine.jar`, HEALS stale old-era jars
+  by hash), `LegacyStackInstaller` (1.12.2: FoamFix/Phosphor/VanillaFix/TexFix/
+  BetterFps; 1.8.9: TexFix/BetterFps — the era has nothing deeper; + FML splash
+  theming via config/splash.properties). VersionManager branches before the
+  Fabric path; picker cards un-greyed automatically via OriginBuilds keys; facts
+  line says "Forge + OptiFine shaders" for legacy groups. Generic legacy menus
+  restyled via vanilla-texture override (options_background #141414 → renders
+  exactly BG #050505 under the 0.25 tint; widgets.png button strips repainted
+  with theme tokens — 1px/0x1C borders read as dashes on near-black, shipped
+  1.6px/0x30).
+- **Verified evidence:** 1.8.9 — Forge 2318 + OptiFine M5 + Origin 5-mod set
+  loaded, zero crashes, title/options/quick-menu/mod-menu/HUD screenshot-matched
+  to the design, Sildur's loaded in-world (485fps on the 9070 XT). 1.12.2 —
+  fresh-instance full pipeline, OptiFine G5 fetched through the mirror chain
+  (BMCLAPI 403s G5; archive.org sha-matched), 10 mods loaded, shaders visibly
+  on in-world, ToggleSprint HUD confirmed live by Will playing it.
+- **Known deltas (acceptable, documented in VERSIONS.md):** generic menus get
+  dark+brackets+spotlight, not the full ring scene (no drawDefaultBackground
+  hook without ASM); "Play without external mods" is a no-op on legacy
+  (fabric.modsFolder is Fabric-only) — toggle treated as always-on; FML boot
+  splash is color-themed only (logo untouched — texture injection too crashy);
+  1.8.9 boot-test games were repeatedly closed mid-test — turned out to be Will
+  playing them, not a defect (differential test vs no-origin proved the mod
+  innocent first).

@@ -83,6 +83,36 @@ zoom, lock icon). Remaining known gaps: motion blur inert on <=1.21.5 (no persis
 post-target support), and hitboxes/nametags/tile-entity-culling absent on
 1.21.10/1.21.11 (deferred-render port pending).
 
+## Legacy versions (in `versions/`, Forge — the pre-Fabric era)
+
+| Module | Covers | Loader | Toolchain | Java | Install model |
+|--------|--------|--------|-----------|------|---------------|
+| `1.8.9` | 1.8.9 | Forge 11.15.1.2318 | gg.essential.loom 1.3.12, Gradle 8.7, MCP stable_22 | 8 (foojay auto-provisioned) | Origin jar + OptiFine HD_U_M5 + TexFix/BetterFps (LegacyStackInstaller) |
+| `1.12.2` | 1.12.2 | Forge 14.23.5.2860 runtime / 2847 dev (last old-format userdev; same 14.23.5 API) | gg.essential.loom 1.3.12, Gradle 8.7, MCP stable_39-1.12 | 8 (foojay auto-provisioned) | Origin jar + OptiFine HD_U_G5 + FoamFix/Phosphor/VanillaFix/TexFix/BetterFps |
+
+These two versions predate Fabric entirely — Forge + OptiFine is the only
+loader/shader stack that exists there (the call Lunar/Feather made too). The
+launcher installs it silently through `LegacyForgeInstaller` +
+`OptiFineInstaller` + `LegacyStackInstaller`; no loader choice appears
+anywhere. OptiFine is never redistributed: it downloads at install time
+(official site first, mirrors after) and every source is SHA-1-pinned.
+
+**These modules do NOT consume `shared/`.** The shared core is Mojmap/modern-
+Fabric source that cannot compile against MCP-era APIs, so each legacy module
+is a from-scratch re-implementation of the Origin surfaces (theme constants,
+ring scene, wordmark reveal, mod menu, HUD + editor, fail-soft contract —
+ported by hand from the shared design; the baked PNG art is byte-identical).
+Each carries a `.no-shared-sync` marker, which `sync.py` (and its `--check`
+CI gate) honors as "skip this module entirely."
+
+**No mixins on legacy.** Every surface hangs off Forge events (GuiOpenEvent /
+DrawScreenEvent / RenderGameOverlayEvent), so the mixin-apply failure class
+doesn't exist here; the fail-soft ladder is the same volatile-latch pattern
+(one Throwable → vanilla for the session). Generic menus (options, world
+select) are restyled by vanilla-texture override (options_background,
+widgets.png) rather than a scene takeover — full scenes cover the title
+screen and every loading/connecting/working screen.
+
 ## Staged versions (in `staged/`)
 
 | Module | Covers | Status | Blocking / next step |

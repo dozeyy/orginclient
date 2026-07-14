@@ -1,0 +1,23 @@
+// Legacy-Forge module (1.8.9). Toolchain: gg.essential.loom — Essential's
+// architectury-loom fork, the maintained path for legacy Forge (powers
+// NotEnoughUpdates/Skytils on 1.8.9). Gradle 8.7 (NOT the 9.x the modern
+// Fabric modules use — legacy loom tops out at Gradle 8).
+pluginManagement {
+	repositories {
+		gradlePluginPortal()
+		mavenCentral()
+		maven { url = 'https://repo.essential.gg/repository/maven-public' }
+		maven { url = 'https://maven.architectury.dev' }
+		maven { url = 'https://maven.fabricmc.net' }
+		maven { url = 'https://maven.minecraftforge.net' }
+	}
+}
+
+// Auto-provisions the JDK 8 toolchain (compile + runClient) — the machine and
+// CI only carry modern JDKs; foojay downloads Temurin 8 on first build.
+plugins {
+	id 'org.gradle.toolchains.foojay-resolver-convention' version '0.8.0'
+}
+
+// Should match your modid
+rootProject.name = 'originclient'

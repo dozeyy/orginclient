@@ -1,0 +1,5 @@
+This module is a from-scratch legacy (Forge) re-implementation of the Origin
+surfaces. It consumes NOTHING from src/mods/shared (Mojmap/modern-Fabric
+source cannot compile against MCP-era APIs), so tools/shared-sync/sync.py
+skips it entirely - see module_dirs() there. Design parity with shared/ is
+maintained by hand against the design spec, not by file sync.

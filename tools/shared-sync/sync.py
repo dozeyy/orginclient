@@ -35,11 +35,20 @@ SHARED = MODS / "shared" / "src"
 
 
 def module_dirs() -> list[Path]:
+    # A module carrying a `.no-shared-sync` marker file is excluded from sync
+    # AND from --check entirely. This exists for the legacy Forge modules
+    # (1.8.9, 1.12.2): shared/ is Mojmap/modern-Fabric source they cannot
+    # compile, so they are full re-implementations, not consumers — listing
+    # every shared path in overrides.txt would drift red on every new shared
+    # file. The marker is the honest "this module shares nothing" signal.
     out = []
     for parent in ("versions", "staged"):
         base = MODS / parent
         if base.is_dir():
-            out.extend(sorted(p for p in base.iterdir() if (p / "src").is_dir()))
+            out.extend(sorted(
+                p for p in base.iterdir()
+                if (p / "src").is_dir() and not (p / ".no-shared-sync").exists()
+            ))
     return out
 
 
