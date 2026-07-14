@@ -5,8 +5,10 @@ import com.origin.client.mods.ModOption;
 import com.origin.client.mods.Mods;
 import com.origin.client.theme.OriginTheme;
 import com.origin.client.util.Gl;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.FontRenderer;
 import net.minecraft.client.gui.GuiScreen;
+import net.minecraft.client.gui.ScaledResolution;
 import net.minecraft.client.renderer.GlStateManager;
 import org.lwjgl.input.Keyboard;
 import org.lwjgl.input.Mouse;
@@ -52,6 +54,7 @@ public class OriginModMenuScreen extends GuiScreen {
 
     // ---- Cursor halo (lerps toward mouse; starts on first frame's mouse) ----
     private double haloX = Double.NaN, haloY = Double.NaN;
+    private long haloLastMs = System.currentTimeMillis();
 
     // ---- Interaction captures ----
     private String dragKey;          // option key of the slider being dragged
@@ -137,6 +140,26 @@ public class OriginModMenuScreen extends GuiScreen {
     // GuiScreen lifecycle
     // ------------------------------------------------------------------
 
+    /**
+     * The menu renders at a FIXED effective scale of 2 physical pixels per
+     * unit, independent of the game's GUI-scale setting. At GUI scale 4/5
+     * (Auto on big monitors) the panel otherwise turns into three chunky
+     * cards — the "bad quality" report. Overriding the screen's logical size
+     * to displaySize/2 makes vanilla's own mouse mapping deliver coordinates
+     * in our units; drawScreen adds the matching GL scale so a unit is
+     * exactly 2 physical px everywhere, at every window size.
+     */
+    @Override
+    public void setWorldAndResolution(Minecraft mcIn, int w, int h) {
+        super.setWorldAndResolution(mcIn, Math.max(320, mcIn.displayWidth / 2), Math.max(240, mcIn.displayHeight / 2));
+    }
+
+    /** GL scale from our fixed-eff-2 units to the game's GUI-unit ortho. */
+    private float uiToGui() {
+        int sf = new ScaledResolution(mc).getScaleFactor();
+        return 2f / sf;
+    }
+
     @Override
     public void initGui() {
         openTime = System.currentTimeMillis();
@@ -162,7 +185,18 @@ public class OriginModMenuScreen extends GuiScreen {
     @Override
     public void drawScreen(int mouseX, int mouseY, float partialTicks) {
         try {
-            drawInner(mouseX, mouseY);
+            // Everything below happens in fixed-eff-2 units (see
+            // setWorldAndResolution); one scale maps them onto the GUI ortho.
+            // NOTE the asymmetry in vanilla: click events arrive in screen-
+            // field units (already ours), but drawScreen's mouse args come in
+            // GUI units from EntityRenderer — convert them here.
+            float s = uiToGui();
+            int mx = (int) Math.round(mouseX / s);
+            int my = (int) Math.round(mouseY / s);
+            GlStateManager.pushMatrix();
+            GlStateManager.scale(s, s, 1f);
+            drawInner(mx, my);
+            GlStateManager.popMatrix();
         } catch (Throwable t) {
             fail(t);
         }
@@ -181,10 +215,15 @@ public class OriginModMenuScreen extends GuiScreen {
             p = OriginTheme.easeOut((now - openTime) / OPEN_MS);
         }
 
-        // Halo trails the cursor with a constant lerp — snaps on first frame.
+        // Halo trails the cursor, dt-normalized so it feels the same at any
+        // frame rate. 0.45/frame @60fps — tight to the cursor with a hint of
+        // drift; the website's 0.12 read as laggy in-game.
         if (Double.isNaN(haloX)) { haloX = mouseX; haloY = mouseY; }
-        haloX += (mouseX - haloX) * OriginTheme.HALO_LERP_FACTOR;
-        haloY += (mouseY - haloY) * OriginTheme.HALO_LERP_FACTOR;
+        double haloDt = Math.min(100, now - haloLastMs);
+        haloLastMs = now;
+        double haloF = 1.0 - Math.pow(1.0 - 0.45, haloDt / 16.7);
+        haloX += (mouseX - haloX) * haloF;
+        haloY += (mouseY - haloY) * haloF;
 
         boolean backed = Mods.panelBacking();
 
@@ -262,6 +301,15 @@ public class OriginModMenuScreen extends GuiScreen {
                        hudHover ? OriginTheme.STROKE_HOVER : OriginTheme.STROKE);
         OriginUi.label(hudLabel, hudX + hudW / 2.0, py + 19,
                        hudHover ? OriginTheme.TEXT : OriginTheme.TEXT_DIM);
+
+        String shLabel = "Shaders";
+        double shW = font().getStringWidth(shLabel) + 16;
+        double shX = hudX - 8 - shW;
+        boolean shHover = in(mouseX, mouseY, shX, py + 10, shW, 20);
+        OriginUi.panel(shX, py + 10, shW, 20, 6, OriginUi.chipFill(shHover, backed),
+                       shHover ? OriginTheme.STROKE_HOVER : OriginTheme.STROKE);
+        OriginUi.label(shLabel, shX + shW / 2.0, py + 19,
+                       shHover ? OriginTheme.TEXT : OriginTheme.TEXT_DIM);
     }
 
     // ---- Search box (shared visual for both pages) ----
@@ -323,9 +371,9 @@ public class OriginModMenuScreen extends GuiScreen {
 
         List<Mods.Def> defs = filteredMods();
         scrollTarget = Math.max(0, Math.min(scrollTarget, gridMaxScroll(defs.size())));
-        scroll += (scrollTarget - scroll) * 0.3;
+        scroll += (scrollTarget - scroll) * 0.45;
 
-        Gl.enableScissor((int) px, (int) gridTop(), (int) (px + pw), (int) gridBottom());
+        Gl.enableScissorScaled((int) px, (int) gridTop(), (int) (px + pw), (int) gridBottom(), 2);
         int cols = gridCols();
         double cellW = gridCellW();
         boolean mouseInGrid = in(mouseX, mouseY, px, gridTop(), pw, gridBottom() - gridTop());
@@ -429,11 +477,11 @@ public class OriginModMenuScreen extends GuiScreen {
         drawSearchBox(searchX(), py + 74, searchW(), optSearch, optSearchFocused, "Search options", backed);
 
         optScrollTarget = Math.max(0, Math.min(optScrollTarget, optionsMaxScroll(id)));
-        optScroll += (optScrollTarget - optScroll) * 0.3;
+        optScroll += (optScrollTarget - optScroll) * 0.45;
 
         boolean searching = !optSearch.trim().isEmpty();
         boolean mouseInRows = in(mouseX, mouseY, px, rowsTop(), pw, gridBottom() - rowsTop());
-        Gl.enableScissor((int) px, (int) rowsTop(), (int) (px + pw), (int) gridBottom());
+        Gl.enableScissorScaled((int) px, (int) rowsTop(), (int) (px + pw), (int) gridBottom(), 2);
         double y = rowsTop() + 4 - optScroll;
         for (ModOption o : visibleOptions(id)) {
             if (o.kind == ModOption.Kind.HEADER && !searching) {
@@ -555,8 +603,14 @@ public class OriginModMenuScreen extends GuiScreen {
             return;
         }
         double hudW = font().getStringWidth("HUD Editor") + 16;
-        if (in(mouseX, mouseY, togX - 8 - hudW, py + 10, hudW, 20)) {
+        double hudX = togX - 8 - hudW;
+        if (in(mouseX, mouseY, hudX, py + 10, hudW, 20)) {
             mc.displayGuiScreen(new HudEditorScreen(false));
+            return;
+        }
+        double shW = font().getStringWidth("Shaders") + 16;
+        if (in(mouseX, mouseY, hudX - 8 - shW, py + 10, shW, 20)) {
+            mc.displayGuiScreen(new OriginShaderBrowserScreen(this));
             return;
         }
 

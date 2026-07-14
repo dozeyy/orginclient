@@ -37,7 +37,6 @@ public final class Features {
     // ---- Zoom ----
     private boolean zooming = false;
     private float fovBefore, sensBefore;
-    private boolean smoothBefore;
     private boolean zoomKeyWas = false;
 
     // ---- Fullbright ----
@@ -49,7 +48,6 @@ public final class Features {
         if (event.phase != TickEvent.Phase.END || mc.theWorld == null) return;
         tickZoom();
         tickFullbright();
-        tickTimeChanger();
         tickWeather();
     }
 
@@ -67,21 +65,30 @@ public final class Features {
         if (wantZoom && !zoomApplied) {
             fovBefore = mc.gameSettings.fovSetting;
             sensBefore = mc.gameSettings.mouseSensitivity;
-            smoothBefore = mc.gameSettings.smoothCamera;
             mc.gameSettings.fovSetting = (float) Mods.num("zoom", "fov");
             mc.gameSettings.mouseSensitivity = sensBefore * 0.5f;
-            if (Mods.bool("zoom", "smoothZoom")) mc.gameSettings.smoothCamera = true;
             zoomApplied = true;
-        } else if (!wantZoom && zoomApplied) {
+        }
+        if (zoomApplied) {
+            // Tracked live so flipping the option mid-zoom takes effect, and
+            // ALWAYS cleared on release — smooth camera is zoom-owned state.
+            // Restoring a captured "before" value could permanently latch
+            // cinematic camera into options.txt after a crash mid-zoom (the
+            // "smooth zoom can't be turned off" report).
+            mc.gameSettings.smoothCamera = wantZoom && Mods.bool("zoom", "smoothZoom");
+        }
+        if (!wantZoom && zoomApplied) {
             mc.gameSettings.fovSetting = fovBefore;
             mc.gameSettings.mouseSensitivity = sensBefore;
-            mc.gameSettings.smoothCamera = smoothBefore;
+            mc.gameSettings.smoothCamera = false;
             zoomApplied = false;
             zooming = false;
         }
     }
 
     private boolean zoomApplied = false;
+
+    private boolean nightVisionApplied = false;
 
     private void tickFullbright() {
         if (Mods.isOn("fullbright")) {
@@ -90,23 +97,57 @@ public final class Features {
                 gammaBoosted = true;
             }
             mc.gameSettings.gammaSetting = (float) Mods.num("fullbright", "gamma");
-        } else if (gammaBoosted) {
-            // Restore to at most vanilla max — a crash while boosted may have
-            // persisted a huge value into options.txt, so never restore >1.
-            mc.gameSettings.gammaSetting = Math.min(1.0f, gammaBefore);
-            gammaBoosted = false;
+            // Gamma is ignored by OptiFine shader packs (they compute their
+            // own lighting) — a client-side Night Vision effect is the one
+            // signal shaders universally honor, so fullbright works with and
+            // without shaders. Refreshed before it can expire; never touches
+            // a longer server-given effect.
+            net.minecraft.potion.PotionEffect existing = mc.thePlayer != null
+                ? mc.thePlayer.getActivePotionEffect(net.minecraft.potion.Potion.nightVision) : null;
+            if (mc.thePlayer != null && (existing == null || (nightVisionApplied && existing.getDuration() < 250))) {
+                mc.thePlayer.addPotionEffect(new net.minecraft.potion.PotionEffect(
+                    net.minecraft.potion.Potion.nightVision.id, 620, 0, true, false));
+                nightVisionApplied = true;
+            }
+        } else {
+            if (gammaBoosted) {
+                // Restore to at most vanilla max — a crash while boosted may
+                // have persisted a huge value into options.txt.
+                mc.gameSettings.gammaSetting = Math.min(1.0f, gammaBefore);
+                gammaBoosted = false;
+            }
+            if (nightVisionApplied && mc.thePlayer != null) {
+                mc.thePlayer.removePotionEffect(net.minecraft.potion.Potion.nightVision.id);
+                nightVisionApplied = false;
+            }
         }
     }
 
-    private void tickTimeChanger() {
-        if (!Mods.isOn("timechanger")) return;
+    // Time is pinned on the RENDER tick, not the client tick: the integrated
+    // server sends a time-update packet every second, and applying our time
+    // only once per tick let occasional frames render the server's time — the
+    // "blinks to day randomly" report. Pinning immediately before every frame
+    // means the packet's value can never reach the renderer.
+    @SubscribeEvent
+    public void onRenderTick(TickEvent.RenderTickEvent event) {
+        if (event.phase != TickEvent.Phase.START) return;
+        if (!Mods.isOn("timechanger")) { timePassageApplied = Long.MIN_VALUE; return; }
         WorldClient world = mc.theWorld;
         if (world == null) return;
-        long target = (long) Mods.num("timechanger", "time");
-        if (Mods.bool("timechanger", "timePassage"))
-            target += world.getTotalWorldTime() % 24000;
-        world.setWorldTime(target % 24000);
+        long target = (((long) Mods.num("timechanger", "time")) % 24000 + 24000) % 24000;
+        if (Mods.bool("timechanger", "timePassage")) {
+            // Jump to the chosen time once, then let it run naturally.
+            if (timePassageApplied != target) {
+                world.setWorldTime(target);
+                timePassageApplied = target;
+            }
+        } else {
+            timePassageApplied = Long.MIN_VALUE;
+            world.setWorldTime(target);
+        }
     }
+
+    private long timePassageApplied = Long.MIN_VALUE;
 
     private void tickWeather() {
         if (!Mods.isOn("weather")) return;
@@ -169,25 +210,46 @@ public final class Features {
         }
     }
 
+    // World-space lines go through the Tessellator with POSITION_COLOR —
+    // exactly the path vanilla's own selection box / F3+B hitboxes use.
+    // Raw glBegin/glVertex drawing (the first implementation) renders black
+    // or vanishes at certain angles under OptiFine shader programs, because
+    // the active gbuffer shader reads per-vertex attributes immediate mode
+    // never supplies. Per-vertex color rides the vertex format, so shaders
+    // handle it the same way they handle vanilla's boxes.
     private void setupLines(float width) {
         GlStateManager.pushMatrix();
         GlStateManager.disableTexture2D();
         GlStateManager.enableBlend();
         GlStateManager.tryBlendFuncSeparate(770, 771, 1, 0);
         GlStateManager.disableLighting();
+        GlStateManager.disableAlpha();
         GL11.glLineWidth(width);
     }
 
     private void teardownLines() {
         GL11.glLineWidth(1f);
+        GlStateManager.enableAlpha();
         GlStateManager.enableTexture2D();
         GlStateManager.popMatrix();
         GlStateManager.color(1f, 1f, 1f, 1f);
     }
 
-    private static void colorOf(int argb) {
-        GlStateManager.color((argb >>> 16 & 0xFF) / 255f, (argb >>> 8 & 0xFF) / 255f,
-                             (argb & 0xFF) / 255f, (argb >>> 24 & 0xFF) / 255f);
+    private net.minecraft.client.renderer.WorldRenderer lineR = null;
+    private float lineRed, lineGreen, lineBlue, lineAlpha;
+
+    private void beginLines(int argb) {
+        lineRed = (argb >>> 16 & 0xFF) / 255f;
+        lineGreen = (argb >>> 8 & 0xFF) / 255f;
+        lineBlue = (argb & 0xFF) / 255f;
+        lineAlpha = (argb >>> 24 & 0xFF) / 255f;
+        lineR = net.minecraft.client.renderer.Tessellator.getInstance().getWorldRenderer();
+        lineR.begin(GL11.GL_LINES, net.minecraft.client.renderer.vertex.DefaultVertexFormats.POSITION_COLOR);
+    }
+
+    private void endLines() {
+        net.minecraft.client.renderer.Tessellator.getInstance().draw();
+        lineR = null;
     }
 
     private double camX(float pt) { Entity e = mc.getRenderViewEntity(); return e.lastTickPosX + (e.posX - e.lastTickPosX) * pt; }
@@ -200,8 +262,8 @@ public final class Features {
         double maxDist = Mods.num("hitboxes", "maxDistance");
         int color = Mods.liveColor("hitboxes", "lineColor");
         setupLines((float) Mods.num("hitboxes", "lineWidth"));
-        colorOf(color);
         double cx = camX(pt), cy = camY(pt), cz = camZ(pt);
+        beginLines(color);
         for (Entity e : mc.theWorld.loadedEntityList) {
             if (e == view || e == mc.thePlayer) continue;
             if (view.getDistanceToEntity(e) > maxDist) continue;
@@ -213,6 +275,7 @@ public final class Features {
                 .offset(-cx, -cy, -cz);
             drawBoxOutline(bb);
         }
+        endLines();
         teardownLines();
     }
 
@@ -222,54 +285,62 @@ public final class Features {
         int chunkX = (int) Math.floor(view.posX / 16.0) * 16;
         int chunkZ = (int) Math.floor(view.posZ / 16.0) * 16;
         setupLines((float) Mods.num("chunkborders", "thickness"));
-        colorOf(Mods.liveColor("chunkborders", "color"));
         double cx = camX(pt), cy = camY(pt), cz = camZ(pt);
-        GlStateManager.translate(-cx, -cy, -cz);
-        // Corner verticals of the current chunk.
-        for (int dx = 0; dx <= 16; dx += 16) {
-            for (int dz = 0; dz <= 16; dz += 16) {
-                line(chunkX + dx, 0, chunkZ + dz, chunkX + dx, 256, chunkZ + dz);
-            }
+        beginLines(Mods.liveColor("chunkborders", "color"));
+        // Vertical edges every 4 blocks along the current chunk's boundary
+        // (vanilla F3+G's density), full world height.
+        for (int d = 0; d <= 16; d += 4) {
+            vline(chunkX + d, chunkZ, cx, cy, cz);
+            vline(chunkX + d, chunkZ + 16, cx, cy, cz);
+            vline(chunkX, chunkZ + d, cx, cy, cz);
+            vline(chunkX + 16, chunkZ + d, cx, cy, cz);
         }
         if (Mods.bool("chunkborders", "grid")) {
-            // Horizontal rings every 16 blocks of height near the player.
-            int py = (int) Math.floor(view.posY / 16.0) * 16;
-            for (int y = Math.max(0, py - 32); y <= Math.min(256, py + 32); y += 16) {
-                line(chunkX, y, chunkZ, chunkX + 16, y, chunkZ);
-                line(chunkX + 16, y, chunkZ, chunkX + 16, y, chunkZ + 16);
-                line(chunkX + 16, y, chunkZ + 16, chunkX, y, chunkZ + 16);
-                line(chunkX, y, chunkZ + 16, chunkX, y, chunkZ);
+            // Horizontal rings every 8 blocks of height near the player.
+            int py = (int) Math.floor(view.posY / 8.0) * 8;
+            for (int y = Math.max(0, py - 40); y <= Math.min(256, py + 40); y += 8) {
+                line(chunkX, y, chunkZ, chunkX + 16, y, chunkZ, cx, cy, cz);
+                line(chunkX + 16, y, chunkZ, chunkX + 16, y, chunkZ + 16, cx, cy, cz);
+                line(chunkX + 16, y, chunkZ + 16, chunkX, y, chunkZ + 16, cx, cy, cz);
+                line(chunkX, y, chunkZ + 16, chunkX, y, chunkZ, cx, cy, cz);
             }
         }
-        GlStateManager.translate(cx, cy, cz);
+        endLines();
         teardownLines();
     }
 
-    private void line(double x0, double y0, double z0, double x1, double y1, double z1) {
-        GL11.glBegin(GL11.GL_LINES);
-        GL11.glVertex3d(x0, y0, z0);
-        GL11.glVertex3d(x1, y1, z1);
-        GL11.glEnd();
+    private void vline(double x, double z, double cx, double cy, double cz) {
+        line(x, 0, z, x, 256, z, cx, cy, cz);
     }
 
+    private void line(double x0, double y0, double z0, double x1, double y1, double z1,
+                      double cx, double cy, double cz) {
+        lineR.pos(x0 - cx, y0 - cy, z0 - cz).color(lineRed, lineGreen, lineBlue, lineAlpha).endVertex();
+        lineR.pos(x1 - cx, y1 - cy, z1 - cz).color(lineRed, lineGreen, lineBlue, lineAlpha).endVertex();
+    }
+
+    private void seg(double x0, double y0, double z0, double x1, double y1, double z1) {
+        lineR.pos(x0, y0, z0).color(lineRed, lineGreen, lineBlue, lineAlpha).endVertex();
+        lineR.pos(x1, y1, z1).color(lineRed, lineGreen, lineBlue, lineAlpha).endVertex();
+    }
+
+    /** 12 edges of an already-camera-relative box into the open line batch. */
     private void drawBoxOutline(AxisAlignedBB bb) {
-        GL11.glBegin(GL11.GL_LINES);
         // bottom
-        GL11.glVertex3d(bb.minX, bb.minY, bb.minZ); GL11.glVertex3d(bb.maxX, bb.minY, bb.minZ);
-        GL11.glVertex3d(bb.maxX, bb.minY, bb.minZ); GL11.glVertex3d(bb.maxX, bb.minY, bb.maxZ);
-        GL11.glVertex3d(bb.maxX, bb.minY, bb.maxZ); GL11.glVertex3d(bb.minX, bb.minY, bb.maxZ);
-        GL11.glVertex3d(bb.minX, bb.minY, bb.maxZ); GL11.glVertex3d(bb.minX, bb.minY, bb.minZ);
+        seg(bb.minX, bb.minY, bb.minZ, bb.maxX, bb.minY, bb.minZ);
+        seg(bb.maxX, bb.minY, bb.minZ, bb.maxX, bb.minY, bb.maxZ);
+        seg(bb.maxX, bb.minY, bb.maxZ, bb.minX, bb.minY, bb.maxZ);
+        seg(bb.minX, bb.minY, bb.maxZ, bb.minX, bb.minY, bb.minZ);
         // top
-        GL11.glVertex3d(bb.minX, bb.maxY, bb.minZ); GL11.glVertex3d(bb.maxX, bb.maxY, bb.minZ);
-        GL11.glVertex3d(bb.maxX, bb.maxY, bb.minZ); GL11.glVertex3d(bb.maxX, bb.maxY, bb.maxZ);
-        GL11.glVertex3d(bb.maxX, bb.maxY, bb.maxZ); GL11.glVertex3d(bb.minX, bb.maxY, bb.maxZ);
-        GL11.glVertex3d(bb.minX, bb.maxY, bb.maxZ); GL11.glVertex3d(bb.minX, bb.maxY, bb.minZ);
+        seg(bb.minX, bb.maxY, bb.minZ, bb.maxX, bb.maxY, bb.minZ);
+        seg(bb.maxX, bb.maxY, bb.minZ, bb.maxX, bb.maxY, bb.maxZ);
+        seg(bb.maxX, bb.maxY, bb.maxZ, bb.minX, bb.maxY, bb.maxZ);
+        seg(bb.minX, bb.maxY, bb.maxZ, bb.minX, bb.maxY, bb.minZ);
         // pillars
-        GL11.glVertex3d(bb.minX, bb.minY, bb.minZ); GL11.glVertex3d(bb.minX, bb.maxY, bb.minZ);
-        GL11.glVertex3d(bb.maxX, bb.minY, bb.minZ); GL11.glVertex3d(bb.maxX, bb.maxY, bb.minZ);
-        GL11.glVertex3d(bb.maxX, bb.minY, bb.maxZ); GL11.glVertex3d(bb.maxX, bb.maxY, bb.maxZ);
-        GL11.glVertex3d(bb.minX, bb.minY, bb.maxZ); GL11.glVertex3d(bb.minX, bb.maxY, bb.maxZ);
-        GL11.glEnd();
+        seg(bb.minX, bb.minY, bb.minZ, bb.minX, bb.maxY, bb.minZ);
+        seg(bb.maxX, bb.minY, bb.minZ, bb.maxX, bb.maxY, bb.minZ);
+        seg(bb.maxX, bb.minY, bb.maxZ, bb.maxX, bb.maxY, bb.maxZ);
+        seg(bb.minX, bb.minY, bb.maxZ, bb.minX, bb.maxY, bb.maxZ);
     }
 
     @SubscribeEvent
@@ -288,17 +359,22 @@ public final class Features {
                 .offset(-camX(pt), -camY(pt), -camZ(pt));
             setupLines((float) Mods.num("blockoverlay", "thickness"));
             GlStateManager.depthMask(false);
-            colorOf(Mods.liveColor("blockoverlay", "color"));
+            beginLines(Mods.liveColor("blockoverlay", "color"));
             drawBoxOutline(bb);
+            endLines();
             if (Mods.bool("blockoverlay", "overlay")) {
-                colorOf(Mods.liveColor("blockoverlay", "overlayColor"));
-                GL11.glBegin(GL11.GL_QUADS);
-                // Top face fill only — subtle, like the modern default.
-                GL11.glVertex3d(bb.minX, bb.maxY, bb.minZ);
-                GL11.glVertex3d(bb.maxX, bb.maxY, bb.minZ);
-                GL11.glVertex3d(bb.maxX, bb.maxY, bb.maxZ);
-                GL11.glVertex3d(bb.minX, bb.maxY, bb.maxZ);
-                GL11.glEnd();
+                // Face fill rides the same POSITION_COLOR path as the lines.
+                int oc = Mods.liveColor("blockoverlay", "overlayColor");
+                float r = (oc >>> 16 & 0xFF) / 255f, g = (oc >>> 8 & 0xFF) / 255f;
+                float b = (oc & 0xFF) / 255f, a = (oc >>> 24 & 0xFF) / 255f;
+                net.minecraft.client.renderer.Tessellator tess = net.minecraft.client.renderer.Tessellator.getInstance();
+                net.minecraft.client.renderer.WorldRenderer wr = tess.getWorldRenderer();
+                wr.begin(GL11.GL_QUADS, net.minecraft.client.renderer.vertex.DefaultVertexFormats.POSITION_COLOR);
+                wr.pos(bb.minX, bb.maxY, bb.minZ).color(r, g, b, a).endVertex();
+                wr.pos(bb.maxX, bb.maxY, bb.minZ).color(r, g, b, a).endVertex();
+                wr.pos(bb.maxX, bb.maxY, bb.maxZ).color(r, g, b, a).endVertex();
+                wr.pos(bb.minX, bb.maxY, bb.maxZ).color(r, g, b, a).endVertex();
+                tess.draw();
             }
             GlStateManager.depthMask(true);
             teardownLines();

@@ -111,11 +111,19 @@ public final class Gl {
 
     public static void enableScissor(int x0, int y0, int x1, int y1) {
         ScaledResolution sr = new ScaledResolution(mc());
-        int scale = sr.getScaleFactor();
-        int px = x0 * scale;
-        int py = mc().displayHeight - y1 * scale;
-        int pw = Math.max(0, (x1 - x0) * scale);
-        int ph = Math.max(0, (y1 - y0) * scale);
+        enableScissorScaled(x0, y0, x1, y1, sr.getScaleFactor());
+    }
+
+    /**
+     * Scissor for screens that draw in a non-GUI unit space (the Origin menus
+     * render at a fixed effective scale of 2 physical px per unit, independent
+     * of the game's GUI-scale setting — see OriginModMenuScreen).
+     */
+    public static void enableScissorScaled(int x0, int y0, int x1, int y1, double pixelsPerUnit) {
+        int px = (int) Math.floor(x0 * pixelsPerUnit);
+        int py = (int) Math.floor(mc().displayHeight - y1 * pixelsPerUnit);
+        int pw = Math.max(0, (int) Math.ceil((x1 - x0) * pixelsPerUnit));
+        int ph = Math.max(0, (int) Math.ceil((y1 - y0) * pixelsPerUnit));
         GL11.glEnable(GL11.GL_SCISSOR_TEST);
         GL11.glScissor(px, py, pw, ph);
     }

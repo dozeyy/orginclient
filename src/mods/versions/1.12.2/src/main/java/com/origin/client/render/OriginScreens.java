@@ -63,13 +63,27 @@ public final class OriginScreens {
         buttons.put(event.getGui(), event.getButtonList());
         if (event.getGui() instanceof GuiMainMenu && originStyleActive()) {
             String modsLabel = I18n.format("fml.menu.mods");
+            GuiButton realms = null;
+            int fullX = Integer.MAX_VALUE, fullRight = 0;
             for (GuiButton b : event.getButtonList()) {
                 // The language icon button and Forge's "Mods" list don't exist
                 // on Origin's title screen (Origin has its own mods surface).
                 if (b instanceof GuiButtonLanguage || modsLabel.equals(b.displayString)) {
                     b.visible = false;
                     b.enabled = false;
+                    continue;
                 }
+                if (b.id == 14) realms = b; // vanilla Realms button (1.8.9/1.12.2)
+                if (b.visible && b.id != 14) {
+                    fullX = Math.min(fullX, b.x);
+                    fullRight = Math.max(fullRight, b.x + b.width);
+                }
+            }
+            // Hiding its row-mates leaves Realms half-width with a hole beside
+            // it — stretch it across the full column so the rows stay even.
+            if (realms != null && fullRight > fullX) {
+                realms.x = fullX;
+                realms.width = fullRight - fullX;
             }
         }
     }

@@ -322,13 +322,15 @@ public final class OriginScreenRenderer {
             lastGlowNanos = nowN;
 
             double target = hoveringWidget ? 1 : 0;
-            double step = dtMs / 250.0;
+            double step = dtMs / 140.0;
             glowHover += (target - glowHover) * Math.min(1.0, step * 4.0);
             glowHover = OriginTheme.clamp01(glowHover);
             double hv = OriginTheme.easeOut(glowHover);
 
             if (haloX < 0) { haloX = mouseX; haloY = mouseY; }
-            double f = 1.0 - Math.pow(1.0 - 0.38, dtMs / 16.7);
+            // 0.55/frame @60fps: the halo reads as attached to the cursor with
+            // a hint of drift — the original 0.38 felt laggy in play-testing.
+            double f = 1.0 - Math.pow(1.0 - 0.55, dtMs / 16.7);
             haloX += (mouseX - haloX) * f;
             haloY += (mouseY - haloY) * f;
 

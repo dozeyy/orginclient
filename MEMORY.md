@@ -3372,3 +3372,42 @@ Sildur's Vibrant on both; Will hand-tested live during verification).
   1.8.9 boot-test games were repeatedly closed mid-test — turned out to be Will
   playing them, not a defect (differential test vs no-origin proved the mod
   innocent first).
+
+## 2026-07-14 — Legacy fix round from Will's first play-test (all verified in-game with shaders)
+Will's report: menus sluggish/chunky, cursor glow slow, grid inconsistent across
+window sizes, HUD drag choppy + escapes screen, chunk borders/hitboxes/block
+overlay black or angle-dependent, time changer blinking, fullbright dead under
+shaders, smooth-zoom stuck on, main-menu hole next to Realms, shaders button
+missing. Root causes + fixes, all screenshot-verified through the launcher:
+- **Menu "bad quality" = GUI-scale Auto (4-5 on 1440p).** Origin menus now render
+  at a FIXED effective scale (2 physical px/unit): setWorldAndResolution
+  override (displaySize/2) makes vanilla's own mouse mapping deliver our units;
+  drawScreen wraps in scale(2/sf). GOTCHA: vanilla's asymmetry — click events
+  arrive in screen-field units, but drawScreen's mouse args come in GUI units
+  from EntityRenderer and must be converted. Result: crisp 7-column grid at
+  fullscreen, identical proportions at every window size + GUI scale.
+- **World lines black/angle-dependent under OptiFine shaders**: raw
+  glBegin/glVertex supplies no vertex attributes for the active gbuffer
+  program. Rewrote hitboxes/chunk borders/block overlay to Tessellator
+  POSITION_COLOR batches (vanilla's own box path) — works under shaders.
+- **Time blink**: server sends time packets every second; pinning on client
+  tick let some frames render server time. Pin on RenderTickEvent.START
+  (timePassage=set-once-then-drift).
+- **Fullbright under shaders**: gamma is ignored by shader packs; add
+  client-side ambient Night Vision (refreshed, removed on disable) — the one
+  signal every pack honors.
+- **Smooth zoom stuck**: restoring a captured smoothCamera could latch
+  cinematic camera into options.txt after crash-mid-zoom. Now zoom OWNS the
+  flag: live-tracked during zoom, always false on release.
+- **HUD drag choppy**: eager-save wrote JSON to disk per mouse-move. Now an
+  in-memory HudPos override (HudElements.overrideId/overridePos), ONE save on
+  release; drag clamped fully on-screen, resize shrinks-to-fit.
+- **Realms hole**: hiding language/Forge-Mods left gaps; Realms now stretches
+  across the full button column at init.
+- **Shader browser added** (mod menu → Shaders chip): 6 curated Modrinth-pinned
+  Sildur's packs (legacy-compatible), async download to shaderpacks/ (verified
+  live in-game: exact pinned bytes), Open Folder + OptiFine Shader Options
+  chips. Same fixed-eff-2 rendering.
+- Boot-test note: the launcher pipeline re-installs the BUNDLED jar over
+  mods/originclient.jar every launch — hand-copying a jar into the instance is
+  useless; refresh the harness's Bundled/ copy instead.

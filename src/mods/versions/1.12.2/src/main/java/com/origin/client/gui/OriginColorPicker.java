@@ -6,7 +6,6 @@ import com.origin.client.theme.OriginTheme;
 import com.origin.client.util.Gl;
 import com.google.gson.JsonObject;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.ScaledResolution;
 import org.lwjgl.input.Keyboard;
 
 import java.awt.Color;
@@ -95,10 +94,15 @@ public final class OriginColorPicker {
 
     private void write() { Mods.setColor(modId, key, currentArgb()); }
 
+    // The host mod menu draws in fixed-eff-2 units (displaySize/2), not GUI
+    // units — the picker lives inside that space, so it must center with the
+    // same math or it lands off-screen at GUI scales other than 2.
+    private static double hostW() { return Math.max(320, Minecraft.getMinecraft().displayWidth / 2.0); }
+    private static double hostH() { return Math.max(240, Minecraft.getMinecraft().displayHeight / 2.0); }
+
     private void layout() {
-        ScaledResolution sr = new ScaledResolution(Minecraft.getMinecraft());
-        x = (sr.getScaledWidth() - PANEL_W) / 2.0;
-        y = (sr.getScaledHeight() - PANEL_H) / 2.0;
+        x = (hostW() - PANEL_W) / 2.0;
+        y = (hostH() - PANEL_H) / 2.0;
     }
 
     private static boolean in(double mx, double my, double x, double y, double w, double h) {
@@ -119,8 +123,7 @@ public final class OriginColorPicker {
 
     private void drawInner(int mouseX, int mouseY) {
         layout();
-        ScaledResolution sr = new ScaledResolution(Minecraft.getMinecraft());
-        Gl.fill(0, 0, sr.getScaledWidth(), sr.getScaledHeight(), 0x66000000);
+        Gl.fill(0, 0, hostW(), hostH(), 0x66000000);
         OriginUi.panel(x, y, PANEL_W, PANEL_H, 12, 0xF2101010, OriginTheme.STROKE_STRONG);
 
         // SV field: white -> pure hue left-to-right, then a transparent ->

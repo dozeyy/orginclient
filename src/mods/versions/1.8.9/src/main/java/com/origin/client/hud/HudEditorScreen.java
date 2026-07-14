@@ -7,6 +7,7 @@ import com.origin.client.util.Gl;
 import com.origin.client.theme.OriginTheme;
 import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.client.gui.ScaledResolution;
+import net.minecraft.client.renderer.GlStateManager;
 import org.lwjgl.input.Keyboard;
 import org.lwjgl.input.Mouse;
 
@@ -25,9 +26,9 @@ import java.util.Map;
  * wordmark and a MODS button in the lower third so the editor doubles as the
  * in-game menu front door.
  *
- * Moves/scales write through HudPos.save() as they happen — that is the
- * config's stated eager-save policy, and it is what makes the element track
- * the mouse (HudElements re-reads pos from config every frame).
+ * Drags/resizes mutate an in-memory HudPos published through
+ * HudElements.overridePos and persist ONCE on release — a disk write per
+ * mouse-move (the old eager-save path) made dragging visibly choppy.
  */
 public class HudEditorScreen extends GuiScreen {
 
@@ -42,6 +43,9 @@ public class HudEditorScreen extends GuiScreen {
     private HudElements.Element resizing;
     private double grabScale, grabDist;
     private boolean resizeEngaged;            // 3px deadzone before scaling starts
+
+    // The live in-memory pos for the active drag/resize (see class comment).
+    private HudPos livePos;
 
     private HudElements.Element selected;
 
@@ -68,6 +72,22 @@ public class HudEditorScreen extends GuiScreen {
     @Override
     public void onGuiClosed() {
         HudElements.editorOpen = false;
+        commitLive();
+    }
+
+    /** Persist and clear the live drag override (idempotent). */
+    private void commitLive() {
+        HudElements.Element active = dragging != null ? dragging : resizing;
+        if (livePos != null && active != null) livePos.save(active.id);
+        livePos = null;
+        HudElements.overrideId = null;
+        HudElements.overridePos = null;
+    }
+
+    private void beginLive(HudElements.Element e) {
+        livePos = e.pos();
+        HudElements.overrideId = e.id;
+        HudElements.overridePos = livePos;
     }
 
     @Override
@@ -149,7 +169,8 @@ public class HudEditorScreen extends GuiScreen {
             Gl.fill(o[0], o[1] + 1, o[0] + 1, o[1] + o[3] - 1, line);
             Gl.fill(o[0] + o[2] - 1, o[1] + 1, o[0] + o[2], o[1] + o[3] - 1, line);
 
-            double[] hc = handleCenter(e.pos(), o);
+            HudPos hp = livePos != null && (e == dragging || e == resizing) ? livePos : e.pos();
+            double[] hc = handleCenter(hp, o);
             Gl.fill(hc[0] - 2.5, hc[1] - 2.5, hc[0] + 2.5, hc[1] + 2.5, line);
         }
 
@@ -164,20 +185,34 @@ public class HudEditorScreen extends GuiScreen {
         if (quick) drawQuickHeader(mouseX, mouseY);
     }
 
-    private double quickBtnY() { return height - height / 4; }
+    // The quick-header chrome renders in fixed-eff-2 units (2 physical px per
+    // unit) like the mod menu, so it stays crisp and identically sized at any
+    // GUI scale — the HUD elements themselves stay in native GUI units
+    // because that's the space they live in in-game.
+    private double quickScale() { return 2.0 / new ScaledResolution(mc).getScaleFactor(); }
+    private double quickW() { return Math.max(320, mc.displayWidth / 2.0); }
+    private double quickH() { return Math.max(240, mc.displayHeight / 2.0); }
+    private double quickBtnY() { return quickH() - quickH() / 4; }
+
+    /** Mouse (native GUI units) -> quick-chrome eff-2 units. */
+    private double toQuick(int guiCoord) { return guiCoord / quickScale(); }
 
     private void drawQuickHeader(int mouseX, int mouseY) {
-        double cx = width / 2.0;
+        double cx = quickW() / 2.0;
         double btnY = quickBtnY();
+        double qmx = toQuick(mouseX), qmy = toQuick(mouseY);
+        GlStateManager.pushMatrix();
+        GlStateManager.scale((float) quickScale(), (float) quickScale(), 1f);
         OriginUi.glow(cx, btnY - 76, 104, 0.16);
         OriginUi.logo(cx, btnY - 76, 46, 1.0);
         OriginScreenRenderer.drawWordmark(cx, btnY - 44, 13, 1f);
 
-        boolean hover = in(mouseX, mouseY, cx - 66, btnY, 132, 28);
+        boolean hover = in(qmx, qmy, cx - 66, btnY, 132, 28);
         OriginUi.panel(cx - 66, btnY, 132, 28, 9,
                        hover ? 0xE6181818 : 0xD0101010,
                        hover ? OriginTheme.STROKE_HOVER : OriginTheme.STROKE_STRONG);
         OriginUi.label("MODS", cx, btnY + 14, OriginTheme.TEXT);
+        GlStateManager.popMatrix();
     }
 
     // ------------------------------------------------------------------
@@ -201,7 +236,7 @@ public class HudEditorScreen extends GuiScreen {
             if (mouseButton != 0) return;
             ScaledResolution sr = new ScaledResolution(mc);
 
-            if (quick && in(mouseX, mouseY, width / 2.0 - 66, quickBtnY(), 132, 28)) {
+            if (quick && in(toQuick(mouseX), toQuick(mouseY), quickW() / 2.0 - 66, quickBtnY(), 132, 28)) {
                 mc.displayGuiScreen(new com.origin.client.gui.OriginModMenuScreen());
                 return;
             }
@@ -215,6 +250,7 @@ public class HudEditorScreen extends GuiScreen {
                 if (Math.abs(mouseX - hc[0]) <= 6 && Math.abs(mouseY - hc[1]) <= 6) {
                     resizing = e;
                     selected = e;
+                    beginLive(e);
                     grabScale = pos.scale;
                     double[] ac = anchorCorner(pos, o);
                     grabDist = Math.max(1, Math.hypot(mouseX - ac[0], mouseY - ac[1]));
@@ -228,6 +264,7 @@ public class HudEditorScreen extends GuiScreen {
                 int[] b = HudElements.bounds(hit, sr, true);
                 dragging = hit;
                 selected = hit;
+                beginLive(hit);
                 grabDX = mouseX - b[0];
                 grabDY = mouseY - b[1];
             } else {
@@ -244,19 +281,25 @@ public class HudEditorScreen extends GuiScreen {
             ScaledResolution sr = new ScaledResolution(mc);
             int sw = sr.getScaledWidth(), sh = sr.getScaledHeight();
 
-            if (resizing != null) {
-                HudPos pos = resizing.pos();
+            if (resizing != null && livePos != null) {
                 double[] o = outer(HudElements.bounds(resizing, sr, true));
-                double[] ac = anchorCorner(pos, o);
+                double[] ac = anchorCorner(livePos, o);
                 double distNow = Math.hypot(mouseX - ac[0], mouseY - ac[1]);
                 if (!resizeEngaged && Math.abs(distNow - grabDist) < 3) return;
                 resizeEngaged = true;
-                pos.scale = Math.max(SCALE_MIN, Math.min(SCALE_MAX, grabScale * (distNow / grabDist)));
-                pos.save(resizing.id);
+                livePos.scale = Math.max(SCALE_MIN, Math.min(SCALE_MAX, grabScale * (distNow / grabDist)));
+                // Growing must never push the element off-screen: shrink the
+                // scale until the recomputed bounds fit.
+                for (int guard = 0; guard < 8; guard++) {
+                    int[] nb = HudElements.bounds(resizing, sr, true);
+                    if (nb[0] >= 0 && nb[1] >= 0 && nb[0] + nb[2] <= sw && nb[1] + nb[3] <= sh) break;
+                    livePos.scale = Math.max(SCALE_MIN, livePos.scale - 0.05);
+                    if (livePos.scale <= SCALE_MIN) break;
+                }
                 return;
             }
 
-            if (dragging != null) {
+            if (dragging != null && livePos != null) {
                 int[] b = HudElements.bounds(dragging, sr, true);
                 double absX = mouseX - grabDX;
                 double absY = mouseY - grabDY;
@@ -265,9 +308,10 @@ public class HudEditorScreen extends GuiScreen {
                 snapY = Math.abs(absY + b[3] / 2.0 - sh / 2.0) < 6;
                 if (snapX) absX = sw / 2.0 - b[2] / 2.0;
                 if (snapY) absY = sh / 2.0 - b[3] / 2.0;
-                HudPos pos = dragging.pos();
-                pos.setFromAbsolute(absX, absY, b[2], b[3], sw, sh);
-                pos.save(dragging.id);
+                // Elements stay fully on-screen — off-screen HUD is never useful.
+                absX = Math.max(0, Math.min(absX, sw - b[2]));
+                absY = Math.max(0, Math.min(absY, sh - b[3]));
+                livePos.setFromAbsolute(absX, absY, b[2], b[3], sw, sh);
             }
         } catch (Throwable t) {
             fail(t);
@@ -277,7 +321,7 @@ public class HudEditorScreen extends GuiScreen {
     @Override
     protected void mouseReleased(int mouseX, int mouseY, int state) {
         try {
-            // Position/scale already persisted per-move (eager-save policy).
+            commitLive(); // the ONE disk write for the whole gesture
             dragging = null;
             resizing = null;
             snapX = snapY = false;

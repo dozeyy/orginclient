@@ -86,6 +86,21 @@ public final class HudElements {
     /** Set by HudEditorScreen while open so the game-overlay pass stands down. */
     public static volatile boolean editorOpen = false;
 
+    /**
+     * Live drag override: while the editor drags/resizes an element it
+     * mutates an IN-MEMORY HudPos and installs it here; drawScaled/bounds
+     * prefer it over the persisted one. Without this every mouse-move had to
+     * hit the disk (eager-save) for the element to track the cursor — the
+     * "dragging feels choppy" report. The editor persists once on release.
+     */
+    public static volatile String overrideId;
+    public static volatile HudPos overridePos;
+
+    private static HudPos posOf(Element e) {
+        HudPos ov = overridePos;
+        return ov != null && e.id.equals(overrideId) ? ov : e.pos();
+    }
+
     /** Game-overlay entry point (RenderGameOverlayEvent.Post ALL). */
     public static void renderAll(ScaledResolution sr) {
         Minecraft mc = Minecraft.getMinecraft();
@@ -104,7 +119,7 @@ public final class HudElements {
 
     /** Draw one element honoring its saved pos+scale. Used by HUD + editor. */
     public static void drawScaled(Element e, ScaledResolution sr, boolean preview) {
-        HudPos pos = e.pos();
+        HudPos pos = posOf(e);
         int[] size = e.size(preview);
         int w = (int) Math.round(size[0] * pos.scale);
         int h = (int) Math.round(size[1] * pos.scale);
@@ -123,7 +138,7 @@ public final class HudElements {
 
     /** The on-screen box (x, y, w, h) of an element — editor hit testing. */
     public static int[] bounds(Element e, ScaledResolution sr, boolean preview) {
-        HudPos pos = e.pos();
+        HudPos pos = posOf(e);
         int[] size = e.size(preview);
         int w = (int) Math.round(size[0] * pos.scale);
         int h = (int) Math.round(size[1] * pos.scale);
