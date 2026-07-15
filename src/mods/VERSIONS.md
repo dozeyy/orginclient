@@ -115,22 +115,53 @@ screen and every loading/connecting/working screen.
 
 ## Staged versions (in `staged/`)
 
-| Module | Covers | Status | Blocking / next step |
-|--------|--------|--------|----------------------|
-| `26.2` | 26.2 | does NOT compile | render layer mid-port to the retained-mode GUI (most source parked in `disabled262/`). Java 25. The 1.21.11 module's port solved many of the same API moves — start there. `staged/26.2/PORT-262.md` |
+| Module | Covers | fabric.mod.json range | Java | Status | Blocking / next step |
+|--------|--------|----------------------|------|--------|----------------------|
+| `1.19.4` | 1.19.4 | `>=1.19.4- <1.20-` | 17 | compile+remap+mixin-audit clean | Will's real-launcher boot sweep |
+| `1.19.3` | 1.19.3 | `>=1.19.3- <1.19.4-` | 17 | compile+remap+mixin-audit clean | Will's real-launcher boot sweep |
+| `1.19.2` | 1.19–1.19.2 | `>=1.19- <1.19.3` | 17 | compile+remap+mixin-audit clean | Will's real-launcher boot sweep |
+| `1.18.2` | 1.18–1.18.2 | `>=1.18- <1.19-` | 17 | compile+remap+mixin-audit clean | Will's real-launcher boot sweep |
+| `1.17.1` | 1.17–1.17.1 | `>=1.17- <1.18-` | 16 | compile+remap+mixin-audit clean | Will's real-launcher boot sweep |
+| `1.16.5` | 1.16.5 | `>=1.16.5- <1.17-` | 8 | compile+remap+mixin-audit clean | Will's real-launcher boot sweep |
+| `26.2` | 26.2 | — | 25 | does NOT compile | render layer mid-port to the retained-mode GUI (most source parked in `disabled262/`). The 1.21.11 module's port solved many of the same API moves — start there. `staged/26.2/PORT-262.md` |
 
-The three 1.20.2/1.21.4/1.21.6 modules above are wired into the launcher
-(`VersionManager.OriginBuilds` + the csproj bundle, both pointing at their
-`staged/` jars) and offered in the picker for boot-testing. **1.21.9 was pulled
-entirely** (removed from `VersionCatalog` — it was the hard input-event-boundary +
-fabric-API-gap hybrid; not worth carrying). Its analysis lives in memory if ever
-revisited.
+The 1.20.2/1.21.4/1.21.6 modules AND the six pre-1.20 modules above are wired into
+the launcher (`VersionManager.OriginBuilds` + the csproj bundle, both pointing at
+their `staged/` jars) and offered in the picker for boot-testing. **1.21.9 was
+pulled entirely** (removed from `VersionCatalog` — it was the hard input-event-
+boundary + fabric-API-gap hybrid; not worth carrying). Its analysis lives in
+memory if ever revisited.
 
-**Not attempted — 1.16.5, 1.17.x, 1.18.x, 1.19.x:** these are pre-`GuiGraphics`
-(it only exists since 1.20). 28 of a module's 69 files + 11 `shared/` files draw
-through `GuiGraphics` (~138 call-sites); pre-1.20 uses `PoseStack` + static
-`GuiComponent` draws instead. That's a second rendering backend — a large separate
-project, not a gap-port.
+### The pre-1.20 PoseStack backend (1.16.5 / 1.17.1 / 1.18.2 / 1.19.2 / 1.19.3 / 1.19.4)
+
+Built 2026-07-15 (Will's order: "1.16.5 and every version above it, skipping the
+unfinished 1.21.x gaps, Lunar-parity"). These are pre-`GuiGraphics` (it only exists
+since 1.20): the whole render core draws through `PoseStack` + static `GuiComponent`
+methods instead. Rather than fork ~138 call-sites six times, every module routes all
+drawing through **one `Gfx` wrapper** (`client/gui/Gfx.java`) that exposes the exact
+GuiGraphics shapes the code already called (`fill`/`blit`/`drawString`/`enableScissor`/
+`renderItem`/`pose()`) over a `PoseStack` — so the conversion was a type swap plus
+`new Gfx(poseStack)` at each vanilla boundary, and every era difference lives inside
+`Gfx`. Each module is a standalone build carrying `.no-shared-sync` (like the legacy
+Forge pair — this is a second rendering backend `shared/` can't compile), so
+`sync.py` skips them.
+
+Verified boundaries that forced per-module work (all javap-confirmed against each
+mapped jar; full detail in each module's `PORT-NOTES.md`):
+
+| Boundary | What changes going older |
+|---|---|
+| 1.19.4 | last version with `LogoRenderer`, `AbstractWidget.isHovered`, `RenderType.debugQuads`, `MobEffectInstance.isInfiniteDuration`, hitbox extraction; TabNavigationBar/TabButton/ExperimentsScreen were *introduced here* |
+| 1.19.3 | widgets go `renderWidget`→`renderButton` (base `AbstractWidget` only); no `LogoRenderer` (wordmark via `blitOutlineBlack`); dirt background returns — its own jar so 1.19.3 isn't shipped degraded |
+| 1.19.2 | pre-JOML (`Axis`→`Vector3f.ZP`+Quaternion); `Button.builder`→ctor+public x/y; `enableScissor` gone at the 1.19 floor → re-implemented in `Gfx` |
+| 1.18.2 | `Component.literal/translatable`→`TextComponent/TranslatableComponent`; no `OptionInstance` (Options are direct fields); pre-signature chat; `renderSky` gains Camera/isFoggy *at* 1.18.2 |
+| 1.17.1 | **no bundled server jar → `splitEnvironmentSourceSets()` fails**: merged `src/client`→`src/main`; Java 16; `renderSky` is the 4-arg era; older Gson (no `keySet`) |
+| 1.16.5 | **Java 8** (records/var/patterns/switch-expr/Java-9 libs all rewritten) **+ fixed-function GL** (no `RenderSystem.setShader*`: `Gfx` binds via `TextureManager.bind` + tints via `color4f`, items via the legacy matrix stack); motion-blur GLSL 150→110 |
+
+Perf/shader stack for all six is Full in `PerformanceModCatalog` (era-paired
+Sodium↔Iris pins, e.g. Iris `mc1.16.5-1.4.5` with Sodium `0.2.0`). **1.18.1 is
+deliberately NOT offered** — its only Sodium is an alpha and its only Iris a
+pre-release; "never broken" outranks coverage.
 
 ## Flipping a staged version live — the 3 coupling points
 

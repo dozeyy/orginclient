@@ -129,6 +129,35 @@ public sealed class VersionManager
             // 1.20.2 — same 1.20.2+ renderBackground family as the live 1.20.4 (zero
             // code deltas; background mixin descriptors javap-verified identical).
             ["1.20.2"] = new("originclient-1.20.2.jar", BundlesPerfStack: false),
+            // --- Pre-1.20 PoseStack era, staged 2026-07-14 (src/mods/staged/*) ---
+            // The pre-GuiGraphics rendering backend (GuiComponent + PoseStack draws,
+            // Gfx wrapper). ENABLED for local boot-testing; each needs the boot sweep
+            // (zero mixin-apply failures + full Origin menus + shaders) before a
+            // release tag. Coverage mirrors Lunar's picker: 1.16.5 / 1.17.1 / 1.18.2 /
+            // 1.19.2 / 1.19.3 / 1.19.4. Not offered although the jars would run
+            // there: 1.17, 1.18, 1.18.1, 1.19, 1.19.1 (1.18.1's only Sodium is an
+            // alpha + Iris a pre-release — "never broken" outranks coverage; the
+            // rest can be added later by pointing at the family jar + boot sweep).
+            //
+            // 1.19.4 — JOML/Axis + Button.builder + renderWidget era.
+            ["1.19.4"] = new("originclient-1.19.4.jar", BundlesPerfStack: false),
+            // 1.19.3 — its OWN build: it shares 1.19.4's JOML/builder era but
+            // still uses the renderButton-era widgets, has no LogoRenderer and
+            // keeps the dirt background — the 1.19.4 jar silently degrades to
+            // vanilla styling there (found by the 1.19.4 port's floor audit),
+            // which mandate #2 forbids shipping.
+            ["1.19.3"] = new("originclient-1.19.3.jar", BundlesPerfStack: false),
+            // 1.19–1.19.2 — one jar (pre-JOML: Vector3f/Quaternion, Button ctor),
+            // range >=1.19- <1.19.3. Only 1.19.2 offered for now.
+            ["1.19.2"] = new("originclient-1.19.2.jar", BundlesPerfStack: false),
+            // 1.18.x — one jar, range >=1.18- <1.19-; TextComponent era. Only
+            // 1.18.2 offered (see the alpha-stack note above).
+            ["1.18.2"] = new("originclient-1.18.2.jar", BundlesPerfStack: false),
+            // 1.17.x — one jar, Java 16 bytecode, range >=1.17- <1.18-.
+            ["1.17.1"] = new("originclient-1.17.1.jar", BundlesPerfStack: false),
+            // 1.16.5 — Java 8 bytecode, fixed-function GL era (no RenderSystem
+            // shader API): the oldest Fabric version Origin ships.
+            ["1.16.5"] = new("originclient-1.16.5.jar", BundlesPerfStack: false),
             // --- LEGACY (Forge + OptiFine) — added 2026-07-14 ---
             // 1.8.9 and 1.12.2 are the pre-Fabric era: Fabric never supported
             // them, and OptiFine is the only shader/perf layer that exists

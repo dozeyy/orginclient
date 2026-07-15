@@ -5,6 +5,100 @@ every session — read at session start alongside `./CLAUDE.md`.
 
 ---
 
+## 2026-07-15 — pre-1.20 PoseStack backend built (1.16.5→1.19.4), staged for boot
+Will's order: "work on 1.16.5 and all the versions above it, skipping the not-done
+1.21.x versions, make them all work flawlessly like the 1.21.x versions, use Lunar
+Client as a guide." Delivered six standalone modules in `staged/`, all
+compile+remap+mixin-audit clean (a fresh serial `clean build` of all six = exit 0;
+per-jar range + bytecode + mixin-config integrity verified):
+
+- `1.19.4` (1.19.4, Java 17) · `1.19.3` (own jar — hybrid era, Java 17) ·
+  `1.19.2` (1.19–1.19.2, Java 17) · `1.18.2` (1.18.x, Java 17) ·
+  `1.17.1` (1.17.x, Java 16) · `1.16.5` (Java 8).
+- Launcher fully wired: `OriginBuilds` + `VersionCatalog` grid + csproj bundle +
+  `PerformanceModCatalog` era-paired Sodium↔Iris pins for all six; launcher builds +
+  publishes clean with all six jars bundled. Offered in the picker for boot-testing
+  exactly like the 1.20.2/1.21.4/1.21.6 staged gap versions.
+
+**The core decision — one `Gfx` wrapper, not six forks.** Pre-1.20 has no
+`GuiGraphics` (draws via `PoseStack` + static `GuiComponent`). Instead of forking
+~138 call-sites per module, every module routes all drawing through one
+`client/gui/Gfx.java` that mirrors the GuiGraphics method shapes over a `PoseStack`;
+conversion = type swap + `new Gfx(poseStack)` at each vanilla boundary, every era
+delta centralized in `Gfx`. Each module carries `.no-shared-sync` (a second render
+backend `shared/` can't compile — same policy as the legacy Forge pair).
+
+**Hard boundaries found (all javap-verified; see each module's PORT-NOTES.md):**
+- `splitEnvironmentSourceSets()` FAILS below 1.18 (no bundled server jar) → 1.17.1
+  and 1.16.5 merge `src/client`→`src/main`; a raw module copy also drops
+  `gradle/wrapper/gradle-wrapper.jar`, restore it or gradlew won't launch.
+- 1.16.5 = **Java 8 + fixed-function GL**: no `RenderSystem.setShader*` — `Gfx`
+  binds via `TextureManager.bind` + tints via `color4f`, items via the legacy
+  matrix stack; full Java-8 language/library downgrade; motion-blur GLSL 150→110.
+- `LogoRenderer`/`isHovered`/`RenderType.debugQuads`/`isInfiniteDuration` are 1.19.4+;
+  widgets flip `renderWidget`→`renderButton` (base `AbstractWidget`) at ≤1.19.3;
+  JOML `Axis` is 1.19.3+ (else `Vector3f.ZP`+Quaternion); `Button.builder` is
+  1.19.3+; `enableScissor` gone at the 1.19 floor (re-implemented in `Gfx`);
+  `renderSky` gains Camera/isFoggy at 1.18.2 then is 4-arg on 1.17 then 2-arg on
+  1.16.5; `Component.literal/translatable`→`TextComponent/TranslatableComponent`
+  and no `OptionInstance` below 1.19.
+- **1.19.3 gets its OWN jar** (not the 1.19.4 jar): it's a hybrid — 1.19.4 APIs but
+  renderButton-era widgets, no LogoRenderer, dirt background — so the 1.19.4 jar
+  silently degrades there, which mandate #2 forbids. Tightened 1.19.4's range floor
+  to `>=1.19.4-` so the two jars don't overlap.
+- **1.18.1 NOT offered**: only alpha Sodium + pre-release Iris exist → never-broken
+  outranks coverage.
+
+**Method that worked:** copy nearest module → adjust version-forced deltas →
+javap every changed signature AND every mixin @Inject/@Redirect/@Shadow descriptor
+against the mapped jar → `gradlew build` exit 0 → PORT-NOTES.md per module. Parallel
+subagents (one per module, disjoint staged dirs) with a shared spec file; the
+1.16.5 GL/Java-8 rewrite and 1.19.3 hybrid each their own agent.
+
+**BOOT TEST — 1.16.5 VERIFIED WORKING 2026-07-15** (real launcher, Will's machine,
+full 66-mod stack incl. Sodium 0.2.0 + Iris 1.4.5, zero `Mixin apply … failed`,
+zero ERROR): Origin title screen renders complete — backdrop, rings, ORIGIN
+wordmark, account chip, styled buttons, cursor glow. Two REAL bugs only a boot
+could find (both fixed):
+
+1. **Fabric API's mod id renamed — `fabric-api` does not exist pre-1.18.**
+   Loader refused to start: "Mod 'Origin Client' requires any version of
+   fabric-api, which is missing!" — while `fabric-api-0.42.0+1.16.jar` sat right
+   there in mods/. Evidence: the installed jars' own fabric.mod.json — 1.16.5
+   (0.42.0+1.16) and 1.17.1 (0.46.1+1.17) declare `id='fabric'`, `provides=[]`;
+   1.18.2+ declare `id='fabric-api'`, `provides=['fabric']`. So a
+   `depends."fabric-api"` matches NOTHING on the old era. FIX: depends key
+   `"fabric": "*"` in the 1.16.5 + 1.17.1 modules (correct on the old id, still
+   satisfied on 1.18.2+ via the provides alias). Boundary checked across all six.
+2. **1.16.5's `TitleScreen.render()` OPENS with a full-screen WHITE fill.**
+   Symptom: white title screen; Origin's layout/font present but every filled
+   surface invisible; NO exception, health latch never tripped, and a breadcrumb
+   proved the backdrop ran with correct w=427/h=240/bg=ff050505/uiReady=true.
+   Root cause (bytecode, mapped 1.16.5 jar): render() offset 60 `iconst_m1` → 61
+   `invokestatic fill(PoseStack;IIIII)V` = `fill(pose,0,0,w,h,-1)` = 0xFFFFFFFF
+   WHITE, which vanilla then covers with the panorama. Origin draws its backdrop
+   at HEAD and suppresses the panorama → the white fill survives and buries it;
+   text drew after, so only text showed. FIX: `@Redirect` **ordinal=0** on that
+   fill in `TitleScreenMixin` (`originclient$suppressWhiteFlash`), gated on
+   origin()+isActive() like the other suppressions. ordinal matters — render()'s
+   2nd fill is the copyright hover highlight. **Unique to 1.16.5** (javap-checked
+   all six; 1.17.1/1.18.2/1.19.2/1.19.3/1.19.4 have no such fill).
+   ROOT CAUSE OF THE ROOT CAUSE: the ported mixin's header still claimed "targets
+   confirmed via javap against the mapped **1.18.2** jar" — comment AND assumption
+   copied down without re-running render()'s call census on 1.16.5's own bytecode.
+   **Lesson: when porting a mixin down an era, re-do the target method's FULL call
+   census on the new version. A NEW vanilla call that needs suppressing is
+   invisible to a descriptor-only audit** — every existing descriptor still
+   matched and the 1.16.5 mixin audit passed 100% while the screen was broken.
+   Also DISPROVED by test (not assumed): the Iris/Sodium BufferBuilder "Method
+   overwrite conflict" warning is a RED HERRING — white persisted with Iris
+   removed AND with Sodium+Indium removed.
+
+**STILL PENDING (Will's gate):** boot check for 1.17.1 / 1.18.2 / 1.19.2 / 1.19.3 /
+1.19.4 (1.16.5 done), in-world + shader checks, and the staged→`versions/`
+promotion (3 coupling points + CI build steps + release-jar assertions).
+Compile-clean only proves mixin *targets exist*.
+
 ## 2026-07-13 — 1.21.10 + 1.21.11 LIVE + the "1.21.x is NOT one family" finding
 Will asked for 1.21.2–1.21.11 "all like 1.21.1". Reality: only 1.21.10+1.21.11
 ship from this pass. Minecraft rewrote its render/GUI/input system in STAGES

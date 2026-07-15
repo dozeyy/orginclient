@@ -1,0 +1,186 @@
+package com.origin.client.client.mixin;
+
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.origin.client.client.gui.Gfx;
+import com.origin.client.client.gui.OriginButtonRenderer;
+import com.origin.client.client.mods.Mods;
+import com.origin.client.client.render.OriginScreenRenderer;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiComponent;
+import net.minecraft.client.gui.components.AbstractWidget;
+import net.minecraft.client.gui.components.ImageButton;
+import net.minecraft.client.gui.components.PlainTextButton;
+import net.minecraft.client.gui.components.events.GuiEventListener;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.client.renderer.PanoramaRenderer;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.Redirect;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+import java.util.function.BiConsumer;
+
+// Re-skins the main menu: the Origin background (charcoal + rotating rings +
+// grain) replaces the panorama, the "ORIGIN" wordmark replaces the vanilla
+// "Minecraft" logo, and the splash/version text + the language/accessibility/
+// copyright buttons are hidden -- leaving just the real menu buttons + header.
+//
+// Strategy (all targets confirmed via javap/bytecode against the mapped 1.19.3
+// jar -- this era predates GuiGraphics, TitleScreen.renderPanorama AND
+// LogoRenderer, so the suppression shape differs from both the 1.20 and the
+// 1.19.4 modules):
+//  - Draw the Origin background at render() HEAD -- render() is guaranteed to
+//    run every frame, so the background is always painted, under the logo/
+//    buttons that draw afterward.
+//  - 1.19.3's render() calls this.panorama.render(partialTick, alpha) DIRECTLY
+//    (no renderPanorama method to cancel), then blits the PANORAMA_OVERLAY
+//    vignette texture on top (the only 10-arg blit). Both are @Redirect-ed to
+//    no-ops so neither can paint over the Origin backdrop.
+//  - No LogoRenderer in this era (it arrived in 1.19.4): the "Minecraft"
+//    wordmark is drawn by TitleScreen's inherited blitOutlineBlack -- two call
+//    sites in render() (the minceraft-easter-egg branch and the normal one),
+//    if/else so exactly ONE executes per frame; the @Redirect matches both and
+//    swaps in the Origin wordmark. The "Java Edition" strip right after it is
+//    the only 9-arg blit in render() -- suppressed in step with the wordmark
+//    (same-frame latch) so a wordmark fail brings back BOTH vanilla pieces.
+//  - No SplashRenderer class in this era: the splash is a String field drawn
+//    via the one drawCenteredString call in render() -- redirected to a no-op
+//    (its pose push/rotate/pop around the call stays balanced). The version
+//    line is the one drawString call, same treatment.
+//  - After init(), hide the ImageButton (language, accessibility) and
+//    PlainTextButton (copyright) widgets via visible/active -- the only widgets
+//    of those types; the real options are plain Button, left intact.
+// priority 2000 (default 1000): if another mod also modifies TitleScreen (e.g.
+// redirects the logo/background), Origin's re-skin wins the conflict. Scoped to
+// the UI mixins only — perf/render mixins stay at default so Sodium/Iris
+// application ordering is left undisturbed.
+@Mixin(value = TitleScreen.class, priority = 2000)
+public class TitleScreenMixin {
+
+	// SETTINGS > General > Main Menu Style. "Vanilla" turns the entire re-skin
+	// off — every inject below no-ops so the stock title screen shows through.
+	private static boolean originclient$origin() {
+		return Mods.mode(Mods.GENERAL_ID, "mainMenuStyle").equals("Origin");
+	}
+
+	@Inject(method = "render", at = @At("HEAD"))
+	private void originclient$background(PoseStack poseStack, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
+		if (!originclient$origin()) {
+			return;
+		}
+		Gfx g = new Gfx(poseStack);
+		OriginScreenRenderer.renderTitleBackground(g);
+		// The website's mouse-follow spotlight: over the rings, under the
+		// widgets (this HEAD inject runs before the widget pass). Blooms while
+		// any visible button is hovered, like the site's hover targets.
+		boolean hoveringClickable = false;
+		Screen self = (Screen) (Object) this;
+		for (GuiEventListener child : self.children()) {
+			if (child instanceof AbstractWidget widget && widget.visible && OriginButtonRenderer.hovered(widget)) {
+				hoveringClickable = true;
+				break;
+			}
+		}
+		OriginScreenRenderer.renderTitleCursorGlow(g, mouseX, mouseY, hoveringClickable);
+		// Account chip (player head + username) in the top-left frame corner.
+		OriginScreenRenderer.renderTitleAccountChip(g);
+	}
+
+	// Both suppressions are gated on the renderer's health: if the Origin
+	// backdrop ever fails (fail-soft contract), vanilla's panorama comes back
+	// instead of leaving a black screen.
+	@Redirect(method = "render", at = @At(value = "INVOKE",
+			target = "Lnet/minecraft/client/renderer/PanoramaRenderer;render(FF)V"))
+	private void originclient$suppressPanorama(PanoramaRenderer instance, float partialTick, float alpha) {
+		if (!originclient$origin() || !OriginScreenRenderer.isActive()) {
+			instance.render(partialTick, alpha);
+		}
+	}
+
+	// The PANORAMA_OVERLAY vignette blit right after the panorama — the only
+	// 10-arg blit in render().
+	@Redirect(method = "render", at = @At(value = "INVOKE",
+			target = "Lnet/minecraft/client/gui/screens/TitleScreen;blit(Lcom/mojang/blaze3d/vertex/PoseStack;IIIIFFIIII)V"))
+	private void originclient$suppressOverlay(PoseStack poseStack, int x, int y, int w, int h,
+											  float u, float v, int uW, int vH, int texW, int texH) {
+		if (!originclient$origin() || !OriginScreenRenderer.isActive()) {
+			GuiComponent.blit(poseStack, x, y, w, h, u, v, uW, vH, texW, texH);
+		}
+	}
+
+	// Whether the Origin wordmark drew THIS frame -- read by the edition-strip
+	// redirect just below, which always runs after this one in render(), so the
+	// "Java Edition" strip disappears and reappears in lockstep with the logo.
+	private boolean originclient$wordmarkDrawn;
+
+	// The vanilla "Minecraft" wordmark. No LogoRenderer on 1.19.3 -- render()
+	// draws it via the inherited blitOutlineBlack, from an if/else (easter-egg /
+	// normal), so this matches both call sites but exactly one executes per
+	// frame. The redirected PoseStack lives in the BiConsumer the caller built;
+	// the Origin wordmark draws off the render() HEAD Gfx path's pose -- the
+	// identity GUI pose -- so a plain wrapper of a fresh PoseStack is correct
+	// here (blitOutlineBlack itself draws in raw GUI space too).
+	@Redirect(method = "render", at = @At(value = "INVOKE",
+			target = "Lnet/minecraft/client/gui/screens/TitleScreen;blitOutlineBlack(IILjava/util/function/BiConsumer;)V"))
+	private void originclient$logo(TitleScreen instance, int x, int y, BiConsumer<Integer, Integer> draw) {
+		// Fail-soft: if the wordmark can't draw (or the style is Vanilla),
+		// restore vanilla's own logo so the title never loses its centerpiece.
+		originclient$wordmarkDrawn = originclient$origin()
+				&& OriginScreenRenderer.renderTitleWordmark(new Gfx(new PoseStack()));
+		if (!originclient$wordmarkDrawn) {
+			instance.blitOutlineBlack(x, y, draw);
+		}
+	}
+
+	// The "Java Edition" strip blitted right under the wordmark -- the only
+	// 9-arg blit in render(). Suppressed exactly when the Origin wordmark drew,
+	// so a wordmark failure brings back the complete vanilla logo, not half.
+	@Redirect(method = "render", at = @At(value = "INVOKE",
+			target = "Lnet/minecraft/client/gui/screens/TitleScreen;blit(Lcom/mojang/blaze3d/vertex/PoseStack;IIFFIIII)V"))
+	private void originclient$noEditionStrip(PoseStack poseStack, int x, int y,
+											 float u, float v, int width, int height, int texWidth, int texHeight) {
+		if (!originclient$wordmarkDrawn) {
+			GuiComponent.blit(poseStack, x, y, u, v, width, height, texWidth, texHeight);
+		}
+	}
+
+	// Remove the yellow splash text (Origin style only). Pre-1.20 there is no
+	// SplashRenderer — the splash String is drawn by the single
+	// drawCenteredString in render().
+	@Redirect(method = "render", at = @At(value = "INVOKE",
+			target = "Lnet/minecraft/client/gui/screens/TitleScreen;drawCenteredString(Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/gui/Font;Ljava/lang/String;III)V"))
+	private void originclient$noSplash(PoseStack poseStack, Font font, String text, int x, int y, int color) {
+		if (!originclient$origin()) {
+			GuiComponent.drawCenteredString(poseStack, font, text, x, y, color);
+		}
+	}
+
+	// Remove the bottom version line (the only drawString in render()).
+	@Redirect(method = "render", at = @At(value = "INVOKE",
+			target = "Lnet/minecraft/client/gui/screens/TitleScreen;drawString(Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/gui/Font;Ljava/lang/String;III)V"))
+	private void originclient$noVersion(PoseStack poseStack, Font font, String text, int x, int y, int color) {
+		if (!originclient$origin()) {
+			GuiComponent.drawString(poseStack, font, text, x, y, color);
+		}
+	}
+
+	// Hide the language + accessibility icons (ImageButton) and the
+	// copyright line (PlainTextButton). visible=false stops both rendering and
+	// clicks; re-run on every (re)init so it survives window resizes.
+	@Inject(method = "init", at = @At("TAIL"))
+	private void originclient$stripExtraButtons(CallbackInfo ci) {
+		if (!originclient$origin()) {
+			return;
+		}
+		Screen self = (Screen) (Object) this;
+		for (GuiEventListener child : self.children()) {
+			if ((child instanceof ImageButton || child instanceof PlainTextButton)
+					&& child instanceof AbstractWidget widget) {
+				widget.visible = false;
+				widget.active = false;
+			}
+		}
+	}
+}
