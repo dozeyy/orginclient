@@ -44,6 +44,12 @@ changes unless you change it or deliberately run the sync.
 | `1.21.8` | 1.21.8 | `>=1.21.6- <1.21.9` | standalone stack (Matrix3x2fStack + no-setShaderColor era) | 21 |
 | `1.21.10` | 1.21.10 | `>=1.21.10- <1.21.11` | standalone stack (split from 1.21.11: the 1.21.11 mapping-rename wave made one jar impossible) | 21 |
 | `1.21.11` | 1.21.11 | `>=1.21.10- <1.22` | standalone stack (render-pipeline + world-event-v2 era) | 21 |
+| `1.19.4` | 1.19.4 | `>=1.19.4- <1.20-` | standalone stack (**pre-GuiGraphics**: PoseStack via the `Gfx` wrapper) | 17 |
+| `1.19.3` | 1.19.3 | `>=1.19.3- <1.19.4-` | standalone stack (hybrid era — its own jar, see below) | 17 |
+| `1.19.2` | 1.19–1.19.2 | `>=1.19- <1.19.3` | standalone stack (pre-JOML) | 17 |
+| `1.18.2` | 1.18–1.18.2 | `>=1.18- <1.19-` | standalone stack (TextComponent era, no OptionInstance) | 17 |
+| `1.17.1` | 1.17–1.17.1 | `>=1.17- <1.18-` | standalone stack (merged source set — no bundled server jar) | 16 |
+| `1.16.5` | 1.16.5 | `>=1.16.5- <1.17-` | standalone stack (**fixed-function GL**, no `setShader*`) | 8 |
 
 All are boot-verified with zero mixin-apply failures and full shader
 integration (Iris + Sodium from the catalog pins). Each module's
@@ -117,25 +123,17 @@ screen and every loading/connecting/working screen.
 
 | Module | Covers | fabric.mod.json range | Java | Status | Blocking / next step |
 |--------|--------|----------------------|------|--------|----------------------|
-| `1.19.4` | 1.19.4 | `>=1.19.4- <1.20-` | 17 | compile+remap+mixin-audit clean | Will's real-launcher boot sweep |
-| `1.19.3` | 1.19.3 | `>=1.19.3- <1.19.4-` | 17 | compile+remap+mixin-audit clean | Will's real-launcher boot sweep |
-| `1.19.2` | 1.19–1.19.2 | `>=1.19- <1.19.3` | 17 | compile+remap+mixin-audit clean | Will's real-launcher boot sweep |
-| `1.18.2` | 1.18–1.18.2 | `>=1.18- <1.19-` | 17 | compile+remap+mixin-audit clean | Will's real-launcher boot sweep |
-| `1.17.1` | 1.17–1.17.1 | `>=1.17- <1.18-` | 16 | compile+remap+mixin-audit clean | Will's real-launcher boot sweep |
-| `1.16.5` | 1.16.5 | `>=1.16.5- <1.17-` | 8 | compile+remap+mixin-audit clean | Will's real-launcher boot sweep |
 | `26.2` | 26.2 | — | 25 | does NOT compile | render layer mid-port to the retained-mode GUI (most source parked in `disabled262/`). The 1.21.11 module's port solved many of the same API moves — start there. `staged/26.2/PORT-262.md` |
 
-The 1.20.2/1.21.4/1.21.6 modules AND the six pre-1.20 modules above are wired into
-the launcher (`VersionManager.OriginBuilds` + the csproj bundle, both pointing at
-their `staged/` jars) and offered in the picker for boot-testing. **1.21.9 was
-pulled entirely** (removed from `VersionCatalog` — it was the hard input-event-
-boundary + fabric-API-gap hybrid; not worth carrying). Its analysis lives in
-memory if ever revisited.
+**1.21.9 was pulled entirely** (removed from `VersionCatalog` — it was the hard
+input-event-boundary + fabric-API-gap hybrid; not worth carrying). Its analysis
+lives in memory if ever revisited.
 
 ### The pre-1.20 PoseStack backend (1.16.5 / 1.17.1 / 1.18.2 / 1.19.2 / 1.19.3 / 1.19.4)
 
-Built 2026-07-15 (Will's order: "1.16.5 and every version above it, skipping the
-unfinished 1.21.x gaps, Lunar-parity"). These are pre-`GuiGraphics` (it only exists
+**LIVE 2026-07-15** (launcher-v1.0.24) — Will's order: "1.16.5 and every version
+above it, skipping the unfinished 1.21.x gaps, Lunar-parity"; all six
+boot-verified by him through the real launcher. These are pre-`GuiGraphics` (it only exists
 since 1.20): the whole render core draws through `PoseStack` + static `GuiComponent`
 methods instead. Rather than fork ~138 call-sites six times, every module routes all
 drawing through **one `Gfx` wrapper** (`client/gui/Gfx.java`) that exposes the exact

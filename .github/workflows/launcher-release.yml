@@ -113,6 +113,36 @@ jobs:
         working-directory: src/mods/versions/1.21.11
         run: .\gradlew.bat build --no-daemon
 
+      # Pre-1.20 PoseStack modules (the pre-GuiGraphics render backend), LIVE
+      # 2026-07-15. Each is its own API family; all boot-verified. Gradle runs on
+      # the Java 21 above and cross-compiles via `options.release` (17 / 16 / 8),
+      # so no extra setup-java is needed. 1.17.1 and 1.16.5 predate the bundled
+      # server jar, so they use a single merged source set instead of Loom's
+      # splitEnvironmentSourceSets — a build-level detail, same command here.
+      - name: Build Origin Client mod (1.19.4)
+        working-directory: src/mods/versions/1.19.4
+        run: .\gradlew.bat build --no-daemon
+
+      - name: Build Origin Client mod (1.19.3)
+        working-directory: src/mods/versions/1.19.3
+        run: .\gradlew.bat build --no-daemon
+
+      - name: Build Origin Client mod (1.19–1.19.2)
+        working-directory: src/mods/versions/1.19.2
+        run: .\gradlew.bat build --no-daemon
+
+      - name: Build Origin Client mod (1.18–1.18.2)
+        working-directory: src/mods/versions/1.18.2
+        run: .\gradlew.bat build --no-daemon
+
+      - name: Build Origin Client mod (1.17.1)
+        working-directory: src/mods/versions/1.17.1
+        run: .\gradlew.bat build --no-daemon
+
+      - name: Build Origin Client mod (1.16.5)
+        working-directory: src/mods/versions/1.16.5
+        run: .\gradlew.bat build --no-daemon
+
       # LEGACY Forge modules (gg.essential.loom, Gradle 8.7). Gradle runs on
       # the Java 21 above; each module's foojay resolver auto-provisions its
       # own Java 8 compile toolchain.
@@ -178,7 +208,13 @@ jobs:
             "originclient-1.21.6.jar",
             "originclient-1.21.10.jar",
             "originclient-1.8.9.jar",
-            "originclient-1.12.2.jar"
+            "originclient-1.12.2.jar",
+            "originclient-1.19.4.jar",
+            "originclient-1.19.3.jar",
+            "originclient-1.19.2.jar",
+            "originclient-1.18.2.jar",
+            "originclient-1.17.1.jar",
+            "originclient-1.16.5.jar"
           )
           # The legacy Forge version JSONs ship under Bundled\Forge — assert
           # them too; a missing JSON breaks the whole legacy install path.

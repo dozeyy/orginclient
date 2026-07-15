@@ -100,6 +100,33 @@ jobs:
         working-directory: src/mods/versions/1.21.11
         run: .\gradlew.bat build --no-daemon
 
+      # Pre-1.20 PoseStack modules (the pre-GuiGraphics render backend), LIVE
+      # 2026-07-15. Gradle runs on the Java 21 above and cross-compiles via
+      # `options.release` (17 / 16 / 8) — no extra setup-java needed.
+      - name: Build Origin Client mod (1.19.4)
+        working-directory: src/mods/versions/1.19.4
+        run: .\gradlew.bat build --no-daemon
+
+      - name: Build Origin Client mod (1.19.3)
+        working-directory: src/mods/versions/1.19.3
+        run: .\gradlew.bat build --no-daemon
+
+      - name: Build Origin Client mod (1.19–1.19.2)
+        working-directory: src/mods/versions/1.19.2
+        run: .\gradlew.bat build --no-daemon
+
+      - name: Build Origin Client mod (1.18–1.18.2)
+        working-directory: src/mods/versions/1.18.2
+        run: .\gradlew.bat build --no-daemon
+
+      - name: Build Origin Client mod (1.17.1)
+        working-directory: src/mods/versions/1.17.1
+        run: .\gradlew.bat build --no-daemon
+
+      - name: Build Origin Client mod (1.16.5)
+        working-directory: src/mods/versions/1.16.5
+        run: .\gradlew.bat build --no-daemon
+
       # LEGACY Forge modules (gg.essential.loom, Gradle 8.7). Gradle itself
       # runs on the Java 21 above; the Java 8 compile/run toolchain is
       # auto-provisioned by the foojay resolver in each module's
