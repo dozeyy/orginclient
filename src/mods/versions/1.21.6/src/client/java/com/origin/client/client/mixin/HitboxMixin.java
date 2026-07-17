@@ -123,29 +123,98 @@ public class HitboxMixin {
 			ci.cancel();
 			return;
 		}
-		boolean isPlayer = state.entityType == net.minecraft.world.entity.EntityType.PLAYER;
-		int passes = isPlayer ? (int) Math.max(1, Math.round(Mods.num("hitboxes", "lineWidth"))) : 1;
+		// Colour and width apply to EVERY entity, not just players -- matching
+		// the 1.21.1 rework: player-only styling made Line Color and Line Width
+		// silently do nothing on mobs, and the whole mod read as broken.
+		int col = OriginColorPicker.liveColor("hitboxes", "lineColor");
+		float r = ((col >> 16) & 0xFF) / 255f;
+		float g = ((col >> 8) & 0xFF) / 255f;
+		float b = (col & 0xFF) / 255f;
+		float a = ((col >>> 24) & 0xFF) / 255f;
+		if (a <= 0f) {
+			a = 1f;
+		}
+		int passes = (int) Math.max(1, Math.round(Mods.num("hitboxes", "lineWidth")));
 		String pattern = Mods.mode("hitboxes", "linePattern");
 		VertexConsumer consumer = buffers.getBuffer(net.minecraft.client.renderer.RenderType.lines());
 		PoseStack.Pose pose = poseStack.last();
+		// The alpha guard above reassigns `a`, so the lambdas capture copies.
+		float fr = r, fg = g, fb = b, fa = a;
 		for (Object o : hitboxes.hitboxes()) {
 			var hb = (net.minecraft.client.renderer.entity.state.HitboxRenderState) o;
-			float r = hb.red(), g = hb.green(), b = hb.blue(), a = 1f;
-			if (isPlayer) {
-				int col = OriginColorPicker.liveColor("hitboxes", "lineColor");
-				r = ((col >> 16) & 0xFF) / 255f;
-				g = ((col >> 8) & 0xFF) / 255f;
-				b = (col & 0xFF) / 255f;
-				a = ((col >>> 24) & 0xFF) / 255f;
-				if (a <= 0f) {
-					a = 1f;
-				}
-			}
 			AABB box = new AABB(hb.x0(), hb.y0(), hb.z0(), hb.x1(), hb.y1(), hb.z1())
 					.move(hb.offsetX(), hb.offsetY(), hb.offsetZ());
-			drawBox(consumer, pose, box, r, g, b, a, passes, pattern);
+			// ONE thick line per edge, exactly like the block outline -- not a
+			// stack of thin ones (more lines is not a thicker line; see
+			// ThickLine). Every pattern gets width: patternSegments decides where
+			// the pieces are, ThickLine decides how thick each piece is. At width
+			// 1 there's nothing to thicken, so that stays on the cheaper line path.
+			if (passes > 1) {
+				VertexConsumer q = buffers.getBuffer(net.minecraft.client.renderer.RenderType.debugQuads());
+				double t = (passes - 1) * 0.012;
+				double ccx = (box.minX + box.maxX) / 2, ccy = (box.minY + box.maxY) / 2, ccz = (box.minZ + box.maxZ) / 2;
+				forEachEdge(box, (ax, ay, az, bx, by, bz) ->
+						patternSegments(ax, ay, az, bx, by, bz, pattern,
+								(sx, sy, sz, ex, ey, ez) ->
+										com.origin.client.client.render.ThickLine.edge(q, pose,
+												sx, sy, sz, ex, ey, ez, ccx, ccy, ccz, t, fr, fg, fb, fa)));
+			} else {
+				drawBox(consumer, pose, box, fr, fg, fb, fa, 1, pattern);
+			}
 		}
 		ci.cancel();
+	}
+
+	/** Receives each of an AABB's 12 edges as a pair of points. */
+	@FunctionalInterface
+	private interface EdgeSink {
+		void accept(double ax, double ay, double az, double bx, double by, double bz);
+	}
+
+	/** Walks an AABB's 12 edges -- the same enumeration drawBox does inline. */
+	private static void forEachEdge(AABB box, EdgeSink sink) {
+		double[] xs = {box.minX, box.maxX}, ys = {box.minY, box.maxY}, zs = {box.minZ, box.maxZ};
+		for (int yi = 0; yi < 2; yi++) {
+			for (int zi = 0; zi < 2; zi++) {
+				sink.accept(box.minX, ys[yi], zs[zi], box.maxX, ys[yi], zs[zi]);
+			}
+		}
+		for (int xi = 0; xi < 2; xi++) {
+			for (int zi = 0; zi < 2; zi++) {
+				sink.accept(xs[xi], box.minY, zs[zi], xs[xi], box.maxY, zs[zi]);
+			}
+		}
+		for (int xi = 0; xi < 2; xi++) {
+			for (int yi = 0; yi < 2; yi++) {
+				sink.accept(xs[xi], ys[yi], box.minZ, xs[xi], ys[yi], box.maxZ);
+			}
+		}
+	}
+
+	/**
+	 * Cuts an edge into the pattern's visible pieces and hands each to `sink`.
+	 * The pattern decides WHERE the pieces are, the renderer decides how thick
+	 * they are -- which is what lets Dashed/Dotted honour Line Width.
+	 */
+	private static void patternSegments(double ax, double ay, double az,
+										double bx, double by, double bz, String pattern, EdgeSink sink) {
+		if (pattern == null || pattern.equals("Solid")) {
+			sink.accept(ax, ay, az, bx, by, bz);
+			return;
+		}
+		double dx = bx - ax, dy = by - ay, dz = bz - az;
+		double len = Math.sqrt(dx * dx + dy * dy + dz * dz);
+		if (len <= 0) {
+			return;
+		}
+		double dash = pattern.equals("Dotted") ? 0.08 : 0.22;
+		double period = dash * 2;
+		for (double s = 0; s < len; s += period) {
+			double e = Math.min(len, s + dash);
+			double t0 = s / len, t1 = e / len;
+			sink.accept(ax + dx * t0, ay + dy * t0, az + dz * t0,
+					ax + dx * t1, ay + dy * t1, az + dz * t1);
+		}
 	}
 
 	private static String categoryKey(net.minecraft.world.entity.EntityType<?> type) {
