@@ -36,7 +36,9 @@
 		"BlockEntityRenderDispatcherMixin",
 		"PauseScreenMixin",
 		"IrisShadowDirectivesMixin",
-		"IrisWatermarkMixin"
+		"IrisWatermarkMixin",
+		"LevelWeatherMixin",
+		"LivingNametagMixin"
 	],
 	"injectors": {
 		"defaultRequire": 0

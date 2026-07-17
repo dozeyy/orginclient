@@ -35,7 +35,9 @@
 		"PauseScreenMixin",
 		"IrisShadowDirectivesMixin",
 		"JeiGuiEventHandlerMixin",
-		"JeiClientInputHandlerMixin"
+		"JeiClientInputHandlerMixin",
+		"LevelWeatherMixin",
+		"LivingNametagMixin"
 	],
 	"injectors": {
 		"defaultRequire": 0

@@ -176,7 +176,13 @@ public sealed class VersionManager
             // 1.8.9 module + legacy install code stay in place, ready to re-enable
             // by uncommenting this line.
             // ["1.8.9"]  = new("originclient-1.8.9.jar",  BundlesPerfStack: false),
-            ["1.12.2"] = new("originclient-1.12.2.jar", BundlesPerfStack: false),
+            // 1.12.2 — DISABLED 2026-07-16 (Will's call: greyed out alongside 1.8.9).
+            // Same one-line grey-out: commenting it out of OriginBuilds drops it from
+            // OriginSupportedVersions -> VersionCatalog marks it unsupported -> the
+            // 1.12 card shows "Coming Soon" and can't launch, stale selections fall
+            // back to default. Module + legacy install code stay, re-enable by
+            // uncommenting. (JEI-on-legacy-Forge is therefore moot until re-enabled.)
+            // ["1.12.2"] = new("originclient-1.12.2.jar", BundlesPerfStack: false),
             // 26.2 (src/mods/staged/26.2) — STAGED, not yet active. The module
             // is scaffolded and its Java 25 / unobfuscated-Loom toolchain is
             // proven, but the render layer is mid-port to 26.2's retained-mode GUI

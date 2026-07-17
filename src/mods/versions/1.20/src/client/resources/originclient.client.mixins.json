@@ -39,7 +39,9 @@
 		"IrisShadowDirectivesMixin",
 		"IrisWatermarkMixin",
 		"JeiGuiEventHandlerMixin",
-		"JeiClientInputHandlerMixin"
+		"JeiClientInputHandlerMixin",
+		"LevelWeatherMixin",
+		"LivingNametagMixin"
 	],
 	"injectors": {
 		"defaultRequire": 0

@@ -390,10 +390,11 @@ public class OriginClientMod implements ClientModInitializer {
 		if (!Mods.on("weather") || client.level == null) {
 			return;
 		}
+		// NOTE: no setRainLevel/setThunderLevel here any more — the values are now
+		// produced on READ by LevelWeatherMixin -> WeatherOverride (instant switch,
+		// nothing left behind, server weather untouched).
 		String mode = Mods.mode("weather", "mode");
-		client.level.setRainLevel(mode.equals("Clear") ? 0f : 1f);
 		boolean thunder = mode.equals("Thunder") || Mods.bool("weather", "thunder");
-		client.level.setThunderLevel(thunder ? 1f : 0f);
 
 		// Play Thunder Sounds: forcing the thunder level alone never actually
 		// makes a sound (vanilla thunder rides real lightning bolts we don't
