@@ -9,6 +9,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.texture.DynamicTexture;
+import net.minecraft.util.ARGB;
 import net.minecraft.resources.ResourceLocation;
 
 import java.io.InputStream;
@@ -28,7 +29,9 @@ import java.util.Map;
 // destination width/height:
 //   1.21.1: blit(id, x, y, dstW, dstH, u, v, srcW, srcH, texW, texH)
 //   1.21.11: blit(RenderType::guiTextured, id, x, y, u, v, dstW, dstH, srcW, srcH, texW, texH)
-// setShaderColor tinting, blend state and pose() are unchanged from 1.21.1.
+// Tints ride the per-blit ARGB colour: the batched-gui era flushes blits
+// after the handler returns, so setShaderColor never reached them (that
+// bug drew every tinted surface at full white opacity).
 // Every rewritten descriptor must be javap-verified against the mapped 1.21.11
 // jar before shipping (see PORT-12111.md).
 public final class OriginUi {
@@ -70,13 +73,10 @@ public final class OriginUi {
 			return;
 		}
 		int cd = Math.min(corner, Math.min(w, h) / 2);
-		tint(fill);
-		nine(g, fillTex, x, y, w, h, cd);
+		nine(g, fillTex, x, y, w, h, cd, fill);
 		if (((border >>> 24) & 0xFF) > 0) {
-			tint(border);
-			nine(g, borderTex, x, y, w, h, cd);
+			nine(g, borderTex, x, y, w, h, cd, border);
 		}
-		RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
 	}
 
 	/**
@@ -128,9 +128,7 @@ public final class OriginUi {
 		if (!ok) {
 			return;
 		}
-		RenderSystem.setShaderColor(1f, 1f, 1f, alpha);
-		g.blit(RenderType::guiTextured, glowTex, (int) (cx - diameter / 2.0), (int) (cy - diameter / 2.0), 0f, 0f, diameter, diameter, 512, 512, 512, 512);
-		RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+		g.blit(RenderType::guiTextured, glowTex, (int) (cx - diameter / 2.0), (int) (cy - diameter / 2.0), 0f, 0f, diameter, diameter, 512, 512, 512, 512, ARGB.white(alpha));
 	}
 
 	/** The 3-ring Origin mark (brand geometry: one ellipse at 0/60/120 deg). */
@@ -147,11 +145,9 @@ public final class OriginUi {
 			float s = size / 768f * 1.1f;
 			pose.scale(s, s, 1f);
 			pose.translate(-384f, -384f, 0);
-			RenderSystem.setShaderColor(1f, 1f, 1f, alpha);
-			g.blit(RenderType::guiTextured, ringTex, 0, 0, 0f, 0f, 768, 768, 768, 768);
+			g.blit(RenderType::guiTextured, ringTex, 0, 0, 0f, 0f, 768, 768, 768, 768, ARGB.white(alpha));
 			pose.popPose();
 		}
-		RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
 	}
 
 	/** The exact brand mark (baked from the website nav-mark geometry — three
@@ -162,9 +158,7 @@ public final class OriginUi {
 			mark(g, cx, cy, size, alpha); // fallback to the procedural rings
 			return;
 		}
-		RenderSystem.setShaderColor(1f, 1f, 1f, alpha);
-		g.blit(RenderType::guiTextured, logoTex, (int) (cx - size / 2.0), (int) (cy - size / 2.0), 0f, 0f, size, size, 256, 256, 256, 256);
-		RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+		g.blit(RenderType::guiTextured, logoTex, (int) (cx - size / 2.0), (int) (cy - size / 2.0), 0f, 0f, size, size, 256, 256, 256, 256, ARGB.white(alpha));
 	}
 
 	/** Rounded pill slider: track + fill + a ball knob that stays vertically
@@ -193,27 +187,22 @@ public final class OriginUi {
 
 	// ---- internals ----
 
-	private static void tint(int argb) {
-		RenderSystem.setShaderColor(((argb >> 16) & 0xFF) / 255f, ((argb >> 8) & 0xFF) / 255f,
-				(argb & 0xFF) / 255f, ((argb >>> 24) & 0xFF) / 255f);
-	}
-
-	private static void nine(GuiGraphics g, ResourceLocation tex, int x, int y, int w, int h, int cd) {
+	private static void nine(GuiGraphics g, ResourceLocation tex, int x, int y, int w, int h, int cd, int argb) {
 		int c = panelCorner, t = panelTexSize, mid = t - 2 * c, mw = w - 2 * cd, mh = h - 2 * cd;
-		g.blit(RenderType::guiTextured, tex, x, y, 0f, 0f, cd, cd, c, c, t, t);
-		g.blit(RenderType::guiTextured, tex, x + w - cd, y, (float) (t - c), 0f, cd, cd, c, c, t, t);
-		g.blit(RenderType::guiTextured, tex, x, y + h - cd, 0f, (float) (t - c), cd, cd, c, c, t, t);
-		g.blit(RenderType::guiTextured, tex, x + w - cd, y + h - cd, (float) (t - c), (float) (t - c), cd, cd, c, c, t, t);
+		g.blit(RenderType::guiTextured, tex, x, y, 0f, 0f, cd, cd, c, c, t, t, argb);
+		g.blit(RenderType::guiTextured, tex, x + w - cd, y, (float) (t - c), 0f, cd, cd, c, c, t, t, argb);
+		g.blit(RenderType::guiTextured, tex, x, y + h - cd, 0f, (float) (t - c), cd, cd, c, c, t, t, argb);
+		g.blit(RenderType::guiTextured, tex, x + w - cd, y + h - cd, (float) (t - c), (float) (t - c), cd, cd, c, c, t, t, argb);
 		if (mw > 0) {
-			g.blit(RenderType::guiTextured, tex, x + cd, y, (float) c, 0f, mw, cd, mid, c, t, t);
-			g.blit(RenderType::guiTextured, tex, x + cd, y + h - cd, (float) c, (float) (t - c), mw, cd, mid, c, t, t);
+			g.blit(RenderType::guiTextured, tex, x + cd, y, (float) c, 0f, mw, cd, mid, c, t, t, argb);
+			g.blit(RenderType::guiTextured, tex, x + cd, y + h - cd, (float) c, (float) (t - c), mw, cd, mid, c, t, t, argb);
 		}
 		if (mh > 0) {
-			g.blit(RenderType::guiTextured, tex, x, y + cd, 0f, (float) c, cd, mh, c, mid, t, t);
-			g.blit(RenderType::guiTextured, tex, x + w - cd, y + cd, (float) (t - c), (float) c, cd, mh, c, mid, t, t);
+			g.blit(RenderType::guiTextured, tex, x, y + cd, 0f, (float) c, cd, mh, c, mid, t, t, argb);
+			g.blit(RenderType::guiTextured, tex, x + w - cd, y + cd, (float) (t - c), (float) c, cd, mh, c, mid, t, t, argb);
 		}
 		if (mw > 0 && mh > 0) {
-			g.blit(RenderType::guiTextured, tex, x + cd, y + cd, (float) c, (float) c, mw, mh, mid, mid, t, t);
+			g.blit(RenderType::guiTextured, tex, x + cd, y + cd, (float) c, (float) c, mw, mh, mid, mid, t, t, argb);
 		}
 	}
 

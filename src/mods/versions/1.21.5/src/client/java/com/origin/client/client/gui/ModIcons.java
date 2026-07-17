@@ -128,12 +128,12 @@ public final class ModIcons {
 
 	private static void drawCustom(GuiGraphics g, ResourceLocation tex, int nativeSize,
 			int x, int y, int size, float alpha) {
-		// 1.21.2+ blit: render-type function + explicit source region; blend and
-		// texture bind are owned by the gui render type, not RenderSystem.
-		RenderSystem.setShaderColor(1f, 1f, 1f, alpha);
+		// 1.21.2+ blit: render-type function + explicit source region. Alpha
+		// rides the per-blit ARGB tint -- the batched flush never sees
+		// setShaderColor on this era.
 		g.blit(net.minecraft.client.renderer.RenderType::guiTextured, tex, x, y, 0f, 0f, size, size,
-				nativeSize, nativeSize, nativeSize, nativeSize);
-		RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+				nativeSize, nativeSize, nativeSize, nativeSize,
+				net.minecraft.util.ARGB.white(alpha));
 	}
 
 	private static void drawItem(GuiGraphics g, Item item, int x, int y, int size, float alpha) {
@@ -145,9 +145,10 @@ public final class ModIcons {
 		pose.translate(x, y, 0);
 		float s = size / 16f;
 		pose.scale(s, s, 1f);
-		RenderSystem.setShaderColor(1f, 1f, 1f, alpha);
+		// No alpha fade here: batched-gui items ignore setShaderColor on this
+		// era, so items pop in at full opacity once past the visibility floor
+		// (same accepted behaviour as 1.21.6+).
 		g.renderFakeItem(new ItemStack(item), 0, 0);
-		RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
 		pose.popPose();
 	}
 

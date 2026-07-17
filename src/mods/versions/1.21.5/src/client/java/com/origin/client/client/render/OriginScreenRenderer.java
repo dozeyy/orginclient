@@ -11,6 +11,7 @@ import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.texture.DynamicTexture;
+import net.minecraft.util.ARGB;
 import net.minecraft.resources.ResourceLocation;
 
 import java.io.InputStream;
@@ -366,14 +367,15 @@ public final class OriginScreenRenderer {
 		// translation read far too big in-game (Will: "shrink by 60% at least").
 		drawRadial(guiGraphics, haloX, haloY, w * (0.14 + 0.04 * hv), 0.112 + 0.063 * hv);
 		drawRadial(guiGraphics, mouseX, mouseY, w * (0.032 + 0.018 * hv), 0.30 + 0.17 * hv);
-		RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
 	}
 
 	private static void drawRadial(GuiGraphics guiGraphics, double cx, double cy, double diameter, double alpha) {
 		int d = Math.max(2, (int) Math.round(diameter));
-		RenderSystem.setShaderColor(1f, 1f, 1f, (float) alpha);
+		// Batched-gui era (1.21.2+): RenderSystem.setShaderColor no longer
+		// reaches these blits (the batch flushes after this handler, with the
+		// colour already reset) -- tint/alpha must ride the per-blit ARGB.
 		guiGraphics.blit(RenderType::guiTextured, radialGlowId, (int) Math.round(cx - d / 2.0), (int) Math.round(cy - d / 2.0),
-				0f, 0f, d, d, RADIAL_TEX, RADIAL_TEX, RADIAL_TEX, RADIAL_TEX);
+				0f, 0f, d, d, RADIAL_TEX, RADIAL_TEX, RADIAL_TEX, RADIAL_TEX, ARGB.white((float) alpha));
 	}
 
 	/**
@@ -437,9 +439,7 @@ public final class OriginScreenRenderer {
 		pose.pushPose();
 		pose.translate(cx - icx, cy - icy, 0);
 		pose.scale(scale, scale, 1f);
-		RenderSystem.setShaderColor(1f, 1f, 1f, alpha);
-		guiGraphics.blit(RenderType::guiTextured, tex, 0, 0, 0f, 0f, texW, texH, texW, texH);
-		RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+		guiGraphics.blit(RenderType::guiTextured, tex, 0, 0, 0f, 0f, texW, texH, texW, texH, ARGB.white(alpha));
 		pose.popPose();
 	}
 
@@ -534,11 +534,9 @@ public final class OriginScreenRenderer {
 			pose.mulPose(Axis.ZP.rotationDegrees((float) angle));
 			pose.scale(scale, scale, 1f);
 			pose.translate(-TEX / 2f, -TEX / 2f, 0);
-			RenderSystem.setShaderColor(1f, 1f, 1f, ring.opacity());
-			guiGraphics.blit(RenderType::guiTextured, ring.texture(), 0, 0, 0f, 0f, TEX, TEX, TEX, TEX);
+			guiGraphics.blit(RenderType::guiTextured, ring.texture(), 0, 0, 0f, 0f, TEX, TEX, TEX, TEX, ARGB.white(ring.opacity()));
 			pose.popPose();
 		}
-		RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
 	}
 
 	private static void drawGrain(GuiGraphics guiGraphics, int w, int h) {
@@ -556,13 +554,15 @@ public final class OriginScreenRenderer {
 		PoseStack pose = guiGraphics.pose();
 		pose.pushPose();
 		pose.scale((float) (1.0 / gs), (float) (1.0 / gs), 1f);
-		RenderSystem.setShaderColor(1f, 1f, 1f, 0.028f);
+		// THE "TV static" fix: this used to setShaderColor(alpha 0.028) around
+		// the blits, which the batched flush never saw -- the noise texture
+		// drew at FULL opacity over the whole screen.
+		int grainTint = ARGB.white(0.028f);
 		for (int y = 0; y < realH; y += tile) {
 			for (int x = 0; x < realW; x += tile) {
-				guiGraphics.blit(RenderType::guiTextured, grainId, x, y, 0f, 0f, tile, tile, tile, tile);
+				guiGraphics.blit(RenderType::guiTextured, grainId, x, y, 0f, 0f, tile, tile, tile, tile, grainTint);
 			}
 		}
-		RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
 		pose.popPose();
 	}
 
@@ -628,7 +628,6 @@ public final class OriginScreenRenderer {
 			drawRadial(guiGraphics, px, py, core * 3.2, body[4] * 0.28); // halo
 			drawRadial(guiGraphics, px, py, core, body[4]);              // core
 		}
-		RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
 	}
 
 	/** Extra wordmark pass at a scale multiplier and alpha -- used for the breathing glow. */
@@ -644,10 +643,8 @@ public final class OriginScreenRenderer {
 		pose.pushPose();
 		pose.translate(inkCenterX - icx, inkCenterY - icy, 0);
 		pose.scale(scale, scale, 1f);
-		RenderSystem.setShaderColor(1f, 1f, 1f, alpha);
-		guiGraphics.blit(RenderType::guiTextured, wordmarkId, 0, 0, 0f, 0f, wmTexW, wmTexH, wmTexW, wmTexH);
+		guiGraphics.blit(RenderType::guiTextured, wordmarkId, 0, 0, 0f, 0f, wmTexW, wmTexH, wmTexW, wmTexH, ARGB.white(alpha));
 		pose.popPose();
-		RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
 	}
 
 	/** Shared frame dressing for the ring backdrop: edge vignette + corner brackets. */
@@ -664,7 +661,6 @@ public final class OriginScreenRenderer {
 		PoseStack pose = guiGraphics.pose();
 		pose.pushPose();
 		pose.scale((float) w / VIGNETTE_TEX, (float) h / VIGNETTE_TEX, 1f);
-		RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
 		guiGraphics.blit(RenderType::guiTextured, vignetteId, 0, 0, 0f, 0f, VIGNETTE_TEX, VIGNETTE_TEX, VIGNETTE_TEX, VIGNETTE_TEX);
 		pose.popPose();
 	}
@@ -731,10 +727,8 @@ public final class OriginScreenRenderer {
 				continue;
 			}
 			int yoff = (int) Math.round((1.0 - eased) * rise);
-			RenderSystem.setShaderColor(1f, 1f, 1f, (float) eased);
-			guiGraphics.blit(RenderType::guiTextured, wordmarkId, x0, yoff, (float) x0, 0f, bw, wmTexH, wmTexW, wmTexH);
+			guiGraphics.blit(RenderType::guiTextured, wordmarkId, x0, yoff, (float) x0, 0f, bw, wmTexH, wmTexW, wmTexH, ARGB.white((float) eased));
 		}
-		RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
 		pose.popPose();
 	}
 
@@ -777,7 +771,6 @@ public final class OriginScreenRenderer {
 			pose.pushPose();
 			pose.translate(inkCenterX - icx, inkCenterY - icy, 0);
 			pose.scale(scale, scale, 1f);
-			RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
 			guiGraphics.blit(RenderType::guiTextured, wordmarkId, 0, 0, 0f, 0f, wmTexW, wmTexH, wmTexW, wmTexH);
 			pose.popPose();
 

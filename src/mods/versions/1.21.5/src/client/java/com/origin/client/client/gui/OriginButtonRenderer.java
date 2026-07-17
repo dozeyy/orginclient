@@ -11,6 +11,7 @@ import net.minecraft.client.gui.components.AbstractButton;
 import net.minecraft.client.gui.components.AbstractSliderButton;
 import net.minecraft.client.gui.components.Checkbox;
 import net.minecraft.client.renderer.RenderType;
+import net.minecraft.util.ARGB;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -120,11 +121,9 @@ public final class OriginButtonRenderer {
 
 
 		int cd = Math.min(CORNER_DISPLAY, Math.min(w, h) / 2);
-		shaderColor(fill);
-		nineSlice(guiGraphics, fillTex, x, drawY, w, h, cd);
-		shaderColor(border);
-		nineSlice(guiGraphics, borderTex, x, drawY, w, h, cd);
-		RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+		// Batched-gui era: tint rides the per-blit ARGB (see nineSlice).
+		nineSlice(guiGraphics, fillTex, x, drawY, w, h, cd, fill);
+		nineSlice(guiGraphics, borderTex, x, drawY, w, h, cd, border);
 
 		drawLabel(guiGraphics, cx, cy, h, button.getMessage(), labelColor);
 	}
@@ -167,15 +166,10 @@ public final class OriginButtonRenderer {
 
 		// Shell -- identical to a resting button.
 		if (assetsOk) {
-			shaderColor(fill);
-			nineSlice(guiGraphics, fillTex, x, y, w, h, cd);
+			nineSlice(guiGraphics, fillTex, x, y, w, h, cd, fill);
 		} else {
-			RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
 			guiGraphics.fill(x, y, x + w, y + h, fill);
 		}
-		// CRITICAL: reset the shader tint before the handle's guiGraphics.fill(),
-		// or it gets multiplied by the shell's faint tint (near-invisible).
-		RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
 
 		// Just the draggable handle: a thin vertical gray bar at the value
 		// position -- no horizontal center groove line (Will). Gray, clearly
@@ -196,9 +190,7 @@ public final class OriginButtonRenderer {
 		// (the exact bug Will saw on every slider box, and only on sliders,
 		// because only sliders fill() between the two texture passes).
 		if (assetsOk) {
-			shaderColor(border);
-			nineSlice(guiGraphics, borderTex, x, y, w, h, cd);
-			RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+			nineSlice(guiGraphics, borderTex, x, y, w, h, cd, border);
 		}
 
 		drawLabel(guiGraphics, x + w / 2.0, y + h / 2.0, h, slider.getMessage(), labelColor);
@@ -233,11 +225,8 @@ public final class OriginButtonRenderer {
 		int box = h;
 		int cd = Math.min(4, box / 3);
 		if (assetsOk) {
-			shaderColor(fill);
-			nineSlice(guiGraphics, fillTex, x, y, box, box, cd);
-			shaderColor(border);
-			nineSlice(guiGraphics, borderTex, x, y, box, box, cd);
-			RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+			nineSlice(guiGraphics, fillTex, x, y, box, box, cd, fill);
+			nineSlice(guiGraphics, borderTex, x, y, box, box, cd, border);
 		} else {
 			guiGraphics.fill(x, y, x + box, y + box, fill);
 		}
@@ -302,36 +291,29 @@ public final class OriginButtonRenderer {
 		guiGraphics.drawString(font, message, x + (w - tw) / 2, y + (h - 8) / 2, labelColor, false);
 	}
 
-	private static void nineSlice(GuiGraphics g, ResourceLocation tex, int x, int y, int w, int h, int cd) {
+	private static void nineSlice(GuiGraphics g, ResourceLocation tex, int x, int y, int w, int h, int cd, int argb) {
 		int c = CORNER;
 		int t = TEX;
 		int mid = t - 2 * c;
 		int mw = w - 2 * cd;
 		int mh = h - 2 * cd;
-		g.blit(RenderType::guiTextured, tex, x, y, 0f, 0f, cd, cd, c, c, t, t);
-		g.blit(RenderType::guiTextured, tex, x + w - cd, y, (float) (t - c), 0f, cd, cd, c, c, t, t);
-		g.blit(RenderType::guiTextured, tex, x, y + h - cd, 0f, (float) (t - c), cd, cd, c, c, t, t);
-		g.blit(RenderType::guiTextured, tex, x + w - cd, y + h - cd, (float) (t - c), (float) (t - c), cd, cd, c, c, t, t);
+		g.blit(RenderType::guiTextured, tex, x, y, 0f, 0f, cd, cd, c, c, t, t, argb);
+		g.blit(RenderType::guiTextured, tex, x + w - cd, y, (float) (t - c), 0f, cd, cd, c, c, t, t, argb);
+		g.blit(RenderType::guiTextured, tex, x, y + h - cd, 0f, (float) (t - c), cd, cd, c, c, t, t, argb);
+		g.blit(RenderType::guiTextured, tex, x + w - cd, y + h - cd, (float) (t - c), (float) (t - c), cd, cd, c, c, t, t, argb);
 		if (mw > 0) {
-			g.blit(RenderType::guiTextured, tex, x + cd, y, (float) c, 0f, mw, cd, mid, c, t, t);
-			g.blit(RenderType::guiTextured, tex, x + cd, y + h - cd, (float) c, (float) (t - c), mw, cd, mid, c, t, t);
+			g.blit(RenderType::guiTextured, tex, x + cd, y, (float) c, 0f, mw, cd, mid, c, t, t, argb);
+			g.blit(RenderType::guiTextured, tex, x + cd, y + h - cd, (float) c, (float) (t - c), mw, cd, mid, c, t, t, argb);
 		}
 		if (mh > 0) {
-			g.blit(RenderType::guiTextured, tex, x, y + cd, 0f, (float) c, cd, mh, c, mid, t, t);
-			g.blit(RenderType::guiTextured, tex, x + w - cd, y + cd, (float) (t - c), (float) c, cd, mh, c, mid, t, t);
+			g.blit(RenderType::guiTextured, tex, x, y + cd, 0f, (float) c, cd, mh, c, mid, t, t, argb);
+			g.blit(RenderType::guiTextured, tex, x + w - cd, y + cd, (float) (t - c), (float) c, cd, mh, c, mid, t, t, argb);
 		}
 		if (mw > 0 && mh > 0) {
-			g.blit(RenderType::guiTextured, tex, x + cd, y + cd, (float) c, (float) c, mw, mh, mid, mid, t, t);
+			g.blit(RenderType::guiTextured, tex, x + cd, y + cd, (float) c, (float) c, mw, mh, mid, mid, t, t, argb);
 		}
 	}
 
-	private static void shaderColor(int argb) {
-		float a = ((argb >>> 24) & 0xFF) / 255f;
-		float r = ((argb >> 16) & 0xFF) / 255f;
-		float g = ((argb >> 8) & 0xFF) / 255f;
-		float b = (argb & 0xFF) / 255f;
-		RenderSystem.setShaderColor(r, g, b, a);
-	}
 
 	// Volatile fast-path: this runs once per widget per frame, so the
 	// already-loaded case must avoid acquiring the class monitor.
