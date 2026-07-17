@@ -3569,3 +3569,16 @@ Second feedback pass. Key durable lessons:
 - NEXT (Will's report): 1.21.x render-pipeline versions (confirmed 1.21.4 +
   1.21.5, likely 1.21.6/8/10/11) still show the PRE-redesign UI (static
   backgrounds, old panels/buttons) — UI-parity port is the next batch.
+
+## 2026-07-17 — TV-static backgrounds on 1.21.4/1.21.5: root-caused + fixed
+- Will's report: backgrounds = TV static on 1.21.4/1.21.5. Cause: 1.21.2+
+  batches GUI draws and flushes AFTER our code runs, so setShaderColor tints
+  never applied — the 2.8%-alpha film-grain layer drew at 100% (the static);
+  every other fade/tint (vignette, rings, dust, wordmark, panels, buttons)
+  was full-strength too. 1.21.6+ escaped because Mojang deleted setShaderColor
+  there, forcing the correct per-blit pattern during those ports.
+- Fixed both modules to per-blit ARGB tints; rebuilt + regression boot-verified.
+  Needs Will's visual pass after the next tag.
+- Follow-ups queued: loading-scene shader-readiness guard (first-boot overlay
+  throws before the text shader compiles, partial scene draw); dev-client
+  ~20s self-close on .4/.5 unexplained (dev-only).
