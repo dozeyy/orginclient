@@ -35,10 +35,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Caches ~/.gradle/caches (both downloaded dependencies AND Gradle's
+      # own build-cache-1 task-output cache) across runs, keyed by the
+      # gradle-wrapper/build-file hashes under src/mods/. Paired with
+      # --build-cache on every gradlew invocation below: a module whose
+      # source/config didn't change since the last release gets its jar
+      # restored from cache instead of recompiled/remapped from scratch —
+      # every prior release paid the full ~19-module cold build every single
+      # time (28-35min) regardless of how small the actual change was.
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: "21"
+          cache: gradle
 
       # The in-game mod, built first so the launcher build below finds
       # build/libs/originclient-0.1.0.jar and bundles it (the csproj Content
@@ -46,7 +55,7 @@ jobs:
       # here, so releases always ship the mod).
       - name: Build Origin Client mod
         working-directory: src/mods/versions/1.21.1
-        run: .\gradlew.bat build --no-daemon
+        run: .\gradlew.bat build --no-daemon --build-cache
 
       # The 1.20 API-family mod (src/mods/versions/1.20, covers 1.20 + 1.20.1),
       # so the launcher below bundles build/libs/originclient-1.20-0.4.1.jar as
@@ -57,53 +66,53 @@ jobs:
       # those file deps behind .exists(), so `build` runs without them.
       - name: Build Origin Client mod (1.20)
         working-directory: src/mods/versions/1.20
-        run: .\gradlew.bat build --no-daemon
+        run: .\gradlew.bat build --no-daemon --build-cache
 
       # The 1.20.4 API-family mod (src/mods/versions/1.20.4), bundled as
       # Bundled/OriginClient/originclient-1.20.4.jar. Same Java 17-via-JDK-21
       # and absent-libs/ notes as the 1.20 module above.
       - name: Build Origin Client mod (1.20.4)
         working-directory: src/mods/versions/1.20.4
-        run: .\gradlew.bat build --no-daemon
+        run: .\gradlew.bat build --no-daemon --build-cache
 
       # The 1.21 base release (src/mods/versions/1.21), bundled as
       # Bundled/OriginClient/originclient-1.21.jar. Same source as 1.21.1, its
       # own 1.21-mapped build; real version so the runner resolves + ships it.
       - name: Build Origin Client mod (1.21)
         working-directory: src/mods/versions/1.21
-        run: .\gradlew.bat build --no-daemon
+        run: .\gradlew.bat build --no-daemon --build-cache
 
       # 1.21.5 (src/mods/versions/1.21.5): the blit-rework + HitboxRenderState
       # sub-family; own mapped build, boot-verified. See src/mods/VERSIONS.md.
       - name: Build Origin Client mod (1.21.5)
         working-directory: src/mods/versions/1.21.5
-        run: .\gradlew.bat build --no-daemon
+        run: .\gradlew.bat build --no-daemon --build-cache
 
       # 1.21.8 (src/mods/versions/1.21.8): the Matrix3x2fStack + no-setShaderColor
       # sub-family (pre-1.21.9 input API). Own build, boot-verified.
       - name: Build Origin Client mod (1.21.8)
         working-directory: src/mods/versions/1.21.8
-        run: .\gradlew.bat build --no-daemon
+        run: .\gradlew.bat build --no-daemon --build-cache
 
       # 1.20.2 (covers 1.20.2) — gap sub-family gone live 2026-07-14.
       - name: Build Origin Client mod (1.20.2)
         working-directory: src/mods/versions/1.20.2
-        run: .\gradlew.bat build --no-daemon
+        run: .\gradlew.bat build --no-daemon --build-cache
 
       # 1.21.4 (covers 1.21.2/1.21.3/1.21.4) — gap sub-family gone live 2026-07-14.
       - name: Build Origin Client mod (1.21.4)
         working-directory: src/mods/versions/1.21.4
-        run: .\gradlew.bat build --no-daemon
+        run: .\gradlew.bat build --no-daemon --build-cache
 
       # 1.21.6 (covers 1.21.6/1.21.7) — gap sub-family gone live 2026-07-14.
       - name: Build Origin Client mod (1.21.6)
         working-directory: src/mods/versions/1.21.6
-        run: .\gradlew.bat build --no-daemon
+        run: .\gradlew.bat build --no-daemon --build-cache
 
       # 1.21.10 (own render-state sub-family, split from 1.21.11) — gap sub-family gone live 2026-07-14.
       - name: Build Origin Client mod (1.21.10)
         working-directory: src/mods/versions/1.21.10
-        run: .\gradlew.bat build --no-daemon
+        run: .\gradlew.bat build --no-daemon --build-cache
 
       # 1.21.10 + 1.21.11 (src/mods/versions/1.21.11): ONE jar for the
       # render-pipeline + world-event-v2 era, bundled as
@@ -111,7 +120,7 @@ jobs:
       # 1.21.x versions need separate sub-family ports (src/mods/VERSIONS.md).
       - name: Build Origin Client mod (1.21.10–1.21.11)
         working-directory: src/mods/versions/1.21.11
-        run: .\gradlew.bat build --no-daemon
+        run: .\gradlew.bat build --no-daemon --build-cache
 
       # Pre-1.20 PoseStack modules (the pre-GuiGraphics render backend), LIVE
       # 2026-07-15. Each is its own API family; all boot-verified. Gradle runs on
@@ -121,38 +130,38 @@ jobs:
       # splitEnvironmentSourceSets — a build-level detail, same command here.
       - name: Build Origin Client mod (1.19.4)
         working-directory: src/mods/versions/1.19.4
-        run: .\gradlew.bat build --no-daemon
+        run: .\gradlew.bat build --no-daemon --build-cache
 
       - name: Build Origin Client mod (1.19.3)
         working-directory: src/mods/versions/1.19.3
-        run: .\gradlew.bat build --no-daemon
+        run: .\gradlew.bat build --no-daemon --build-cache
 
       - name: Build Origin Client mod (1.19–1.19.2)
         working-directory: src/mods/versions/1.19.2
-        run: .\gradlew.bat build --no-daemon
+        run: .\gradlew.bat build --no-daemon --build-cache
 
       - name: Build Origin Client mod (1.18–1.18.2)
         working-directory: src/mods/versions/1.18.2
-        run: .\gradlew.bat build --no-daemon
+        run: .\gradlew.bat build --no-daemon --build-cache
 
       - name: Build Origin Client mod (1.17.1)
         working-directory: src/mods/versions/1.17.1
-        run: .\gradlew.bat build --no-daemon
+        run: .\gradlew.bat build --no-daemon --build-cache
 
       - name: Build Origin Client mod (1.16.5)
         working-directory: src/mods/versions/1.16.5
-        run: .\gradlew.bat build --no-daemon
+        run: .\gradlew.bat build --no-daemon --build-cache
 
       # LEGACY Forge modules (gg.essential.loom, Gradle 8.7). Gradle runs on
       # the Java 21 above; each module's foojay resolver auto-provisions its
       # own Java 8 compile toolchain.
       - name: Build Origin Client mod (1.8.9, Forge)
         working-directory: src/mods/versions/1.8.9
-        run: .\gradlew.bat build --no-daemon
+        run: .\gradlew.bat build --no-daemon --build-cache
 
       - name: Build Origin Client mod (1.12.2, Forge)
         working-directory: src/mods/versions/1.12.2
-        run: .\gradlew.bat build --no-daemon
+        run: .\gradlew.bat build --no-daemon --build-cache
 
       # NOTE (26.2): src/mods/staged/26.2 is scaffolded with a proven Java 25 /
       # unobfuscated-Loom toolchain, but its render layer is mid-port to 26.2's
