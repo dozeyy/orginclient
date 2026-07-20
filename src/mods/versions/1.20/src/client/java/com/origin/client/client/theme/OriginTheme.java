@@ -35,6 +35,17 @@ public final class OriginTheme {
 	// rgba(255,255,255,0.55) — cursor core glow
 	public static final int ACCENT_DIM = 0x8CFFFFFF;
 
+	// ---- Widget restyle tones (title-screen buttons) ----
+	// The translucent-dark-rectangle button look: faint white fill + hairline
+	// border, brightening on hover toward STROKE_HOVER. Values byte-identical
+	// to the legacy 1.8.9/1.12.2 modules' OriginTheme (mandate #2: identical
+	// look on every version) — change all copies together or none.
+	public static final int FILL_NORMAL = 0x07FFFFFF;
+	public static final int FILL_HOVER = 0x0FFFFFFF;
+	public static final int BORDER_NORMAL = 0x1CFFFFFF;
+	public static final int FILL_DISABLED = 0x04FFFFFF;
+	public static final int BORDER_DISABLED = 0x10FFFFFF;
+
 	// ---- Mod-menu toggle (C4) ----
 	// The rounded box switch: knob slides left = off, right = on. On/off are the
 	// theme's only two non-gray tones (muted sage / muted clay), kept solid so
