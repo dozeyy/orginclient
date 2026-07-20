@@ -13,11 +13,21 @@
 #    the Extras fragment on each line — the six hand-pinned core slots are
 #    untouched by construction (see EXTRAS_FRAG_RE in the script).
 #
-# Manual-only (workflow_dispatch): catalog data changes must always be a
-# deliberate act with a human (or the driving Claude session) reading the log.
+# Triggers: workflow_dispatch only registers once this file reaches the
+# default branch, so while the work lives on a feature branch the push
+# trigger below is the way to run it (push-event workflows execute the file
+# as it exists at the pushed commit). Path-filtered to the catalog tooling so
+# ordinary mod/launcher pushes don't re-resolve Modrinth every time, and the
+# workflow's own result-commit can't loop: pushes made with GITHUB_TOKEN
+# never trigger workflows.
 name: perf-catalog-extras
 
 on:
+  push:
+    branches: ["claude/**"]
+    paths:
+      - ".github/workflows/perf-catalog-extras.yml"
+      - "tools/perf-catalog/**"
   workflow_dispatch:
     inputs:
       search:
@@ -25,14 +35,17 @@ on:
         default: ""
       versions:
         description: "MC versions to resolve extras for (extras mode)"
-        # Every live standalone (BundlesPerfStack:false) version. 1.21.1 is
-        # deliberately absent — it bundles its stack jar-in-jar, its standalone
-        # catalog line is never installed. 1.21.9 is pulled, 26.2 staged.
-        default: "1.16.5 1.17.1 1.18.2 1.19.2 1.19.3 1.19.4 1.20 1.20.1 1.20.2 1.20.4 1.21 1.21.2 1.21.3 1.21.4 1.21.5 1.21.6 1.21.7 1.21.8 1.21.10 1.21.11"
+        default: ""
       apply:
         description: "Splice results into Data.cs and push to this branch"
         type: boolean
         default: true
+
+env:
+  # Every live standalone (BundlesPerfStack:false) version. 1.21.1 is
+  # deliberately absent — it bundles its stack jar-in-jar, its standalone
+  # catalog line is never installed. 1.21.9 is pulled, 26.2 staged.
+  DEFAULT_VERSIONS: "1.16.5 1.17.1 1.18.2 1.19.2 1.19.3 1.19.4 1.20 1.20.1 1.20.2 1.20.4 1.21 1.21.2 1.21.3 1.21.4 1.21.5 1.21.6 1.21.7 1.21.8 1.21.10 1.21.11"
 
 concurrency:
   group: perf-catalog-extras-${{ github.ref }}
@@ -47,22 +60,40 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Search Modrinth
-        if: inputs.search != ''
+        if: github.event_name == 'workflow_dispatch' && inputs.search != ''
         run: python3 tools/perf-catalog/gen_catalog.py --search "${{ inputs.search }}"
 
-      - name: Resolve extras
-        if: inputs.search == '' && !inputs.apply
-        run: python3 tools/perf-catalog/gen_catalog.py --extras ${{ inputs.versions }}
+      # Prove every EXTRA_PROJECTS slug points at the intended project before
+      # pinning anything, and surface candidates for the still-unresolved
+      # "BetterRenderDistances" mod from Will's reference screenshot.
+      - name: Validate slugs + BRD candidates
+        if: github.event_name == 'push' || inputs.search == ''
+        run: |
+          for slug in sodium-extra moreculling cull-leaves cullleaves immediatelyfast modernfix cloth-config; do
+            printf '== %-18s ' "$slug"
+            curl -sf --max-time 30 -A "origin-launcher-catalog-gen/1.0" \
+              "https://api.modrinth.com/v2/project/$slug" \
+              | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d["slug"], "|", d["title"], "|", d["id"], "| game_versions:", d["game_versions"][:3], "...", d["game_versions"][-3:])' \
+              || echo "!! NOT FOUND"
+          done
+          echo "---- search: better render distance ----"
+          python3 tools/perf-catalog/gen_catalog.py --search "better render distance"
+          echo "---- search: render distance ----"
+          python3 tools/perf-catalog/gen_catalog.py --search "render distance"
+
+      - name: Resolve extras (dry run)
+        if: github.event_name == 'workflow_dispatch' && inputs.search == '' && !inputs.apply
+        run: python3 tools/perf-catalog/gen_catalog.py --extras ${{ inputs.versions || env.DEFAULT_VERSIONS }}
 
       - name: Resolve extras and apply to Data.cs
-        if: inputs.search == '' && inputs.apply
-        run: python3 tools/perf-catalog/gen_catalog.py --extras --apply ${{ inputs.versions }}
+        if: github.event_name == 'push' || (inputs.search == '' && inputs.apply)
+        run: python3 tools/perf-catalog/gen_catalog.py --extras --apply ${{ inputs.versions || env.DEFAULT_VERSIONS }}
 
       # Guard against the one failure mode that matters: any change to a line's
       # existing content outside the appended Extras fragment. Every changed
       # line must still contain its original prefix verbatim.
       - name: Audit diff is suffix-only
-        if: inputs.search == '' && inputs.apply
+        if: github.event_name == 'push' || (inputs.search == '' && inputs.apply)
         run: |
           git diff --unified=0 -- src/OriginLauncher.App/Core/Loaders/PerformanceModCatalog.Data.cs | tee /tmp/extras.diff
           python3 - <<'EOF'
@@ -87,7 +118,7 @@ jobs:
           EOF
 
       - name: Commit and push
-        if: inputs.search == '' && inputs.apply
+        if: github.event_name == 'push' || (inputs.search == '' && inputs.apply)
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
