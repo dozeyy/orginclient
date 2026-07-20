@@ -69,7 +69,7 @@ jobs:
       - name: Validate slugs + BRD candidates
         if: github.event_name == 'push' || inputs.search == ''
         run: |
-          for slug in sodium-extra moreculling cull-leaves cullleaves immediatelyfast modernfix cloth-config; do
+          for slug in sodium-extra moreculling cull-leaves cullleaves immediatelyfast modernfix cloth-config c2me-fabric starlight scalablelux; do
             printf '== %-18s ' "$slug"
             curl -sf --max-time 30 -A "origin-launcher-catalog-gen/1.0" \
               "https://api.modrinth.com/v2/project/$slug" \
@@ -101,15 +101,24 @@ jobs:
         if: github.event_name == 'push' || (inputs.search == '' && inputs.apply)
         run: python3 tools/perf-catalog/gen_catalog.py --extras --apply ${{ inputs.versions || env.DEFAULT_VERSIONS }}
 
+      # The opt-in stack (C2ME + Starlight/ScalableLux) — writes the separate
+      # Optional: fragment, preserving Extras. Includes 1.21.1 (its opt-in mods
+      # are standalone, unlike its bundled core stack).
+      - name: Resolve optional (opt-in) and apply to Data.cs
+        if: github.event_name == 'push' || (inputs.search == '' && inputs.apply)
+        run: python3 tools/perf-catalog/gen_catalog.py --optional --apply ${{ inputs.versions || env.DEFAULT_VERSIONS }} 1.21.1
+
       # Guard against the one failure mode that matters: any change to a line's
-      # existing content outside the appended Extras fragment. Every changed
-      # line must still contain its original prefix verbatim.
+      # existing content outside the appended Extras/Optional fragments. Every
+      # changed line must still contain its original core prefix verbatim.
       - name: Audit diff is suffix-only
         if: github.event_name == 'push' || (inputs.search == '' && inputs.apply)
         run: |
           git diff --unified=0 -- src/OriginLauncher.App/Core/Loaders/PerformanceModCatalog.Data.cs | tee /tmp/extras.diff
           python3 - <<'EOF'
           import re, sys
+          # Strip BOTH managed fragments to recover the untouched core of a line.
+          FRAG = re.compile(r', (?:Extras|Optional): new PerfMod\[\] \{[^{}]*\}')
           removed, added = {}, {}
           for line in open('/tmp/extras.diff'):
               if line.startswith('-') and not line.startswith('---'):
@@ -118,12 +127,11 @@ jobs:
               if line.startswith('+') and not line.startswith('+++'):
                   m = re.match(r'\+\s*\["([^"]+)"\]', line)
                   if m: added[m.group(1)] = line[1:].rstrip('\n')
-          bad = []
-          for mc, old in removed.items():
-              new = added.get(mc)
-              prefix = re.sub(r', Extras: new PerfMod\[\] \{ .* \}\),\s*$', '),', old)[:-2]
-              if new is None or not new.startswith(prefix):
-                  bad.append(mc)
+          def core(s):
+              c = FRAG.sub('', s)
+              return c[:-2] if c.endswith('),') else c
+          bad = [mc for mc, old in removed.items()
+                 if added.get(mc) is None or core(added[mc]) != core(old)]
           if bad:
               sys.exit(f"NON-SUFFIX change on entries: {bad} — refusing to commit")
           print(f"suffix-only audit OK ({len(removed)} entries changed)")
@@ -138,6 +146,6 @@ jobs:
           if git diff --cached --quiet; then
             echo "No catalog changes to commit."
           else
-            git commit -m "perf catalog: extras pins (generated via gen_catalog.py --extras on CI)"
+            git commit -m "perf catalog: extras + opt-in pins (generated via gen_catalog.py on CI)"
             git push
           fi

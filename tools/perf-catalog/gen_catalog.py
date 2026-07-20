@@ -34,6 +34,13 @@ never touched. With --apply it splices the fragment into Data.cs in place
 
     python3 tools/perf-catalog/gen_catalog.py --extras [--apply] 1.20 1.20.1 ...
 
+Optional mode — the opt-in stack (C2ME + Starlight/ScalableLux), same additive
+splice as --extras but writing the SEPARATE `Optional:` fragment (preserving any
+`Extras:` fragment), and allowing beta builds. Include 1.21.1 here (its opt-in
+mods are standalone, unlike its bundled core stack):
+
+    python3 tools/perf-catalog/gen_catalog.py --optional [--apply] 1.20 1.21.1 ...
+
 Slug lookup — search Modrinth when a project's slug is unknown:
 
     python3 tools/perf-catalog/gen_catalog.py --search "better render distance"
@@ -81,6 +88,22 @@ EXTRA_PROJECTS = {
     #                                       the 123k-download Fabric optimization mod
     #                                       (the other hits were paper/neoforge or toys).
 }
+
+# The OPT-IN experimental stack ("Optional" slot in VersionPerfProfile) — the
+# --optional mode. Installed ONLY when the launcher's matching Settings ->
+# Performance flag is on (VersionManager gates it), so unlike EXTRA_PROJECTS
+# these are allowed to resolve to Modrinth's BETA channel (their normal cadence)
+# — the toggle is off by default and boot-tested. Light engine is version-split:
+# Starlight is archived at <=1.20, ScalableLux (its fork) continues for 1.21+;
+# they are disjoint by version and mutually exclusive on any one version.
+OPTIONAL_PROJECTS = {
+    "c2me": "c2me-fabric",                # C2ME — chunk multithreading (gated by ChunkMultithreading)
+    "starlight": "starlight",             # Starlight light engine, <=1.20 (gated by FastLightEngine)
+    "scalablelux": "scalablelux",         # ScalableLux — Starlight's light engine for 1.21+ (same flag)
+}
+# Projects that may resolve to prerelease (beta/alpha) builds — the opt-in stack
+# only (see OPTIONAL_PROJECTS). The always-on EXTRA/core stack stays release-only.
+PRERELEASE_OK = set(OPTIONAL_PROJECTS)
 
 # Modrinth project ids that must NEVER be pulled in via an extra's dependency
 # chain: the six core-slot projects (pinned separately, a second copy = the
@@ -161,9 +184,34 @@ def perfmod_cs(entry):
 # ---------------------------------------------------------------------------
 
 ENTRY_RE = re.compile(r'^(\s*\["(?P<mc>[^"]+)"\] = new\(.*)\),\s*$')
-# The fragment --apply appends. Always last on the line, always script-written,
-# so a greedy match up to the closing "})," is unambiguous for removal.
-EXTRAS_FRAG_RE = re.compile(r', Extras: new PerfMod\[\] \{ .* \}\),\s*$')
+# Both trailing named-arg fragments the script manages, as named args inside the
+# entry's `new(...)`. PerfMod entries carry no braces, so `\{[^{}]*\}` bounds each
+# fragment exactly. Extras (--extras, always-on) and Optional (--optional, opt-in)
+# are independent: a run touching one must PRESERVE the other (see splice()).
+FRAG_RE = re.compile(r', (Extras|Optional): new PerfMod\[\] \{[^{}]*\}')
+FRAG_ORDER = ("Extras", "Optional")  # canonical emit order = record ctor arg order
+
+
+def make_fragment(name: str, pins):
+    return ", " + name + ": new PerfMod[] { " + ", ".join(perfmod_cs(p) for p in pins) + " }"
+
+
+def splice(line: str, name: str, pins):
+    """Return `line` with its `name` fragment (Extras|Optional) set to `pins`
+    (empty pins removes it), the OTHER fragment preserved verbatim, both re-emitted
+    in canonical order. This is what keeps --extras and --optional from clobbering
+    each other's suffix."""
+    body = line.rstrip("\n")
+    frags = {m.group(1): m.group(0) for m in FRAG_RE.finditer(body)}
+    core = FRAG_RE.sub("", body)
+    assert core.endswith("),"), f"unexpected entry shape: {body[:70]}"
+    core = core[:-2]
+    frags[name] = make_fragment(name, pins) if pins else None
+    out = core
+    for k in FRAG_ORDER:
+        if frags.get(k):
+            out += frags[k]
+    return out + "),\n"
 
 
 def sodium_line(version_number: str):
@@ -304,10 +352,6 @@ def resolve_extras(mc: str, data_cs_text: str):
     return unique
 
 
-def extras_fragment(pins):
-    return ", Extras: new PerfMod[] { " + ", ".join(perfmod_cs(p) for p in pins) + " }"
-
-
 def run_extras(mc_versions, apply: bool):
     data_path = Path(__file__).resolve().parents[2] / DATA_CS
     text = data_path.read_text(encoding="utf-8")
@@ -317,25 +361,86 @@ def run_extras(mc_versions, apply: bool):
         if not pins:
             print(f"// {mc}: no extras resolved — line left untouched", file=sys.stderr)
             continue
-        frag = extras_fragment(pins)
         print(f'// {mc} extras ({len(pins)} jars):')
-        print(f"//   {frag}")
+        print(f"//   {make_fragment('Extras', pins)}")
         if not apply:
             continue
         for i, line in enumerate(lines):
             m = ENTRY_RE.match(line)
             if not m or m.group("mc") != mc:
                 continue
-            stripped = EXTRAS_FRAG_RE.sub("),", line.rstrip("\n"))
-            body = stripped.rstrip()
-            assert body.endswith("),"), f"unexpected entry shape for {mc}"
-            lines[i] = body[:-2] + frag + "),\n"
+            lines[i] = splice(line, "Extras", pins)  # preserves any Optional fragment
             break
         else:
             print(f"// !! {mc}: no entry line found in Data.cs — nothing applied", file=sys.stderr)
     if apply:
         data_path.write_text("".join(lines), encoding="utf-8")
         print(f"// applied to {data_path}", file=sys.stderr)
+
+
+def pick_prerelease(key: str, slug: str, mc: str):
+    """Newest build (INCLUDING beta/alpha) of `slug` for `mc`, or None. The opt-in
+    stack ships on Modrinth's beta channel, so unlike the extras resolver this does
+    NOT filter to release-only — the toggle is off-by-default and boot-tested."""
+    try:
+        cands = list_versions(slug, mc)
+        if not cands:
+            print(f"// {mc}: no {key} build — skipped (fail-soft)", file=sys.stderr)
+            return None
+        return as_pin(cands[0])
+    except Exception as e:  # network / API hiccup — report, don't guess
+        print(f"// !! {mc} {key}: lookup failed ({e}) — omitted", file=sys.stderr)
+        return None
+
+
+def resolve_optional(mc: str):
+    """The opt-in pin list for one version: C2ME (if any build) + the light engine
+    (ScalableLux on 1.21+, else Starlight). ScalableLux and Starlight are disjoint
+    by version; the elif enforces mutual exclusion belt-and-suspenders (never two
+    light engines on one version = crash)."""
+    pins = []
+    c2me = pick_prerelease("c2me", OPTIONAL_PROJECTS["c2me"], mc)
+    if c2me:
+        pins.append(c2me)
+    scal = pick_prerelease("scalablelux", OPTIONAL_PROJECTS["scalablelux"], mc)
+    star = pick_prerelease("starlight", OPTIONAL_PROJECTS["starlight"], mc)
+    if scal:
+        pins.append(scal)
+    elif star:
+        pins.append(star)
+    if scal and star:
+        print(f"// !! {mc}: BOTH scalablelux and starlight resolved — kept scalablelux only",
+              file=sys.stderr)
+    # De-dupe by filename, preserve order.
+    seen, unique = set(), []
+    for p in pins:
+        if p and p[2] not in seen:
+            seen.add(p[2])
+            unique.append(p)
+    return unique
+
+
+def run_optional(mc_versions, apply: bool):
+    data_path = Path(__file__).resolve().parents[2] / DATA_CS
+    lines = data_path.read_text(encoding="utf-8").splitlines(keepends=True)
+    for mc in mc_versions:
+        pins = resolve_optional(mc)
+        print(f"// {mc} optional ({len(pins)} jars):")
+        print(f"//   {make_fragment('Optional', pins) if pins else '(none — Optional fragment cleared)'}")
+        if not apply:
+            continue
+        for i, line in enumerate(lines):
+            m = ENTRY_RE.match(line)
+            if not m or m.group("mc") != mc:
+                continue
+            # pins=[] clears any stale Optional fragment; Extras is preserved.
+            lines[i] = splice(line, "Optional", pins)
+            break
+        else:
+            print(f"// !! {mc}: no entry line found in Data.cs — nothing applied", file=sys.stderr)
+    if apply:
+        data_path.write_text("".join(lines), encoding="utf-8")
+        print(f"// applied optional to {data_path}", file=sys.stderr)
 
 
 def run_list(slug: str, mc: str):
@@ -403,13 +508,13 @@ if __name__ == "__main__":
         run_search(" ".join(args[1:]))
     elif args[0] == "--list":
         run_list(args[1], args[2])
-    elif args[0] == "--extras":
+    elif args[0] in ("--extras", "--optional"):
         rest = args[1:]
         apply = "--apply" in rest
         versions = [a for a in rest if a != "--apply"]
         if not versions:
             print(__doc__)
             sys.exit(2)
-        run_extras(versions, apply)
+        (run_extras if args[0] == "--extras" else run_optional)(versions, apply)
     else:
         main(args)
