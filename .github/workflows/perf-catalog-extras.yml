@@ -1,0 +1,100 @@
+# Runs tools/perf-catalog/gen_catalog.py against the live Modrinth API and
+# commits the result back to the branch it was dispatched on. Exists because
+# the remote dev sandbox is firewalled off from api.modrinth.com (same reason
+# build-check.yml exists for compiles): the generator needs real version/URL
+# data that can only be fetched from a networked machine, and CI runners are
+# the one networked machine every session has.
+#
+# Modes (pick via inputs):
+#  - search: resolve an unknown Modrinth slug (prints candidates to the log,
+#    changes nothing). Used e.g. to pin down the "BetterRenderDistances" slug.
+#  - extras + apply: splice `Extras:` fragments into PerformanceModCatalog.
+#    Data.cs IN PLACE and push the change. The script only ever appends/replaces
+#    the Extras fragment on each line — the six hand-pinned core slots are
+#    untouched by construction (see EXTRAS_FRAG_RE in the script).
+#
+# Manual-only (workflow_dispatch): catalog data changes must always be a
+# deliberate act with a human (or the driving Claude session) reading the log.
+name: perf-catalog-extras
+
+on:
+  workflow_dispatch:
+    inputs:
+      search:
+        description: "Modrinth search query (search mode; leave empty for extras mode)"
+        default: ""
+      versions:
+        description: "MC versions to resolve extras for (extras mode)"
+        # Every live standalone (BundlesPerfStack:false) version. 1.21.1 is
+        # deliberately absent — it bundles its stack jar-in-jar, its standalone
+        # catalog line is never installed. 1.21.9 is pulled, 26.2 staged.
+        default: "1.16.5 1.17.1 1.18.2 1.19.2 1.19.3 1.19.4 1.20 1.20.1 1.20.2 1.20.4 1.21 1.21.2 1.21.3 1.21.4 1.21.5 1.21.6 1.21.7 1.21.8 1.21.10 1.21.11"
+      apply:
+        description: "Splice results into Data.cs and push to this branch"
+        type: boolean
+        default: true
+
+concurrency:
+  group: perf-catalog-extras-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Search Modrinth
+        if: inputs.search != ''
+        run: python3 tools/perf-catalog/gen_catalog.py --search "${{ inputs.search }}"
+
+      - name: Resolve extras
+        if: inputs.search == '' && !inputs.apply
+        run: python3 tools/perf-catalog/gen_catalog.py --extras ${{ inputs.versions }}
+
+      - name: Resolve extras and apply to Data.cs
+        if: inputs.search == '' && inputs.apply
+        run: python3 tools/perf-catalog/gen_catalog.py --extras --apply ${{ inputs.versions }}
+
+      # Guard against the one failure mode that matters: any change to a line's
+      # existing content outside the appended Extras fragment. Every changed
+      # line must still contain its original prefix verbatim.
+      - name: Audit diff is suffix-only
+        if: inputs.search == '' && inputs.apply
+        run: |
+          git diff --unified=0 -- src/OriginLauncher.App/Core/Loaders/PerformanceModCatalog.Data.cs | tee /tmp/extras.diff
+          python3 - <<'EOF'
+          import re, sys
+          removed, added = {}, {}
+          for line in open('/tmp/extras.diff'):
+              if line.startswith('-') and not line.startswith('---'):
+                  m = re.match(r'-\s*\["([^"]+)"\]', line)
+                  if m: removed[m.group(1)] = line[1:].rstrip('\n')
+              if line.startswith('+') and not line.startswith('+++'):
+                  m = re.match(r'\+\s*\["([^"]+)"\]', line)
+                  if m: added[m.group(1)] = line[1:].rstrip('\n')
+          bad = []
+          for mc, old in removed.items():
+              new = added.get(mc)
+              prefix = re.sub(r', Extras: new PerfMod\[\] \{ .* \}\),\s*$', '),', old)[:-2]
+              if new is None or not new.startswith(prefix):
+                  bad.append(mc)
+          if bad:
+              sys.exit(f"NON-SUFFIX change on entries: {bad} — refusing to commit")
+          print(f"suffix-only audit OK ({len(removed)} entries changed)")
+          EOF
+
+      - name: Commit and push
+        if: inputs.search == '' && inputs.apply
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/OriginLauncher.App/Core/Loaders/PerformanceModCatalog.Data.cs
+          if git diff --cached --quiet; then
+            echo "No catalog changes to commit."
+          else
+            git commit -m "perf catalog: extras pins (generated via gen_catalog.py --extras on CI)"
+            git push
+          fi
