@@ -36,7 +36,8 @@ public class OriginModsListScreen extends Screen {
 			"sodium", "indium", "lithium", "ferritecore", "krypton", "iris",
 			"sodium-extra", "moreculling", "cullleaves",
 			"cloth-config", "cloth-config2", "midnightlib",
-			"immediatelyfast", "modernfix", "betterrenderdistance", "jei");
+			"immediatelyfast", "modernfix", "betterrenderdistance", "jei",
+			"c2me", "starlight", "scalablelux");
 
 	private static final Set<String> HIDDEN_IDS = Set.of("minecraft", "java", "fabricloader");
 

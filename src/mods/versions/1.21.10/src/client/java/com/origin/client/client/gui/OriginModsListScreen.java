@@ -47,7 +47,8 @@ public class OriginModsListScreen extends Screen {
 			"sodium", "indium", "lithium", "ferritecore", "krypton", "iris",
 			"sodium-extra", "moreculling", "cullleaves",
 			"cloth-config", "cloth-config2", "midnightlib",
-			"immediatelyfast", "modernfix", "jei");
+			"immediatelyfast", "modernfix", "betterrenderdistance", "jei",
+			"c2me", "starlight", "scalablelux");
 
 	// Runtime plumbing that isn't a "mod" to a player.
 	private static final Set<String> HIDDEN_IDS = Set.of("minecraft", "java", "fabricloader");
