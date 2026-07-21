@@ -8,7 +8,6 @@ import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.LogoRenderer;
 import net.minecraft.client.gui.components.PlainTextButton;
 import net.minecraft.client.gui.components.SplashRenderer;
-import net.minecraft.client.gui.components.SpriteIconButton;
 import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.TitleScreen;
@@ -112,9 +111,10 @@ public class TitleScreenMixin {
 		return originclient$origin() ? 0 : instance.drawString(font, text, x, y, color);
 	}
 
-	// Hide the language + accessibility icons (SpriteIconButton) and the
-	// copyright line (PlainTextButton). visible=false stops both rendering and
-	// clicks; re-run on every (re)init so it survives window resizes.
+	// Hide only the copyright line (PlainTextButton). The language + accessibility
+	// icons (SpriteIconButton) are KEPT on the Origin menu (Will, 2026-07-21) and
+	// re-skinned to the Frost box by SpriteIconButtonMixin. visible=false stops
+	// rendering and clicks; re-run on every (re)init so it survives resizes.
 	@Inject(method = "init", at = @At("TAIL"))
 	private void originclient$stripExtraButtons(CallbackInfo ci) {
 		if (!originclient$origin()) {
@@ -122,8 +122,7 @@ public class TitleScreenMixin {
 		}
 		Screen self = (Screen) (Object) this;
 		for (GuiEventListener child : self.children()) {
-			if ((child instanceof SpriteIconButton || child instanceof PlainTextButton)
-					&& child instanceof AbstractWidget widget) {
+			if (child instanceof PlainTextButton && child instanceof AbstractWidget widget) {
 				widget.visible = false;
 				widget.active = false;
 			}
