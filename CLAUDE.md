@@ -14,6 +14,18 @@
 3. Keep the code optimized for **Claude readability** — Will never edits it.
    Comments explain constraints and reasons, one obvious way to do each thing.
 
+## Working order (Will, 2026-07-21)
+Perfect ONE version at a time, then move on — never spread half-finished work
+across versions. The order:
+1. **1.21.1** — get it perfect first (current focus).
+2. then **1.20**.
+3. then the **26.x lineup**.
+4. then keep going **down the list** until every supported version is complete.
+
+"Perfect" = the full Origin experience (mandate 1–5) working and verified on that
+version before advancing to the next. Per-version best-fit still applies (mandate 5) —
+each version uses the best stable method for itself, same look across all.
+
 ## Type
 application
 
