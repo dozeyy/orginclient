@@ -33,6 +33,12 @@ public final class ColorGrade {
 		if (broken || !Mods.on("colorsaturation")) {
 			return;
 		}
+		Minecraft mc = Minecraft.getInstance();
+		// Only grade the LIVE game — never while a screen/menu is open (so menus, the
+		// logo, and the HUD-over-a-menu stay untouched) and never outside a world.
+		if (mc.screen != null || mc.level == null) {
+			return;
+		}
 		double sat = Mods.num("colorsaturation", "saturation");
 		double bri = Mods.num("colorsaturation", "brightness");
 		double con = Mods.num("colorsaturation", "contrast");
@@ -40,7 +46,6 @@ public final class ColorGrade {
 		if (near1(sat) && near1(bri) && near1(con)) {
 			return;
 		}
-		Minecraft mc = Minecraft.getInstance();
 		var main = mc.getMainRenderTarget();
 		try {
 			if (chain == null) {
