@@ -228,8 +228,14 @@ public abstract class TitleScreenMixin extends Screen {
 		for (AbstractWidget widget : icons) {
 			widget.y = rowY;
 		}
-		this.addButton(new Button(this.width / 2 - 100, modsY, 200, 20,
-				new TranslatableComponent("originclient.menu.mods"),
-				b -> this.minecraft.setScreen(new OriginModsListScreen(self))));
+		// ModMenu (mod id "modmenu") injects its OWN title-screen Mods button; when
+		// it's loaded, skip Origin's so the menu doesn't show two. Same isModLoaded
+		// gate Origin already uses for Iris (IrisBridge). Options/Quit/icons anchor
+		// off modsY (already computed above), so dropping this row shifts nothing.
+		if (!net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded("modmenu")) {
+			this.addButton(new Button(this.width / 2 - 100, modsY, 200, 20,
+					new TranslatableComponent("originclient.menu.mods"),
+					b -> this.minecraft.setScreen(new OriginModsListScreen(self))));
+		}
 	}
 }
