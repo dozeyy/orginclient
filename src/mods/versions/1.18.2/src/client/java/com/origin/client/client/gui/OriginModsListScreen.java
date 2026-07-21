@@ -37,7 +37,11 @@ public class OriginModsListScreen extends Screen {
 			"sodium-extra", "moreculling", "cullleaves",
 			"cloth-config", "cloth-config2", "midnightlib",
 			"immediatelyfast", "modernfix", "betterrenderdistance", "jei",
-			"c2me", "starlight", "scalablelux");
+			"c2me", "starlight", "scalablelux",
+			// Always-on QoL batch (2026-07-21): Voice Chat + Clumps, Noisium,
+			// World Host, Shulker Box Tooltip, Status Effect Timer.
+			"voicechat", "clumps", "noisium", "world_host",
+			"shulkerboxtooltip", "statuseffecttimer");
 
 	private static final Set<String> HIDDEN_IDS = Set.of("minecraft", "java", "fabricloader");
 
