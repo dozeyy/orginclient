@@ -29,12 +29,22 @@ public class GuiScoreboardMixin {
 		var pose = guiGraphics.pose();
 		pose.pushPose();
 		if (Mods.on("scoreboard")) {
-			float s = (float) Mods.num("scoreboard", "scale");
-			float px = guiGraphics.guiWidth();
-			float py = guiGraphics.guiHeight() / 2f;
-			pose.translate(px, py, 0);
-			pose.scale(s, s, 1f);
-			pose.translate(-px, -py, 0);
+			// Reposition the real sidebar to the scoreboard element's HudPos (drag it
+			// in the HUD editor). Translate from vanilla's default spot to the target;
+			// the sample size is the shared reference for both the editor box and this.
+			com.origin.client.client.hud.HudPos p = com.origin.client.client.hud.HudElements.scoreboardPos();
+			int[] sz = com.origin.client.client.hud.HudElements.sampleScoreboardSize();
+			int sw = guiGraphics.guiWidth(), sh = guiGraphics.guiHeight();
+			double tx = p.x(sw, sz[0]), ty = p.y(sh, sz[1]);
+			double vx = sw - sz[0] - 3, vy = (sh - sz[1]) / 2.0;
+			pose.translate(tx - vx, ty - vy, 0);
+			float s = (float) p.scale;
+			if (s > 0.05f) {
+				float ax = guiGraphics.guiWidth(), ay = guiGraphics.guiHeight() / 2f;
+				pose.translate(ax, ay, 0);
+				pose.scale(s, s, 1f);
+				pose.translate(-ax, -ay, 0);
+			}
 		}
 	}
 

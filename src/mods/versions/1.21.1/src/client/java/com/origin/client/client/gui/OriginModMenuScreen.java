@@ -290,7 +290,6 @@ public class OriginModMenuScreen extends Screen {
 		// Live HUD preview behind the menu (raw screen space, before the panel):
 		// enabled elements draw with sample content so you see your edits live.
 		HudElements.renderAll(g);
-		HudElements.renderScoreboardPreview(g);
 		layout();
 		hoverTip = null;
 		long now = System.currentTimeMillis();
