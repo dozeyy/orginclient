@@ -93,12 +93,14 @@ public class OriginModMenuScreen extends Screen {
 
 	// ---- geometry ----
 
+	// Panel origin is derived from its size so the panel CENTER lands exactly on the
+	// crosshair (screen centre), with no off-by-one from independent truncation.
 	private int px() {
-		return (int) (width * 0.125);
+		return (width - pw()) / 2;
 	}
 
 	private int py() {
-		return (int) (height * 0.125);
+		return (height - ph()) / 2;
 	}
 
 	private int pw() {
@@ -255,6 +257,9 @@ public class OriginModMenuScreen extends Screen {
 				filtered.add(m);
 			}
 		}
+		// Pinned (favorited) mods float to the top, keeping their relative order.
+		filtered.sort((a, b) -> Boolean.compare(
+				Mods.metaBool("fav:" + b.id(), false), Mods.metaBool("fav:" + a.id(), false)));
 	}
 
 	private int gridTop() {
@@ -526,6 +531,16 @@ public class OriginModMenuScreen extends Screen {
 		OriginUi.panel(g, cx, cy, cellW, cellH, 10,
 				withAlpha(clear ? (hover ? 0xD8141414 : 0xC8101010) : (hover ? OriginTheme.BOX_FILL_HOVER : OriginTheme.BOX_FILL), alpha),
 				withAlpha(hover ? OriginTheme.BOX_BORDER_HOVER : OriginTheme.BOX_BORDER, alpha));
+
+		// Favorite/pin star (top-left corner): GOLD when pinned (always shown so you
+		// know it's pinned), a faint star on hover otherwise. Click it to toggle +
+		// pin to the top of the list (see clickRow/layout). Hit box is star2Rect.
+		boolean fav = Mods.metaBool("fav:" + mod.id(), false);
+		if (fav || hover) {
+			boolean sHover = hover && in(mx, my, cx + 2, cy + 1, cx + 14, cy + 13);
+			int starCol = fav ? 0xFFFFD700 : (sHover ? 0xFFFFFFFF : 0x99FFFFFF);
+			g.drawString(font, "★", cx + 4, cy + 3, withAlpha(starCol, alpha), false);
+		}
 
 		// icon stays fully white in every state — only the toggle button below
 		// communicates enabled/disabled
@@ -857,9 +872,17 @@ public class OriginModMenuScreen extends Screen {
 						continue;
 					}
 					Mods.Mod mod = filtered.get(i);
+					// favorite/pin star (top-left) — toggles pinned state, floats to top
+					if (in(mx, my, r[0] + 2, r[1] + 1, r[0] + 14, r[1] + 13)) {
+						Mods.setMetaBool("fav:" + mod.id(), !Mods.metaBool("fav:" + mod.id(), false));
+						return true;
+					}
 					int bx = r[0] + 12, bw = cellW - 24, tby = r[1] + 80;
 					if (in(mx, my, bx, tby, bx + bw, tby + 15)) {
 						Mods.setOn(mod.id(), !Mods.on(mod.id())); // ENABLED/DISABLED toggle
+					} else if (mod.id().equals("waypoints")) {
+						// Waypoints has its own manager screen, not the standard rows.
+						Minecraft.getInstance().setScreen(new com.origin.client.client.waypoints.WaypointScreen());
 					} else {
 						page = mod.id(); // OPTIONS button or card body opens the page
 						pageChangedAt = System.currentTimeMillis();

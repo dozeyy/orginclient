@@ -12,6 +12,9 @@ public final class OriginKeyBindings {
 	public static KeyMapping zoom;
 	public static KeyMapping freelook;
 	public static KeyMapping copyCoords;
+	public static KeyMapping waypointMenu;
+	public static KeyMapping waypointQuick;
+	public static KeyMapping waypointToggle;
 
 	private OriginKeyBindings() {
 	}
@@ -40,5 +43,14 @@ public final class OriginKeyBindings {
 				InputConstants.Type.KEYSYM,
 				InputConstants.UNKNOWN.getValue(),
 				CATEGORY));
+
+		// Waypoints — all unbound by default (set in Controls). Menu opens the manager,
+		// Quick drops a "Waypoint N" at your feet, Toggle flips the whole system on/off.
+		waypointMenu = KeyBindingHelper.registerKeyBinding(new KeyMapping(
+				"key.originclient.waypoint_menu", InputConstants.Type.KEYSYM, InputConstants.UNKNOWN.getValue(), CATEGORY));
+		waypointQuick = KeyBindingHelper.registerKeyBinding(new KeyMapping(
+				"key.originclient.waypoint_quick", InputConstants.Type.KEYSYM, InputConstants.UNKNOWN.getValue(), CATEGORY));
+		waypointToggle = KeyBindingHelper.registerKeyBinding(new KeyMapping(
+				"key.originclient.waypoint_toggle", InputConstants.Type.KEYSYM, InputConstants.UNKNOWN.getValue(), CATEGORY));
 	}
 }

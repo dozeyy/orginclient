@@ -71,6 +71,8 @@ public final class ModIcons {
 		ITEMS.put("jei", Items.KNOWLEDGE_BOOK);
 		// Color Saturation — the archaeology brush reads as "tune/adjust the picture".
 		ITEMS.put("colorsaturation", Items.BRUSH);
+		// Waypoints — the lodestone is vanilla's "fixed location" block.
+		ITEMS.put("waypoints", Items.LODESTONE);
 
 		// Settings tab pseudo-ids (Mods.GENERAL_ID / PERFORMANCE_ID) and the
 		// menu's own chrome. These aren't mods, but they draw through the same

@@ -358,6 +358,14 @@ public final class Mods {
 		add("particles", "Particle Changer", "Per-particle visibility and styling.", false,
 				buildParticleOptions());
 
+		// Waypoints: in-world markers (beam + label + distance). Its list + create/
+		// edit UI live in WaypointScreen (opened from the card or a keybind), so only
+		// the system-wide toggles live in the schema here. Death Waypoints / Confirm
+		// Before Delete are read live by Waypoints/WaypointScreen.
+		add("waypoints", "Waypoints", "In-world markers with beams, labels, and distance.", false,
+				ModOption.toggle("deathWaypoints", "Death Waypoints", true).tip("Auto-drop a waypoint where you die."),
+				ModOption.toggle("confirmDelete", "Confirm Before Delete", true).tip("Ask before removing a waypoint."));
+
 		// ---- interface ----
 		// JEI is not Origin code — it's mezz's mod, bundled jar-in-jar (see
 		// THIRD-PARTY-LICENSES.txt). That makes its toggle different in kind from

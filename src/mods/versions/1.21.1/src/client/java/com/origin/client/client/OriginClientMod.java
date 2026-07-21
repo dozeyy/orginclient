@@ -58,6 +58,9 @@ public class OriginClientMod implements ClientModInitializer {
 	private static final String BUNDLED_JEI = "19.27.0.340";
 	private static String foreignJei = null;
 	private boolean jeiNoticeShown = false;
+	// Edge-trigger for death waypoints: true while the player is alive, so a death
+	// drops exactly one waypoint on the alive→dead transition.
+	private boolean wasAlive = false;
 
 	@Override
 	public void onInitializeClient() {
@@ -101,6 +104,11 @@ public class OriginClientMod implements ClientModInitializer {
 				ChunkBorderRenderer.render(context);
 			} catch (Throwable t) {
 				// overlay must never take the frame down
+			}
+			try {
+				com.origin.client.client.waypoints.WaypointRenderer.render(context);
+			} catch (Throwable t) {
+				// waypoints must never take the frame down
 			}
 		});
 		// Potion Effects "Show In Inventory": the HUD pass is skipped while a
@@ -201,6 +209,31 @@ public class OriginClientMod implements ClientModInitializer {
 				p.displayClientMessage(net.minecraft.network.chat.Component.literal("Copied coordinates: " + c), true);
 			}
 		}
+
+		// Waypoints — three activation paths (in addition to the mod-card ENABLED
+		// toggle and the in-menu toggle in WaypointScreen).
+		while (OriginKeyBindings.waypointToggle.consumeClick()) {
+			Mods.setOn("waypoints", !Mods.on("waypoints"));
+		}
+		while (OriginKeyBindings.waypointQuick.consumeClick()) {
+			if (Mods.on("waypoints") && client.player != null) {
+				com.origin.client.client.waypoints.Waypoints.quickCreate();
+			}
+		}
+		while (OriginKeyBindings.waypointMenu.consumeClick()) {
+			if (client.screen == null) {
+				client.setScreen(new com.origin.client.client.waypoints.WaypointScreen());
+			}
+		}
+		// Death waypoint: drop one on the alive→dead transition (edge-triggered).
+		LocalPlayer wp = client.player;
+		boolean dead = wp != null && (wp.isDeadOrDying() || wp.getHealth() <= 0f);
+		if (dead && wasAlive && Mods.on("waypoints") && Mods.bool("waypoints", "deathWaypoints")) {
+			var bp = wp.blockPosition();
+			com.origin.client.client.waypoints.Waypoints.onDeath(bp.getX(), bp.getY(), bp.getZ(),
+					com.origin.client.client.waypoints.Waypoints.currentDim());
+		}
+		wasAlive = wp != null && !dead;
 
 		applyChat(client);
 		applyHitboxes(client);
