@@ -20,25 +20,49 @@ namespace OriginLauncher.App.Core.Auth;
 // System.Text.Json are all in the .NET 8 base class library.
 public sealed class MicrosoftAuthenticator
 {
-    // TEMPORARY — single switch for the whole test setup. Flip to false (and
-    // revert ClientId below) once Origin's own Azure app registration is
-    // confirmed working. Every place that needs to behave differently while
-    // testing (silent refresh included — that's what was still broken)
-    // checks this same flag, so nothing can drift out of sync.
-    public const bool IsTestMode = true;
+    // THE SHIPPING AUTH PATH — not a test rig. Origin signs in with the
+    // grandfathered Minecraft launcher client ID (below) against Microsoft's
+    // legacy Live Connect endpoints. This is here for a hard reason:
+    //
+    //   Since 2022 Microsoft gates NEW Azure app registrations behind a manual
+    //   approval form. Any app created after that policy gets a PERMANENT
+    //   403 {"errorMessage":"Invalid app registration"} from the final
+    //   login_with_xbox step until Microsoft approves it. This is NOT a
+    //   propagation delay that clears on its own — that earlier theory was
+    //   wrong and cost real time. Origin's own app
+    //   (OriginAzureClientId, below) is post-policy, so it 403s there.
+    //
+    // The Minecraft launcher's OWN client ID predates that gate and is accepted
+    // without any approval — the same approach open-source launchers take. This
+    // single switch drives every path that must agree (interactive sign-in AND
+    // silent refresh) so they can never drift. Flip it to false ONLY once we've
+    // submitted and been GRANTED Microsoft's approval form for Origin's own app;
+    // ClientId/endpoints then follow the switch automatically (see below).
+    public const bool UseMinecraftClientId = true;
 
-    // TEMPORARY — testing only. Swapped to a public client ID (registered in
-    // Microsoft's legacy Live Connect system) to isolate whether the auth
-    // chain itself works, independent of whether Origin's own Azure app
-    // registration (de37d9e5-82d5-43a7-8f66-ebac788e8ba5) has finished
-    // propagating. Revert to Origin's own ID before shipping.
-    private const string ClientId = "00000000402b5328";
+    // The grandfathered Minecraft launcher client ID. It's registered in
+    // Microsoft's legacy Live Connect identity system (not modern Azure AD v2),
+    // so it lives on the Live* endpoints below — the v2
+    // "/consumers/oauth2/v2.0/token" endpoint returns AADSTS700016
+    // ("app not found in directory") for it because it genuinely isn't there.
+    private const string MinecraftClientId = "00000000402b5328";
 
-    // "Personal Microsoft accounts only" apps authenticate against the
-    // /consumers authority, not the app's own Directory (tenant) ID — that
-    // tenant ID identifies Will's Azure AD directory, which personal MSA
-    // accounts don't belong to. Using the tenant ID here would be correct
-    // for a work/school-account app, not this one.
+    // Origin's OWN Azure app — the legitimate long-term identity, reachable only
+    // after Microsoft approves our app-registration form (until then it 403s at
+    // login_with_xbox, see above). Kept here so the approved path is one switch
+    // away and the ID is never lost.
+    private const string OriginAzureClientId = "de37d9e5-82d5-43a7-8f66-ebac788e8ba5";
+
+    // The active client ID follows the switch: the grandfathered Minecraft ID
+    // today, Origin's own app once it's approved. No manual "remember to also
+    // change the ID" step — the one switch is authoritative.
+    private static string ClientId => UseMinecraftClientId ? MinecraftClientId : OriginAzureClientId;
+
+    // Origin's own-app authority (used only when UseMinecraftClientId is false).
+    // A "personal Microsoft accounts only" app authenticates against the
+    // /consumers authority, not the app's own Directory (tenant) ID — personal
+    // MSA accounts don't belong to that org tenant, so the tenant ID would be
+    // the wrong endpoint here.
     private const string AuthorizeEndpoint = "https://login.microsoftonline.com/consumers/oauth2/v2.0/authorize";
     private const string TokenEndpoint = "https://login.microsoftonline.com/consumers/oauth2/v2.0/token";
 
@@ -78,36 +102,35 @@ public sealed class MicrosoftAuthenticator
         return new AuthResult { Session = session, MsaRefreshToken = refreshToken };
     }
 
-    // TEMPORARY — testing only, paired with the ClientId swap above. This is
-    // this client ID's actual registered redirect — Microsoft's own generic
-    // native-client landing page (login.live.com, not a third party's own
-    // domain), which is why this ID is usable this way at all. Since our
-    // sign-in runs inside our own embedded WebView2 rather than the system
-    // browser, the caller just watches WebView2's NavigationStarting for
-    // this URI and cancels it before it actually loads that blank page,
-    // then hands the extracted code to CompleteTestSignInAsync below.
-    // See MicrosoftSignInPanel.
-    public const string TestRedirectUri = "https://login.live.com/oauth20_desktop.srf";
+    // The grandfathered Minecraft client ID's registered redirect — Microsoft's
+    // own generic native-client landing page (login.live.com, not a third
+    // party's own domain), which is what makes this ID usable this way at all.
+    // Sign-in runs inside our embedded WebView2, so the caller just watches
+    // WebView2's NavigationStarting for this URI and cancels it before it loads
+    // that blank page, then hands the extracted code to CompleteSignInAsync
+    // below. See MicrosoftSignInPanel.
+    public const string LiveDesktopRedirectUri = "https://login.live.com/oauth20_desktop.srf";
 
-    // TEMPORARY — testing only. This client ID is registered in Microsoft's
-    // legacy Live Connect identity system, not modern Azure AD v2 — the v2
-    // "/consumers/oauth2/v2.0/token" endpoint returned AADSTS700016 ("app not
-    // found in directory") because it genuinely isn't there. These legacy
-    // endpoints are where it actually lives.
-    private const string TestAuthorizeEndpoint = "https://login.live.com/oauth20_authorize.srf";
-    private const string TestTokenEndpoint = "https://login.live.com/oauth20_token.srf";
+    // The legacy Live Connect endpoints the grandfathered Minecraft client ID
+    // lives on (see MinecraftClientId — it isn't on the modern Azure AD v2
+    // /consumers endpoints at all). This is the active endpoint pair whenever
+    // UseMinecraftClientId is true.
+    private const string LiveAuthorizeEndpoint = "https://login.live.com/oauth20_authorize.srf";
+    private const string LiveTokenEndpoint = "https://login.live.com/oauth20_token.srf";
 
-    public (string AuthUrl, string CodeVerifier) BuildTestAuthorizationRequest()
+    // Interactive sign-in step 1 for the grandfathered path: build the Live
+    // Connect authorization URL the WebView2 navigates to.
+    public (string AuthUrl, string CodeVerifier) BuildAuthorizationRequest()
     {
         var codeVerifier = Pkce.GenerateCodeVerifier();
         var codeChallenge = Pkce.GenerateCodeChallenge(codeVerifier);
         var state = Guid.NewGuid().ToString("N");
 
         var authUrl =
-            $"{TestAuthorizeEndpoint}" +
+            $"{LiveAuthorizeEndpoint}" +
             $"?client_id={Uri.EscapeDataString(ClientId)}" +
             $"&response_type=code" +
-            $"&redirect_uri={Uri.EscapeDataString(TestRedirectUri)}" +
+            $"&redirect_uri={Uri.EscapeDataString(LiveDesktopRedirectUri)}" +
             $"&response_mode=query" +
             $"&scope={Uri.EscapeDataString("XboxLive.signin offline_access")}" +
             $"&code_challenge={codeChallenge}" +
@@ -117,9 +140,11 @@ public sealed class MicrosoftAuthenticator
         return (authUrl, codeVerifier);
     }
 
-    public async Task<AuthResult> CompleteTestSignInAsync(string code, string codeVerifier, CancellationToken ct = default)
+    // Interactive sign-in step 2 for the grandfathered path: exchange the code
+    // WebView2 intercepted, then run the shared Xbox -> XSTS -> Minecraft chain.
+    public async Task<AuthResult> CompleteSignInAsync(string code, string codeVerifier, CancellationToken ct = default)
     {
-        var (msaToken, refreshToken) = await ExchangeCodeForTokenAsync(code, TestRedirectUri, codeVerifier, ct, TestTokenEndpoint);
+        var (msaToken, refreshToken) = await ExchangeCodeForTokenAsync(code, LiveDesktopRedirectUri, codeVerifier, ct, LiveTokenEndpoint);
         var session = await CompleteMinecraftAuthAsync(msaToken, ct);
         return new AuthResult { Session = session, MsaRefreshToken = refreshToken };
     }
@@ -266,12 +291,12 @@ public sealed class MicrosoftAuthenticator
             ["scope"] = "XboxLive.signin offline_access"
         };
 
-        // TEMPORARY — IsTestMode routes this to the legacy endpoint too; the
-        // test client ID only exists in Microsoft's legacy Live Connect
-        // directory, so silent refresh against the modern endpoint fails
-        // with the same AADSTS700016 ("app not found") the initial sign-in
-        // did before this switch was added.
-        var endpoint = IsTestMode ? TestTokenEndpoint : TokenEndpoint;
+        // Silent refresh must use the SAME identity family as interactive
+        // sign-in: the grandfathered Minecraft client ID only exists in
+        // Microsoft's legacy Live Connect directory, so refreshing it against
+        // the modern endpoint fails with AADSTS700016 ("app not found"). The
+        // one switch keeps both halves aligned.
+        var endpoint = UseMinecraftClientId ? LiveTokenEndpoint : TokenEndpoint;
         using var response = await Http.PostAsync(endpoint, new FormUrlEncodedContent(form), ct);
         var json = await response.Content.ReadAsStringAsync(ct);
         if (!response.IsSuccessStatusCode)

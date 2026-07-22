@@ -196,9 +196,16 @@ floating corner controls. In-game menus match this exactly.
   perf stack. Both boot- and shader-verified end to end through the real
   launcher pipeline (Sildur's Vibrant loaded in-world on both).
 - Launcher shipping via tag flow (latest launcher-v1.0.29; auto-update).
-  Auth chain: MSA→Xbox→XSTS confirmed; Minecraft `login_with_xbox` returns 403
-  (leading theory: new-app-registration propagation) — `OfflineTestMode` in
-  Settings→Developer is the test path until resolved.
+  Auth: full MSA→Xbox→XSTS→`login_with_xbox`→profile chain. The old
+  "propagation delay" theory was WRONG — the `login_with_xbox` 403 "Invalid app
+  registration" is a permanent post-2022 approval gate on NEW Azure apps, so
+  Origin's own app 403s until Microsoft grants its approval form. Shipping path
+  (Will's call 2026-07-22): sign in with the grandfathered Minecraft launcher
+  client ID (`00000000402b5328`, pre-gate, no approval needed) on the legacy
+  Live Connect endpoints — one switch `MicrosoftAuthenticator.UseMinecraftClientId`
+  drives sign-in + silent refresh together; flip it to Origin's own app once
+  approved. `OfflineTestMode` (Settings→Developer) is now just a dev convenience,
+  not a workaround for broken auth.
 - Live Origin builds: 1.21.1 (bundled stack), 1.20/1.20.1, 1.20.4, 1.21 —
   runClient-verified except 1.21 (at-home confidence check pending).
 - Fabric-only cleanup landed 2026-07-12: loader selector, Forge/OptiFine,

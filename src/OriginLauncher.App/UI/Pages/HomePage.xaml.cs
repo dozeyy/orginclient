@@ -231,10 +231,11 @@ public partial class HomePage : UserControl
             }
             else
             {
-                // Offline test mode (Settings -> Developer): Microsoft's
-                // app-registration approval is pending, so real sign-in is
-                // unavailable — a local session lets every other part of the
-                // pipeline (provisioning, loaders, the in-game UI) be tested.
+                // Offline test mode (Settings -> Developer): a dev convenience
+                // for exercising the rest of the pipeline (provisioning,
+                // loaders, in-game UI) without a real account. Real Microsoft
+                // sign-in works — this path is chosen only when no account is
+                // selected and the toggle is on.
                 LoadingOverlay.ReportStage("Starting offline test session...");
                 session = MSession.CreateOfflineSession("OriginTester");
             }

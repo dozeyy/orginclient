@@ -3611,9 +3611,48 @@ loading the sign-in page then stopped.
   built `OriginLauncher.App.exe` directly, never via `dotnet <dll>`.
 - **Confirmed by Will**: rebuilt, relaunched via the real `.exe`, sign-in
   succeeded. Shipped as `launcher-v1.0.28`.
-- **Still true from the 2026-07-06 auth-chain entries** (unchanged, no
-  action taken here): `IsTestMode = true` in `MicrosoftAuthenticator.cs`
-  still routes sign-in through a legacy Live Connect client ID
-  (`00000000402b5328`) against `login.live.com`, not Origin's real Azure app
-  registration. Revisit before shipping wider — see `MicrosoftAuthenticator.cs`
-  TEMPORARY comments.
+- **Superseded 2026-07-22 (see entry below).** The grandfathered legacy Live
+  Connect client ID (`00000000402b5328`) is now the intended SHIPPING sign-in
+  path, not a temporary test rig. The `IsTestMode` flag was renamed
+  `UseMinecraftClientId` and the "TEMPORARY" framing removed.
+
+## 2026-07-22 — login_with_xbox 403 root cause found; grandfathered ID is the shipping path
+Will asked to read the Mojang API docs for a better way to get sign-in working.
+Found that the long-standing "wait for Azure app registration to propagate"
+theory was **wrong**, and it had been blocking real-account sign-in for weeks.
+- **Real root cause:** since 2022 Microsoft gates NEW Azure app registrations
+  behind a manual approval form. Any app created after that policy gets a
+  PERMANENT `403 {"errorMessage":"Invalid app registration"}` from
+  `api.minecraftservices.com/authentication/login_with_xbox` until Microsoft
+  approves it — it never clears on its own. Origin's own app
+  (`de37d9e5-…`) is post-policy, so it 403s there. MSA→Xbox→XSTS all succeed;
+  only the final Minecraft step is gated. (Sources: Mojang API docs / Microsoft
+  Q&A on `XboxLive.signin` app approval — Prism/MultiMC went through this form.)
+- **Two real fixes:** (a) grandfathered client ID `00000000402b5328` (the
+  Minecraft launcher's own ID, pre-gate, no approval needed — what open-source
+  launchers use); (b) submit Microsoft's approval form for Origin's own app,
+  which takes days–weeks. Not exclusive.
+- **Will's call:** ship on the grandfathered ID now (option a). This was ALREADY
+  the code's active path (`IsTestMode=true`) and Will had already confirmed a
+  real sign-in succeeded through it end-to-end (shipped `launcher-v1.0.28`) —
+  it was just buried under "temporary/test" scaffolding and the memory told
+  everyone to use `OfflineTestMode` instead.
+- **Changes (this session):** de-scaffolded it into the real path.
+  `MicrosoftAuthenticator.cs`: `IsTestMode`→`UseMinecraftClientId`; `ClientId`
+  is now a computed property that follows that one switch (grandfathered
+  `MinecraftClientId` now, `OriginAzureClientId` when approved) so sign-in and
+  silent refresh can't drift and there's no manual "also change the ID" step;
+  `Test*` endpoint/method names → honest `Live*` / `BuildAuthorizationRequest` /
+  `CompleteSignInAsync`; all "TEMPORARY / propagation" comments rewritten with
+  the real cause. `MicrosoftSignInPanel.cs`: `SignInViaPrismTestAsync` →
+  `SignInViaWebViewAsync` and its wrong "Prism client ID / prismlauncher://"
+  comment fixed (the code never used Prism's ID — it uses `00000000402b5328`
+  with the `oauth20_desktop.srf` redirect). `HomePage.cs` offline-mode comment
+  corrected (real sign-in works; offline mode is a dev convenience). No behaviour
+  change — the active auth path is byte-for-byte what already shipped in v1.0.28;
+  this is a truth-in-comments + naming cleanup so the false theory can't waste
+  time again.
+- **Couldn't compile-verify here** (no dotnet/WPF in the sandbox). Renames were
+  done against a full repo-wide grep of every affected identifier (all
+  references were contained in the two touched .cs files), so the risk is a typo,
+  not a missed reference — CI build-check will confirm.

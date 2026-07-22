@@ -32,8 +32,8 @@ public partial class MicrosoftSignInPanel : UserControl, IDisposable
             await WebView.EnsureCoreWebView2Async();
             WebView.CoreWebView2.NavigationCompleted += (_, _) => LoadingOverlay.Visibility = Visibility.Collapsed;
 
-            var result = MicrosoftAuthenticator.IsTestMode
-                ? await SignInViaPrismTestAsync(_cts.Token)
+            var result = MicrosoftAuthenticator.UseMinecraftClientId
+                ? await SignInViaWebViewAsync(_cts.Token)
                 : await new MicrosoftAuthenticator().SignInAsync(url => WebView.Source = new Uri(url), _cts.Token);
 
             SignInSucceeded?.Invoke(this, result);
@@ -56,23 +56,23 @@ public partial class MicrosoftSignInPanel : UserControl, IDisposable
         }
     }
 
-    // TEMPORARY — testing only. Prism's client ID expects a custom URI scheme
-    // redirect (prismlauncher://oauth/microsoft) rather than a localhost
-    // loopback. Since sign-in happens inside our own WebView2, we don't need
-    // an OS-registered protocol handler for it — WebView2 fires
-    // NavigationStarting for that URI regardless of whether Windows knows
-    // about the scheme, so we just intercept it there and cancel before it
-    // ever tries to actually navigate anywhere.
-    private async Task<AuthResult> SignInViaPrismTestAsync(CancellationToken ct)
+    // The shipping sign-in flow (grandfathered Minecraft client ID). Its
+    // registered redirect is Live Connect's blank oauth20_desktop.srf landing
+    // page rather than a localhost loopback. Since sign-in happens inside our
+    // own WebView2, we don't need to actually load that page: WebView2 fires
+    // NavigationStarting for the redirect URI first, so we intercept it there,
+    // pull the authorization code out of the query, and cancel before it ever
+    // navigates anywhere.
+    private async Task<AuthResult> SignInViaWebViewAsync(CancellationToken ct)
     {
         var authenticator = new MicrosoftAuthenticator();
-        var (authUrl, codeVerifier) = authenticator.BuildTestAuthorizationRequest();
+        var (authUrl, codeVerifier) = authenticator.BuildAuthorizationRequest();
 
         var codeSource = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
 
         void OnNavigationStarting(object? s, CoreWebView2NavigationStartingEventArgs args)
         {
-            if (!args.Uri.StartsWith(MicrosoftAuthenticator.TestRedirectUri, StringComparison.Ordinal)) return;
+            if (!args.Uri.StartsWith(MicrosoftAuthenticator.LiveDesktopRedirectUri, StringComparison.Ordinal)) return;
             args.Cancel = true;
 
             var query = ParseQuery(new Uri(args.Uri).Query);
@@ -95,7 +95,7 @@ public partial class MicrosoftSignInPanel : UserControl, IDisposable
             WebView.CoreWebView2.NavigationStarting -= OnNavigationStarting;
         }
 
-        return await authenticator.CompleteTestSignInAsync(authCode, codeVerifier, ct);
+        return await authenticator.CompleteSignInAsync(authCode, codeVerifier, ct);
     }
 
     private static Dictionary<string, string> ParseQuery(string query)
