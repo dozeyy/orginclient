@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Origin Client — Maximum Performance, Zero Bloat</title>
-<meta name="description" content="Origin Client: a Fabric &amp; Quilt Minecraft client built around one rule — nothing that doesn't make the game faster.">
+<title>Origin Client — One Install. The Full Experience.</title>
+<meta name="description" content="Origin Client: a Minecraft client that installs the right Fabric stack silently — Sodium, Lithium and Iris shaders pre-configured, 24 built-in mods, a drag-anywhere HUD editor, and one clean Origin look. Flagship build: 1.21.1.">
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -27,155 +27,601 @@
     <span>Origin</span>
   </a>
   <nav class="nav__links">
+    <a href="#client">Client</a>
+    <a href="#mods">Mods</a>
     <a href="#performance">Performance</a>
-    <a href="#compatibility">Compatibility</a>
-    <a href="#compare">Compare</a>
+    <a href="#versions">Versions</a>
   </nav>
   <div class="nav__actions">
-    <a href="#" class="btn btn--primary btn--sm" id="downloadBtnNav">Download</a>
+    <a href="#" class="btn btn--primary btn--sm btn--magnetic" id="downloadBtnNav">Download</a>
   </div>
 </header>
 
 <main id="top">
 
-  <!-- HERO -->
-  <section class="hero">
-    <p class="eyebrow reveal">MINECRAFT CLIENT — FABRIC / QUILT — BETA TO LATEST</p>
-    <h1 class="hero__title reveal">
-      <span class="accent">Origin.</span>
-    </h1>
-    <p class="hero__tagline reveal">
-      Strip away the bloat.<br>
-      Maximize your frames.
-    </p>
-    <p class="hero__sub reveal">
-      One rule: if it doesn't make the game faster, it doesn't ship.
-      No bloat, no background services, no wasted frames — just raw FPS.
-    </p>
+  <!-- ============================== HERO ============================== -->
+  <section class="hero" id="hero">
+    <canvas class="hero__rings" id="ringsCanvas" aria-hidden="true"></canvas>
 
-    <div class="hero__cta reveal">
-      <a href="#" class="btn btn--primary btn--lg" id="downloadBtn">Download Client</a>
-    </div>
+    <div class="hero__inner" id="heroInner">
+      <p class="eyebrow reveal">MINECRAFT CLIENT — FABRIC, DONE FOR YOU — 1.16.5 &rarr; 1.21.11</p>
+      <h1 class="hero__title reveal" aria-label="Origin.">
+        <span aria-hidden="true"><i>O</i><i>R</i><i>I</i><i>G</i><i>I</i><i>N</i><i class="hero__dot">.</i></span>
+      </h1>
+      <p class="hero__tagline reveal">
+        One install.<br>
+        The full experience.
+      </p>
+      <p class="hero__sub reveal">
+        Pick a version, press Play. Origin installs the right loader, the
+        performance stack, and shaders silently — then wraps the whole game
+        in one clean look. No loader menus. No mod folders. No setup.
+      </p>
 
-    <div class="hud reveal" aria-hidden="true">
-      <div class="hud__panel hud__panel--fps">
-        <span class="hud__value">1,200+</span>
-        <span class="hud__unit">FPS</span>
-      </div>
-      <div class="hud__panel hud__panel--stats">
-        <div class="hud__row"><span>COORDS</span><span>142, 74, -308</span></div>
-        <div class="hud__row"><span>PING</span><span>12ms</span></div>
-        <div class="hud__row"><span>CPU</span><span>0.8%</span></div>
-      </div>
-      <div class="hud__crosshair">
-        <span class="hud__crosshair-tick hud__crosshair-tick--top"></span>
-        <span class="hud__crosshair-tick hud__crosshair-tick--right"></span>
-        <span class="hud__crosshair-tick hud__crosshair-tick--bottom"></span>
-        <span class="hud__crosshair-tick hud__crosshair-tick--left"></span>
-        <span class="hud__crosshair-dot"></span>
+      <div class="hero__cta reveal">
+        <a href="#" class="btn btn--primary btn--lg btn--magnetic" id="downloadBtn">Download Client</a>
+        <a href="#client" class="link-underline link-underline--lg">See the flagship build</a>
       </div>
     </div>
 
     <div class="hero__scroll reveal" aria-hidden="true"><span></span></div>
   </section>
 
-  <!-- MARQUEE -->
+  <!-- ============================== MARQUEE ============================== -->
   <section class="marquee" aria-hidden="true">
-    <div class="marquee__track">
+    <div class="marquee__track" id="marqueeTrack">
       <span class="marquee__group">
-        <span>Zero Bloat</span><span class="marquee__dot">&#9670;</span>
+        <span>One Install</span><span class="marquee__dot">&#9670;</span>
         <span class="accent">Origin</span><span class="marquee__dot">&#9670;</span>
-        <span>Maximum FPS</span><span class="marquee__dot">&#9670;</span>
+        <span>24 Mods Built In</span><span class="marquee__dot">&#9670;</span>
         <span class="accent">Origin</span><span class="marquee__dot">&#9670;</span>
-        <span>Fabric &amp; Quilt</span><span class="marquee__dot">&#9670;</span>
+        <span>Sodium + Iris Shaders</span><span class="marquee__dot">&#9670;</span>
         <span class="accent">Origin</span><span class="marquee__dot">&#9670;</span>
-        <span>1,200+ FPS</span><span class="marquee__dot">&#9670;</span>
+        <span>21 Versions</span><span class="marquee__dot">&#9670;</span>
         <span class="accent">Origin</span><span class="marquee__dot">&#9670;</span>
-        <span>Instant Startup</span><span class="marquee__dot">&#9670;</span>
+        <span>Drag-Anywhere HUD</span><span class="marquee__dot">&#9670;</span>
         <span class="accent">Origin</span><span class="marquee__dot">&#9670;</span>
       </span>
       <span class="marquee__group" aria-hidden="true">
-        <span>Zero Bloat</span><span class="marquee__dot">&#9670;</span>
+        <span>One Install</span><span class="marquee__dot">&#9670;</span>
         <span class="accent">Origin</span><span class="marquee__dot">&#9670;</span>
-        <span>Maximum FPS</span><span class="marquee__dot">&#9670;</span>
+        <span>24 Mods Built In</span><span class="marquee__dot">&#9670;</span>
         <span class="accent">Origin</span><span class="marquee__dot">&#9670;</span>
-        <span>Fabric &amp; Quilt</span><span class="marquee__dot">&#9670;</span>
+        <span>Sodium + Iris Shaders</span><span class="marquee__dot">&#9670;</span>
         <span class="accent">Origin</span><span class="marquee__dot">&#9670;</span>
-        <span>1,200+ FPS</span><span class="marquee__dot">&#9670;</span>
+        <span>21 Versions</span><span class="marquee__dot">&#9670;</span>
         <span class="accent">Origin</span><span class="marquee__dot">&#9670;</span>
-        <span>Instant Startup</span><span class="marquee__dot">&#9670;</span>
+        <span>Drag-Anywhere HUD</span><span class="marquee__dot">&#9670;</span>
         <span class="accent">Origin</span><span class="marquee__dot">&#9670;</span>
       </span>
     </div>
   </section>
 
-  <!-- PERFORMANCE -->
-  <section class="section" id="performance">
-    <p class="eyebrow reveal">PERFORMANCE</p>
+  <!-- ============================== FLAGSHIP SCROLL SCENE ============================== -->
+  <!-- A pinned, scroll-scrubbed tour of the actual 1.21.1 build. The sticky
+       stage swaps layers as the section scrolls beneath it (js/main.js). -->
+  <section class="scene" id="client" data-steps="4">
+    <div class="scene__sticky">
+      <div class="scene__rail">
+        <p class="eyebrow">FLAGSHIP BUILD — 1.21.1</p>
+        <h2 class="scene__heading">This is what installs.</h2>
+        <p class="scene__lede">Scroll — everything below is in the client today.</p>
+
+        <ol class="scene__steps">
+          <li class="scene__step" data-step="0">
+            <h3>The Origin look, everywhere</h3>
+            <p>Title screen, loading screens, buttons, menus — the whole game is reskinned into one monochrome design. Not a texture pack. Built in.</p>
+          </li>
+          <li class="scene__step" data-step="1">
+            <h3>A HUD you design</h3>
+            <p>Press Right&nbsp;Shift, drag anything anywhere. FPS, coords, keystrokes, armor, potions — every element moves, scales, and shows a live preview while you edit.</p>
+          </li>
+          <li class="scene__step" data-step="2">
+            <h3>Waypoints + Locator Bar</h3>
+            <p>Drop in-world markers with beams, labels and live distance. A compass strip shows every waypoint's direction — and it auto-drops one where you die.</p>
+          </li>
+          <li class="scene__step" data-step="3">
+            <h3>Grade the world's colour</h3>
+            <p>Saturation, brightness and contrast sliders that grade the world only — menus and HUD stay crisp while the world gets your look.</p>
+          </li>
+        </ol>
+
+        <div class="scene__progress" aria-hidden="true"><span id="sceneProgressFill"></span></div>
+      </div>
+
+      <div class="scene__stage">
+        <div class="frame" id="sceneFrame">
+          <!-- the "world" — a stylised plains-at-dusk backdrop the grade step can saturate -->
+          <div class="frame__world" id="frameWorld">
+            <div class="frame__sky"></div>
+            <div class="frame__sun"></div>
+            <div class="frame__hills frame__hills--far"></div>
+            <div class="frame__hills frame__hills--near"></div>
+            <!-- waypoint beams live in the world so the grade affects them too -->
+            <div class="frame__beam frame__beam--a"><span class="frame__beam-label">Home &nbsp;·&nbsp; <b data-sim="wp-a">128m</b></span></div>
+            <div class="frame__beam frame__beam--b"><span class="frame__beam-label">Mine &nbsp;·&nbsp; <b data-sim="wp-b">402m</b></span></div>
+          </div>
+
+          <!-- Layer 0: Origin title screen -->
+          <div class="frame__layer frame__layer--title">
+            <svg class="frame__mark" viewBox="0 0 200 200" aria-hidden="true">
+              <ellipse cx="100" cy="100" rx="90" ry="32"/>
+              <ellipse cx="100" cy="100" rx="75" ry="27" transform="rotate(60 100 100)"/>
+              <ellipse cx="100" cy="100" rx="60" ry="22" transform="rotate(120 100 100)"/>
+            </svg>
+            <span class="frame__wordmark">ORIGIN</span>
+            <div class="frame__menu">
+              <span class="frame__menu-btn frame__menu-btn--hot">Singleplayer</span>
+              <span class="frame__menu-btn">Multiplayer</span>
+              <span class="frame__menu-btn">Mods</span>
+            </div>
+          </div>
+
+          <!-- Layer 1+: the HUD (dashed "editor" handles during step 1) -->
+          <div class="frame__layer frame__layer--hud">
+            <div class="hudchip hudchip--fps"><b data-sim="fps">1487</b> FPS</div>
+            <div class="hudchip hudchip--coords">
+              <span>X <b data-sim="cx">142</b></span>
+              <span>Y <b>74</b></span>
+              <span>Z <b data-sim="cz">-308</b></span>
+              <span class="hudchip__dim">NE · Plains</span>
+            </div>
+            <div class="hudchip hudchip--keys">
+              <span class="hudchip__key" data-key="w">W</span>
+              <span class="hudchip__key" data-key="a">A</span>
+              <span class="hudchip__key" data-key="s">S</span>
+              <span class="hudchip__key" data-key="d">D</span>
+            </div>
+            <div class="hudchip hudchip--armor">
+              <span class="hudchip__slot"></span><span class="hudchip__slot"></span>
+              <span class="hudchip__slot"></span><span class="hudchip__slot"></span>
+            </div>
+            <div class="hudchip hudchip--potion">Speed II &nbsp;<b data-sim="potion">1:32</b></div>
+          </div>
+
+          <!-- Layer 2: locator bar -->
+          <div class="frame__layer frame__layer--locator">
+            <div class="locator">
+              <span class="locator__dot" style="left: 32%"></span>
+              <span class="locator__dot locator__dot--far" style="left: 71%"></span>
+            </div>
+          </div>
+
+          <!-- Layer 3: colour-grade slider UI -->
+          <div class="frame__layer frame__layer--grade">
+            <div class="gradeui">
+              <div class="gradeui__row"><span>Saturation</span><span class="gradeui__track"><i id="gradeKnob"></i></span></div>
+              <div class="gradeui__row gradeui__row--dim"><span>Brightness</span><span class="gradeui__track"><i style="left:50%"></i></span></div>
+              <div class="gradeui__row gradeui__row--dim"><span>Contrast</span><span class="gradeui__track"><i style="left:50%"></i></span></div>
+            </div>
+          </div>
+
+          <span class="frame__crosshair" aria-hidden="true"></span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================== MODS ============================== -->
+  <section class="section section--wide" id="mods">
+    <div class="section__head reveal">
+      <p class="eyebrow">BUILT IN — NOTHING TO INSTALL</p>
+      <h2><span class="accent" data-count-to="24">24</span> mods. One menu.</h2>
+      <p class="section__lede">Everything below ships inside the client and lives in one Right-Shift menu — every card here is real, live in 1.21.1 today.</p>
+    </div>
+
+    <div class="mods-grid" id="modsGrid">
+
+      <!-- Waypoints (featured) -->
+      <article class="mod-card mod-card--wide reveal" data-tilt style="--mc:#8fb8ff">
+        <div class="mod-card__preview pv pv--waypoints">
+          <div class="pv__sky"></div>
+          <div class="pv-beam pv-beam--1"><span>Home · <b data-sim="wp-a2">128m</b></span></div>
+          <div class="pv-beam pv-beam--2"><span>Base · <b data-sim="wp-b2">402m</b></span></div>
+          <div class="pv-locator"><i style="left:28%"></i><i style="left:64%"></i><i class="pv-locator__you"></i></div>
+        </div>
+        <div class="mod-card__meta">
+          <span class="mod-card__icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M9 3h6M10 3l1 13h2l1-13"/><ellipse cx="12" cy="19" rx="5" ry="2.5"/></svg></span>
+          <div><h3>Waypoints</h3><p>In-world markers with beams, labels, and distance — plus a Locator Bar and death waypoints.</p></div>
+        </div>
+      </article>
+
+      <!-- Key Strokes (featured) -->
+      <article class="mod-card mod-card--wide reveal" data-tilt style="--mc:#e0e0e0">
+        <div class="mod-card__preview pv pv--keystrokes">
+          <div class="pv-keys">
+            <span class="pv-key pv-key--w" data-key="w">W</span>
+            <div class="pv-keys__row">
+              <span class="pv-key" data-key="a">A</span>
+              <span class="pv-key" data-key="s">S</span>
+              <span class="pv-key" data-key="d">D</span>
+            </div>
+            <span class="pv-key pv-key--space" data-key="space">&nbsp;</span>
+            <div class="pv-keys__row pv-keys__row--mouse">
+              <span class="pv-key pv-key--mouse" data-key="lmb">LMB</span>
+              <span class="pv-key pv-key--mouse" data-key="rmb">RMB</span>
+            </div>
+          </div>
+        </div>
+        <div class="mod-card__meta">
+          <span class="mod-card__icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 9l1.5 6L12 10l2.5 5L16 9"/></svg></span>
+          <div><h3>Key Strokes</h3><p>On-screen key display — movement keys, clicks, fade delay, full colour control.</p></div>
+        </div>
+      </article>
+
+      <!-- FPS -->
+      <article class="mod-card reveal" data-tilt style="--mc:#e0e0e0">
+        <div class="mod-card__preview pv pv--fps">
+          <span class="pv-fps"><b data-sim="fps2">1487</b><i>FPS</i></span>
+        </div>
+        <div class="mod-card__meta">
+          <span class="mod-card__icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 16a8 8 0 0 1 16 0"/><path d="M12 16l4.5-4.5"/></svg></span>
+          <div><h3>FPS</h3><p>Frames-per-second readout.</p></div>
+        </div>
+      </article>
+
+      <!-- CPS -->
+      <article class="mod-card reveal" data-tilt style="--mc:#9ad1ff">
+        <div class="mod-card__preview pv pv--cps">
+          <span class="pv-cps"><b data-sim="cps">12</b> CPS</span>
+          <span class="pv-cps__ripple"></span>
+        </div>
+        <div class="mod-card__meta">
+          <span class="mod-card__icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="8" y="4" width="8" height="17" rx="4"/><path d="M12 4v5M4.5 4.5L7 7M19.5 4.5L17 7"/></svg></span>
+          <div><h3>CPS</h3><p>Clicks per second.</p></div>
+        </div>
+      </article>
+
+      <!-- Zoom -->
+      <article class="mod-card reveal" data-tilt style="--mc:#c9a86a">
+        <div class="mod-card__preview pv pv--zoom">
+          <div class="pv-zoom__scene">
+            <div class="pv-zoom__hill"></div>
+            <div class="pv-zoom__tree"></div>
+          </div>
+          <span class="pv-zoom__fov">FOV <b data-sim="fov">30</b></span>
+        </div>
+        <div class="mod-card__meta">
+          <span class="mod-card__icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21"/></svg></span>
+          <div><h3>Zoom</h3><p>Smooth, configurable zoom — scroll to zoom deeper.</p></div>
+        </div>
+      </article>
+
+      <!-- Coordinates -->
+      <article class="mod-card reveal" data-tilt style="--mc:#e05555">
+        <div class="mod-card__preview pv pv--coords">
+          <div class="pv-coords">
+            <span>X <b data-sim="cx2">142</b></span>
+            <span>Y <b>74</b></span>
+            <span>Z <b data-sim="cz2">-308</b></span>
+            <span class="pv-coords__dim">NE · Cherry Grove</span>
+          </div>
+        </div>
+        <div class="mod-card__meta">
+          <span class="mod-card__icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M15.5 8.5l-2 5-5 2 2-5z"/></svg></span>
+          <div><h3>Coordinates</h3><p>Position, direction, and biome.</p></div>
+        </div>
+      </article>
+
+      <!-- Color Saturation (featured) -->
+      <article class="mod-card mod-card--wide reveal" data-tilt style="--mc:#ff9944">
+        <div class="mod-card__preview pv pv--saturation">
+          <div class="pv-sat__strip"></div>
+          <div class="pv-sat__ui">
+            <span>Saturation</span>
+            <span class="pv-sat__track"><i class="pv-sat__knob"></i></span>
+            <b data-sim="sat">1.00x</b>
+          </div>
+        </div>
+        <div class="mod-card__meta">
+          <span class="mod-card__icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3s6 7 6 11a6 6 0 0 1-12 0c0-4 6-11 6-11z"/><path d="M12 20a6 6 0 0 0 6-6c0-1-.4-2.2-1-3.5"/></svg></span>
+          <div><h3>Color Saturation</h3><p>Grade the whole screen's colour — saturation, brightness, contrast. World only; menus stay crisp.</p></div>
+        </div>
+      </article>
+
+      <!-- Armor Status -->
+      <article class="mod-card reveal" data-tilt style="--mc:#6ee7d8">
+        <div class="mod-card__preview pv pv--armor">
+          <div class="pv-armor">
+            <span class="pv-armor__piece"><i style="--dur:.92"></i></span>
+            <span class="pv-armor__piece"><i style="--dur:.71"></i></span>
+            <span class="pv-armor__piece"><i style="--dur:.44"></i></span>
+            <span class="pv-armor__piece pv-armor__piece--low"><i style="--dur:.13"></i></span>
+          </div>
+        </div>
+        <div class="mod-card__meta">
+          <span class="mod-card__icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3l7 3v5c0 5-3.5 8.5-7 10-3.5-1.5-7-5-7-10V6z"/></svg></span>
+          <div><h3>Armor Status</h3><p>Armor pieces and durability.</p></div>
+        </div>
+      </article>
+
+      <!-- Potion Effects -->
+      <article class="mod-card reveal" data-tilt style="--mc:#c77dff">
+        <div class="mod-card__preview pv pv--potion">
+          <div class="pv-potion"><span>Speed II</span><b data-sim="potion2">1:32</b></div>
+          <div class="pv-potion pv-potion--dim"><span>Night Vision</span><b>8:00</b></div>
+        </div>
+        <div class="mod-card__meta">
+          <span class="mod-card__icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M9 3h6M10 3v6l-4.5 7A4 4 0 0 0 9 22h6a4 4 0 0 0 3.5-6L14 9V3"/></svg></span>
+          <div><h3>Potion Effects</h3><p>Active status effects.</p></div>
+        </div>
+      </article>
+
+      <!-- Toggle Sneak/Sprint -->
+      <article class="mod-card reveal" data-tilt style="--mc:#d8d8d8">
+        <div class="mod-card__preview pv pv--sprint">
+          <span class="pv-sprint" data-sim="sprint">[Sprinting (Toggled)]</span>
+        </div>
+        <div class="mod-card__meta">
+          <span class="mod-card__icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 6l6 6-6 6M13 6l6 6-6 6"/></svg></span>
+          <div><h3>Toggle Sneak/Sprint</h3><p>Hands-free sprint and sneak.</p></div>
+        </div>
+      </article>
+
+      <!-- Hitbox -->
+      <article class="mod-card reveal" data-tilt style="--mc:#7fa98f">
+        <div class="mod-card__preview pv pv--hitbox">
+          <div class="pv-hitbox">
+            <span class="pv-hitbox__mob"></span>
+            <span class="pv-hitbox__ray"></span>
+          </div>
+        </div>
+        <div class="mod-card__meta">
+          <span class="mod-card__icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 8V4h4M16 4h4v4M20 16v4h-4M8 20H4v-4"/><circle cx="12" cy="12" r="2"/></svg></span>
+          <div><h3>Hitbox</h3><p>Entity hitbox rendering — patterns, colours, look vectors.</p></div>
+        </div>
+      </article>
+
+      <!-- Chunk Borders -->
+      <article class="mod-card reveal" data-tilt style="--mc:#55dddd">
+        <div class="mod-card__preview pv pv--chunks">
+          <div class="pv-chunks">
+            <i></i><i></i><i></i>
+            <b></b><b></b>
+            <span class="pv-chunks__corner pv-chunks__corner--in"></span>
+            <span class="pv-chunks__corner pv-chunks__corner--out"></span>
+          </div>
+        </div>
+        <div class="mod-card__meta">
+          <span class="mod-card__icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M9 3v18M15 3v18M3 9h18M3 15h18"/></svg></span>
+          <div><h3>Chunk Borders</h3><p>Visualize chunk boundaries.</p></div>
+        </div>
+      </article>
+
+      <!-- Block Outline -->
+      <article class="mod-card reveal" data-tilt style="--mc:#e0e0e0">
+        <div class="mod-card__preview pv pv--outline">
+          <span class="pv-cube"><i></i></span>
+        </div>
+        <div class="mod-card__meta">
+          <span class="mod-card__icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 2l8 4.5v9L12 20l-8-4.5v-9z"/><path d="M12 11L4 6.5M12 11l8-4.5M12 11v9"/></svg></span>
+          <div><h3>Block Outline</h3><p>Selection outline and overlay — width and colour, your call.</p></div>
+        </div>
+      </article>
+
+      <!-- Freelook -->
+      <article class="mod-card reveal" data-tilt style="--mc:#7fe08f">
+        <div class="mod-card__preview pv pv--freelook">
+          <div class="pv-freelook__pan"></div>
+          <span class="pv-freelook__cross"></span>
+        </div>
+        <div class="mod-card__meta">
+          <span class="mod-card__icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M2 12s4-6 10-6 10 6 10 6-4 6-10 6S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></span>
+          <div><h3>Freelook</h3><p>Look around without turning.</p></div>
+        </div>
+      </article>
+
+      <!-- Lighting -->
+      <article class="mod-card reveal" data-tilt style="--mc:#ffd855">
+        <div class="mod-card__preview pv pv--light">
+          <div class="pv-light__cave"></div>
+        </div>
+        <div class="mod-card__meta">
+          <span class="mod-card__icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9L7 7M17 17l2.1 2.1M19.1 4.9L17 7M7 17l-2.1 2.1"/></svg></span>
+          <div><h3>Lighting</h3><p>Full-bright and brightness boost.</p></div>
+        </div>
+      </article>
+
+      <!-- Nametags -->
+      <article class="mod-card reveal" data-tilt style="--mc:#e0c060">
+        <div class="mod-card__preview pv pv--nametags">
+          <div class="pv-nametag"><span>Will</span><i></i></div>
+        </div>
+        <div class="mod-card__meta">
+          <span class="mod-card__icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M13 3l8 8-10 10-8-8 2-8z"/><circle cx="8.5" cy="8.5" r="1.5"/></svg></span>
+          <div><h3>Nametags</h3><p>Name tag rendering tweaks — opacity, toggles, F1 behaviour.</p></div>
+        </div>
+      </article>
+
+      <!-- Weather Changer -->
+      <article class="mod-card reveal" data-tilt style="--mc:#6ec6e0">
+        <div class="mod-card__preview pv pv--weather">
+          <div class="pv-weather">
+            <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+          </div>
+          <span class="pv-weather__mode" data-sim="weather">Rain</span>
+        </div>
+        <div class="mod-card__meta">
+          <span class="mod-card__icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 15a4.5 4.5 0 1 1 .8-8.9A5.5 5.5 0 0 1 18 8a4 4 0 0 1-1 7.9H7z"/><path d="M8 18l-1 3M12 18l-1 3M16 18l-1 3"/></svg></span>
+          <div><h3>Weather Changer</h3><p>Force a client weather mode — clear, rain, thunder, snow.</p></div>
+        </div>
+      </article>
+
+      <!-- Time Changer -->
+      <article class="mod-card reveal" data-tilt style="--mc:#ffd855">
+        <div class="mod-card__preview pv pv--time">
+          <div class="pv-time__sky"></div>
+          <span class="pv-time__orb"></span>
+        </div>
+        <div class="mod-card__meta">
+          <span class="mod-card__icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg></span>
+          <div><h3>Time Changer</h3><p>Set a fixed client time of day.</p></div>
+        </div>
+      </article>
+
+      <!-- Motion Blur -->
+      <article class="mod-card reveal" data-tilt style="--mc:#b0a8c0">
+        <div class="mod-card__preview pv pv--blur">
+          <span class="pv-blur__block"></span>
+        </div>
+        <div class="mod-card__meta">
+          <span class="mod-card__icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="14" cy="12" r="6"/><path d="M2 8h6M2 12h4M2 16h6"/></svg></span>
+          <div><h3>Motion Blur</h3><p>Frame-blend motion blur, 0–10.</p></div>
+        </div>
+      </article>
+
+      <!-- Chat -->
+      <article class="mod-card reveal" data-tilt style="--mc:#d0d0d0">
+        <div class="mod-card__preview pv pv--chat">
+          <div class="pv-chat">
+            <span class="pv-chat__msg">&lt;Will&gt; gg</span>
+            <span class="pv-chat__msg pv-chat__msg--stack">&lt;Herobrine&gt; ... <b>x3</b></span>
+            <span class="pv-chat__msg pv-chat__msg--new">&lt;Will&gt; smooth chat &#10003;</span>
+          </div>
+        </div>
+        <div class="mod-card__meta">
+          <span class="mod-card__icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/></svg></span>
+          <div><h3>Chat</h3><p>Chat behavior and appearance — stack spam, timestamps, smooth slide-in.</p></div>
+        </div>
+      </article>
+
+      <!-- Particle Changer -->
+      <article class="mod-card reveal" data-tilt style="--mc:#cc66ff">
+        <div class="mod-card__preview pv pv--particles">
+          <i class="pv-part" style="--d:0s;   --x:18%"></i>
+          <i class="pv-part" style="--d:.7s;  --x:38%"></i>
+          <i class="pv-part" style="--d:1.4s; --x:58%"></i>
+          <i class="pv-part" style="--d:.35s; --x:76%"></i>
+          <i class="pv-part" style="--d:1.1s; --x:88%"></i>
+        </div>
+        <div class="mod-card__meta">
+          <span class="mod-card__icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3l1.5 4L18 8.5 13.5 10 12 14l-1.5-4L6 8.5 10.5 7z"/><circle cx="19" cy="16" r="1"/><circle cx="6" cy="17" r="1.4"/></svg></span>
+          <div><h3>Particle Changer</h3><p>Per-particle visibility and styling — every vanilla particle type, individually.</p></div>
+        </div>
+      </article>
+
+      <!-- Scoreboard -->
+      <article class="mod-card reveal" data-tilt style="--mc:#d8b46a">
+        <div class="mod-card__preview pv pv--scoreboard">
+          <div class="pv-board">
+            <b>BEDWARS</b>
+            <span>Red &nbsp;&#9632;&#9632;&#9632;</span>
+            <span>Blue &#9632;&#9632;</span>
+            <span class="pv-board__dim">originclient.org</span>
+          </div>
+        </div>
+        <div class="mod-card__meta">
+          <span class="mod-card__icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h4"/></svg></span>
+          <div><h3>Scoreboard</h3><p>Server scoreboard styling — now a movable, editable HUD element.</p></div>
+        </div>
+      </article>
+
+      <!-- Server Address -->
+      <article class="mod-card reveal" data-tilt style="--mc:#a0a0a0">
+        <div class="mod-card__preview pv pv--server">
+          <div class="pv-server"><i class="pv-server__ping"></i>play.example.net <b data-sim="ping">12ms</b></div>
+        </div>
+        <div class="mod-card__meta">
+          <span class="mod-card__icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="7" rx="2"/><rect x="4" y="13" width="16" height="7" rx="2"/><path d="M8 7.5h.01M8 16.5h.01"/></svg></span>
+          <div><h3>Server Address</h3><p>Current server IP.</p></div>
+        </div>
+      </article>
+
+      <!-- JEI -->
+      <article class="mod-card reveal" data-tilt style="--mc:#55e055">
+        <div class="mod-card__preview pv pv--jei">
+          <div class="pv-jei">
+            <span class="pv-jei__slot"></span><span class="pv-jei__slot"></span>
+            <span class="pv-jei__arrow">&rarr;</span>
+            <span class="pv-jei__slot pv-jei__slot--out"></span>
+          </div>
+        </div>
+        <div class="mod-card__meta">
+          <span class="mod-card__icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 5a3 3 0 0 1 3-3h13v18H7a3 3 0 0 0-3 3z"/><path d="M20 16H7a3 3 0 0 0-3 3"/></svg></span>
+          <div><h3>JEI</h3><p>Item and recipe viewer — bundled, toggleable like everything else.</p></div>
+        </div>
+      </article>
+
+    </div>
+
+    <p class="mods-note reveal">
+      Plus the settings that back it all: borderless fullscreen, raw mouse input, smart
+      disconnect, shader performance mode, unfocused FPS limits, entity distance culling —
+      every toggle is backed by real behaviour, nothing is a do-nothing switch.
+    </p>
+  </section>
+
+  <!-- ============================== PERFORMANCE ============================== -->
+  <section class="section section--alt" id="performance">
+    <div class="section__head reveal">
+      <p class="eyebrow">PERFORMANCE</p>
+      <h2>The stack installs itself.</h2>
+      <p class="section__lede">Eight performance and shader mods, pinned to versions verified against each Minecraft release — bundled into the client so you never touch a mods folder.</p>
+    </div>
 
     <div class="stat reveal">
       <span class="stat__prefix">UP TO</span>
       <span class="stat__number" data-count-to="3" data-suffix="x">1x</span>
-      <span class="stat__suffix">FPS OVER VANILLA</span>
+      <span class="stat__suffix">FPS OVER VANILLA WITH THE SODIUM STACK</span>
     </div>
+
+    <ul class="stack" aria-label="Bundled performance mods">
+      <li class="stack__chip reveal"><b>Sodium</b><span>rendering engine</span></li>
+      <li class="stack__chip reveal"><b>Lithium</b><span>game-logic optimizer</span></li>
+      <li class="stack__chip reveal"><b>Iris</b><span>shader loader</span></li>
+      <li class="stack__chip reveal"><b>FerriteCore</b><span>memory usage</span></li>
+      <li class="stack__chip reveal"><b>Krypton</b><span>networking</span></li>
+      <li class="stack__chip reveal"><b>ImmediatelyFast</b><span>HUD batching</span></li>
+      <li class="stack__chip reveal"><b>ModernFix</b><span>startup + memory</span></li>
+      <li class="stack__chip reveal"><b>Indium</b><span>rendering compat</span></li>
+      <li class="stack__chip stack__chip--extra reveal"><b>JEI</b><span>recipe viewer</span></li>
+      <li class="stack__chip stack__chip--extra reveal"><b>Mod Menu</b><span>mods list</span></li>
+    </ul>
 
     <p class="section__copy reveal">
-      We removed the cosmetic clutter, fixed the memory leaks, and optimized the
-      rendering pipeline. Every single frame matters.
+      Shaders work day one — Iris ships with every version, and Origin's
+      <b>Shader Performance Mode</b> halves shadow cost on any pack for a
+      big FPS win you can toggle off any time. Every pin is boot-verified
+      per version; if a mod isn't stable on a version, it doesn't ship there.
     </p>
-
-    <!-- Placeholder marketing figures per project direction — replace with real benchmarks before public launch -->
-    <div class="bars reveal">
-      <div class="bar-col">
-        <span class="bar-col__value" data-count-to="120">0</span>
-        <div class="bar-col__track"><div class="bar-col__fill" style="--target: 12%"></div></div>
-        <span class="bar-col__label">Vanilla</span>
-      </div>
-      <div class="bar-col">
-        <span class="bar-col__value" data-count-to="340">0</span>
-        <div class="bar-col__track"><div class="bar-col__fill" style="--target: 32%"></div></div>
-        <span class="bar-col__label">Other Clients</span>
-      </div>
-      <div class="bar-col bar-col--origin">
-        <span class="bar-col__value" data-count-to="1200" data-suffix="+">0</span>
-        <div class="bar-col__track"><div class="bar-col__fill bar-col__fill--origin" style="--target: 100%"></div></div>
-        <span class="bar-col__label">Origin</span>
-      </div>
-    </div>
   </section>
 
-  <!-- COMPATIBILITY / FEATURES -->
-  <section class="section section--alt" id="compatibility">
-    <div class="compat">
-      <div class="compat__head reveal">
-        <p class="eyebrow">COMPATIBILITY</p>
-        <h2>Every version. Every mod loader.</h2>
-        <p class="section__lede">From Beta 1.7.3 to the newest release — Fabric &amp; Quilt, fully supported.</p>
-      </div>
-
-      <ul class="feature-list">
-        <li class="feature-list__item reveal">
-          <span class="feature-list__title">Pure Vanilla Look</span>
-          <span class="feature-list__desc">Stock Minecraft, pixel for pixel. We change how it runs, never how it looks.</span>
-        </li>
-        <li class="feature-list__item reveal">
-          <span class="feature-list__title">Instant Input</span>
-          <span class="feature-list__desc">Every click lands the moment you make it.</span>
-        </li>
-        <li class="feature-list__item reveal">
-          <span class="feature-list__title">Optional HUD Overlay</span>
-          <span class="feature-list__desc">A lightweight FPS, coords &amp; ping readout over the default UI — toggle it off anytime.</span>
-        </li>
-        <li class="feature-list__item reveal">
-          <span class="feature-list__title">Performance Mods, Pre-Installed</span>
-          <span class="feature-list__desc">The best optimization mods, curated and pre-configured.</span>
-        </li>
-      </ul>
+  <!-- ============================== VERSIONS ============================== -->
+  <section class="section" id="versions">
+    <div class="section__head reveal">
+      <p class="eyebrow">VERSIONS</p>
+      <h2><span data-count-to="21">21</span> versions, one look.</h2>
+      <p class="section__lede">Whatever you pick, Origin installs the right stack for that version silently — no loader choice, ever.</p>
     </div>
+
+    <div class="flagship reveal" data-tilt>
+      <div class="flagship__badge">FLAGSHIP</div>
+      <span class="flagship__num">1.21.1</span>
+      <p>The lead build. Everything on this page is live here today —
+      the newest mods, menus and HUD land on 1.21.1 first, then roll out
+      to every other version. <b>Every other version updates soon.</b></p>
+    </div>
+
+    <ul class="versions reveal" aria-label="Supported Minecraft versions">
+      <li>1.21.11</li><li>1.21.10</li><li>1.21.8</li><li>1.21.6–7</li>
+      <li>1.21.5</li><li>1.21.2–4</li><li class="versions__flag">1.21.1</li><li>1.21</li>
+      <li>1.20.4</li><li>1.20.2</li><li>1.20–1.20.1</li><li>1.19.4</li>
+      <li>1.19.3</li><li>1.19.2</li><li>1.18.2</li><li>1.17.1</li>
+      <li>1.16.5</li>
+      <li class="versions__soon">1.21.9 soon</li>
+      <li class="versions__soon">1.12.2 soon</li>
+      <li class="versions__soon">1.8.9 soon</li>
+    </ul>
+
+    <p class="section__copy reveal">
+      Each version gets its own build, engineered for that version's internals
+      and boot-verified before it ships — and if anything ever goes wrong,
+      Origin degrades safely to vanilla instead of crashing your game.
+    </p>
   </section>
 
-  <!-- COMPARISON -->
-  <section class="section" id="compare">
+  <!-- ============================== WHY ============================== -->
+  <section class="section section--alt" id="compare">
     <div class="section__head reveal">
       <p class="eyebrow">THE COMPARISON</p>
       <h2>Why switch?</h2>
@@ -184,31 +630,36 @@
     <table class="compare-table reveal">
       <thead>
         <tr>
-          <th scope="col"><span class="sr-only">Metric</span></th>
-          <th scope="col">Other Clients</th>
+          <th scope="col"><span class="sr-only">What</span></th>
+          <th scope="col">Doing it yourself</th>
           <th scope="col" class="compare-table__highlight">Origin</th>
         </tr>
       </thead>
       <tbody>
         <tr>
-          <th scope="row">Max FPS</th>
-          <td>300–500</td>
-          <td class="compare-table__highlight">1,200+</td>
+          <th scope="row">Loader + mods setup</th>
+          <td>Pick a loader, hunt versions, pray</td>
+          <td class="compare-table__highlight">Automatic, per version</td>
         </tr>
         <tr>
-          <th scope="row">Startup Time</th>
-          <td>8–15s</td>
-          <td class="compare-table__highlight">Instant</td>
+          <th scope="row">Performance stack</th>
+          <td>8 downloads, compat roulette</td>
+          <td class="compare-table__highlight">Bundled &amp; pinned</td>
         </tr>
         <tr>
-          <th scope="row">Background CPU Usage</th>
-          <td>4–9%</td>
-          <td class="compare-table__highlight">&lt;1%</td>
+          <th scope="row">Shaders</th>
+          <td>Separate install per version</td>
+          <td class="compare-table__highlight">Iris built in, day one</td>
         </tr>
         <tr>
-          <th scope="row">Bundled Bloatware</th>
-          <td>300MB+</td>
-          <td class="compare-table__highlight">0MB</td>
+          <th scope="row">HUD &amp; QoL mods</th>
+          <td>A dozen configs in a dozen menus</td>
+          <td class="compare-table__highlight">24 mods, one menu</td>
+        </tr>
+        <tr>
+          <th scope="row">When something breaks</th>
+          <td>Crash log spelunking</td>
+          <td class="compare-table__highlight">Falls back to vanilla, names the culprit</td>
         </tr>
       </tbody>
     </table>
