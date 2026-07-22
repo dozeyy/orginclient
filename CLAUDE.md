@@ -13,6 +13,22 @@
    code, so write the summary for a player, not a programmer.
 3. Keep the code optimized for **Claude readability** — Will never edits it.
    Comments explain constraints and reasons, one obvious way to do each thing.
+4. **Launch/terminal commands** (Will builds + runs on his own **Windows /
+   PowerShell** machine — the cloud sandbox can NEVER build: Fabric/Mojang
+   maven is 403-blocked there). Whenever handing Will commands to build or run
+   a client, give the WHOLE copy-paste sequence starting from a fresh
+   PowerShell — his shell opens at `C:\Users\Will`, NOT the repo, so ALWAYS
+   lead with the `cd` into the project root. Never assume he's already in the
+   right folder. Full shape:
+   ```powershell
+   cd "C:\Users\Will\Documents\Origin Client"    # last-known repo path
+   git fetch origin <branch>
+   git checkout <branch>
+   cd src\mods\versions\1.21.1                    # the version module (holds gradlew.bat)
+   .\gradlew.bat runClient                        # Right Shift in-game opens the menu
+   ```
+   Windows paths + backslashes + `.bat`. If the repo path is wrong, have him
+   find it: `Get-ChildItem $HOME -Recurse -Depth 5 -Directory -Force -Filter ".git" -ErrorAction SilentlyContinue | ForEach-Object { $_.Parent.FullName }`.
 
 ## Working order (Will, 2026-07-21)
 Perfect ONE version at a time, then move on — never spread half-finished work
