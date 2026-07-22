@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Origin Client — One Install. The Full Experience.</title>
-<meta name="description" content="Origin Client: a Minecraft client that installs the right Fabric stack silently — Sodium, Lithium and Iris shaders pre-configured, 24 built-in mods, a drag-anywhere HUD editor, and one clean Origin look. Flagship build: 1.21.1.">
+<title>Origin Client — One launcher. Every version.</title>
+<meta name="description" content="Origin is a premium Minecraft client and launcher: pick a version, hit play. The right performance stack, shaders, and a clean custom HUD — installed automatically, no setup.">
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -27,605 +27,214 @@
     <span>Origin</span>
   </a>
   <nav class="nav__links">
-    <a href="#client">Client</a>
-    <a href="#mods">Mod Menu</a>
-    <a href="#performance">Performance</a>
+    <a href="#client">The Client</a>
+    <a href="#hud">HUD</a>
     <a href="#versions">Versions</a>
   </nav>
   <div class="nav__actions">
-    <a href="#" class="frost frost--btn mc" id="downloadBtnNav">Download</a>
+    <a href="#" class="btn btn--primary btn--sm" id="downloadBtnNav">Download</a>
   </div>
 </header>
 
 <main id="top">
 
-  <!-- ============ HERO — the actual 1.21.1 title screen ============ -->
-  <!-- Recreated from TitleScreenMixin + OriginScreenRenderer: blurred rotating
-       panorama graded toward charcoal, the ORIGIN wordmark with its breathing
-       glow, the account chip, and the real menu buttons in the Frost skin
-       (3px chamfer, translucent fill, near-black hairline, Minecraft text). -->
-  <section class="title" id="hero">
-    <h1 class="sr-only">Origin Client — a Minecraft client. One install, the full experience.</h1>
+  <!-- HERO -->
+  <section class="hero">
+    <p class="eyebrow reveal">MINECRAFT CLIENT · FABRIC + FORGE · 1.8.9 → 1.21.11</p>
+    <h1 class="hero__title reveal"><span class="accent">Origin.</span></h1>
+    <p class="hero__tagline reveal">
+      One launcher.<br>Every version.
+    </p>
+    <p class="hero__sub reveal">
+      Pick a version, hit play. Origin quietly installs the right performance
+      stack, shaders, and a clean custom HUD — no loaders to choose, no configs
+      to tweak, nothing to break.
+    </p>
 
-    <div class="pano" id="pano" aria-hidden="true">
-      <div class="pano__scene"></div>
-    </div>
-    <div class="pano__grade" aria-hidden="true"></div>
-
-    <div class="title__chip frost" aria-hidden="true">
-      <svg class="steve" viewBox="0 0 8 8" shape-rendering="crispEdges">
-        <rect width="8" height="8" fill="#5d3f27"/>
-        <rect x="0" y="2" width="1" height="6" fill="#b98a67"/><rect x="7" y="2" width="1" height="6" fill="#b98a67"/>
-        <rect x="1" y="3" width="6" height="5" fill="#c99b76"/>
-        <rect x="1" y="4" width="1" height="1" fill="#ffffff"/><rect x="2" y="4" width="1" height="1" fill="#523d89"/>
-        <rect x="5" y="4" width="1" height="1" fill="#523d89"/><rect x="6" y="4" width="1" height="1" fill="#ffffff"/>
-        <rect x="3" y="5" width="2" height="1" fill="#a5714f"/>
-        <rect x="3" y="6" width="2" height="1" fill="#8a4c3d"/>
-        <rect x="2" y="7" width="4" height="1" fill="#c99b76"/>
-      </svg>
-      <span class="mc mc-sh">Will</span>
+    <div class="hero__cta reveal">
+      <a href="#" class="btn btn--primary btn--lg" id="downloadBtn">Download for Windows</a>
+      <a href="#client" class="link-underline link-underline--lg">See what's inside</a>
     </div>
 
-    <div class="title__center" id="titleCenter">
-      <span class="title__wordmark" aria-hidden="true">ORIGIN</span>
+    <!-- Recreated Origin in-game HUD — the real elements, drawn in the Origin look -->
+    <div class="showcase reveal" aria-label="A look at the Origin in-game HUD">
+      <div class="ocard ocard--coords showcase__coords">
+        <div class="ocoord"><span class="ocoord__ax">X</span><b>487</b></div>
+        <div class="ocoord"><span class="ocoord__ax">Y</span><b>74</b></div>
+        <div class="ocoord"><span class="ocoord__ax">Z</span><b>-532</b></div>
+        <div class="ocard__sub">NE · Cherry Grove</div>
+      </div>
 
-      <div class="title__menu">
-        <a class="frost frost--btn frost--wide mc mc-sh" href="#client">Singleplayer</a>
-        <a class="frost frost--btn frost--wide mc mc-sh" href="#versions">Multiplayer</a>
-        <a class="frost frost--btn frost--wide mc mc-sh" href="#mods">Mods</a>
-        <div class="title__row">
-          <span class="frost frost--btn frost--icon mc" data-toast="Language stays vanilla — we just reskin the box." aria-hidden="true">
-            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3.5 3 14 0 18M12 3c-3 3.5-3 14 0 18"/></svg>
-          </span>
-          <a class="frost frost--btn frost--half mc mc-sh" href="#performance">Options...</a>
-          <span class="frost frost--btn frost--half mc mc-sh" data-toast="Saving chunks... just kidding.">Quit Game</span>
-          <span class="frost frost--btn frost--icon mc" data-toast="Accessibility stays vanilla — we just reskin the box." aria-hidden="true">
-            <svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="2.2"/><path d="M4.5 9.5h15M12 9.5v6l-3.5 6M12 15.5l3.5 6"/></svg>
-          </span>
+      <div class="ocard ocard--fps showcase__fps">
+        <b>312</b><span class="ocard__unit">FPS</span>
+      </div>
+
+      <div class="showcase__keys">
+        <span class="okey">W</span>
+        <div class="okey-row">
+          <span class="okey">A</span>
+          <span class="okey">S</span>
+          <span class="okey okey--on">D</span>
         </div>
       </div>
-    </div>
 
-    <div class="title__caption reveal">
-      <p class="eyebrow">MINECRAFT CLIENT — FABRIC, DONE FOR YOU — 1.16.5 &rarr; 1.21.11</p>
-      <p class="title__tag">One install. The full experience.<br>
-      <span>This isn't a mockup — it's your title screen. Every pixel above is how 1.21.1 boots.</span></p>
-      <a href="#" class="frost frost--btn frost--cta mc mc-sh" id="downloadBtn">Download Client</a>
-    </div>
+      <div class="ocard ocard--wp showcase__wp">
+        <span class="odiamond" aria-hidden="true"></span> Home · <b>122m</b>
+      </div>
 
-    <div class="hero__scroll" aria-hidden="true"><span></span></div>
+      <div class="ocard ocard--clock showcase__clock">
+        <span class="opause" aria-hidden="true"></span> 1:20
+      </div>
+
+      <div class="olocator showcase__locator" aria-hidden="true">
+        <span class="olocator__tick"></span>
+        <span class="olocator__dot" style="left: 41%"></span>
+        <span class="olocator__dot" style="left: 62%"></span>
+      </div>
+    </div>
   </section>
 
-  <!-- ============ MARQUEE ============ -->
+  <!-- MARQUEE -->
   <section class="marquee" aria-hidden="true">
     <div class="marquee__track">
-      <span class="marquee__group mc">
-        <span>One Install</span><i>&#9670;</i>
-        <span class="accent">ORIGIN</span><i>&#9670;</i>
-        <span>24 Mods Built In</span><i>&#9670;</i>
-        <span class="accent">ORIGIN</span><i>&#9670;</i>
-        <span>Sodium + Iris Shaders</span><i>&#9670;</i>
-        <span class="accent">ORIGIN</span><i>&#9670;</i>
-        <span>21 Versions</span><i>&#9670;</i>
-        <span class="accent">ORIGIN</span><i>&#9670;</i>
-        <span>Drag-Anywhere HUD</span><i>&#9670;</i>
-        <span class="accent">ORIGIN</span><i>&#9670;</i>
+      <span class="marquee__group">
+        <span>Every Version</span><span class="marquee__dot">&#9670;</span>
+        <span class="accent">Origin</span><span class="marquee__dot">&#9670;</span>
+        <span>Zero Setup</span><span class="marquee__dot">&#9670;</span>
+        <span class="accent">Origin</span><span class="marquee__dot">&#9670;</span>
+        <span>Shaders Built In</span><span class="marquee__dot">&#9670;</span>
+        <span class="accent">Origin</span><span class="marquee__dot">&#9670;</span>
+        <span>One Custom Look</span><span class="marquee__dot">&#9670;</span>
+        <span class="accent">Origin</span><span class="marquee__dot">&#9670;</span>
       </span>
-      <span class="marquee__group mc" aria-hidden="true">
-        <span>One Install</span><i>&#9670;</i>
-        <span class="accent">ORIGIN</span><i>&#9670;</i>
-        <span>24 Mods Built In</span><i>&#9670;</i>
-        <span class="accent">ORIGIN</span><i>&#9670;</i>
-        <span>Sodium + Iris Shaders</span><i>&#9670;</i>
-        <span class="accent">ORIGIN</span><i>&#9670;</i>
-        <span>21 Versions</span><i>&#9670;</i>
-        <span class="accent">ORIGIN</span><i>&#9670;</i>
-        <span>Drag-Anywhere HUD</span><i>&#9670;</i>
-        <span class="accent">ORIGIN</span><i>&#9670;</i>
+      <span class="marquee__group" aria-hidden="true">
+        <span>Every Version</span><span class="marquee__dot">&#9670;</span>
+        <span class="accent">Origin</span><span class="marquee__dot">&#9670;</span>
+        <span>Zero Setup</span><span class="marquee__dot">&#9670;</span>
+        <span class="accent">Origin</span><span class="marquee__dot">&#9670;</span>
+        <span>Shaders Built In</span><span class="marquee__dot">&#9670;</span>
+        <span class="accent">Origin</span><span class="marquee__dot">&#9670;</span>
+        <span>One Custom Look</span><span class="marquee__dot">&#9670;</span>
+        <span class="accent">Origin</span><span class="marquee__dot">&#9670;</span>
       </span>
     </div>
   </section>
 
-  <!-- ============ BOOT TOUR — loading screen to graded world ============ -->
-  <section class="scene" id="client" data-steps="4">
-    <div class="scene__sticky">
-      <div class="scene__rail">
-        <p class="eyebrow">FLAGSHIP BUILD — 1.21.1</p>
-        <h2 class="scene__heading">This is what installs.</h2>
-        <p class="scene__lede">Scroll — every frame is the real client.</p>
-
-        <ol class="scene__steps">
-          <li class="scene__step" data-step="0">
-            <h3>The Origin boot</h3>
-            <p>Near-black, the orbital rings, the wordmark, one clean progress bar. The loading screen is the first thing Origin reskins — and the last vanilla thing you'll never miss.</p>
-          </li>
-          <li class="scene__step" data-step="1">
-            <h3>A HUD you design</h3>
-            <p>Press Right&nbsp;Shift, drag anything anywhere. Every element gets a live preview, a resize handle, and an ✕ — FPS, coords, keystrokes, armor, potions.</p>
-          </li>
-          <li class="scene__step" data-step="2">
-            <h3>Waypoints + Locator Bar</h3>
-            <p>Drop in-world markers with beams, labels and live distance. A compass strip shows every waypoint's direction — and one auto-drops where you die.</p>
-          </li>
-          <li class="scene__step" data-step="3">
-            <h3>Grade the world's colour</h3>
-            <p>Saturation, brightness and contrast sliders that grade the world only — menus and HUD stay crisp while the world gets your look.</p>
-          </li>
-        </ol>
-
-        <div class="scene__progress" aria-hidden="true"><span id="sceneProgressFill"></span></div>
-      </div>
-
-      <div class="scene__stage">
-        <div class="frame" id="sceneFrame">
-          <!-- the world (unblurred in-game backdrop; the grade step saturates it) -->
-          <div class="frame__world" id="frameWorld">
-            <div class="frame__sky"></div>
-            <div class="frame__sun"></div>
-            <div class="frame__cloud frame__cloud--a"></div>
-            <div class="frame__cloud frame__cloud--b"></div>
-            <div class="frame__hills frame__hills--far"></div>
-            <div class="frame__hills frame__hills--near"></div>
-            <div class="frame__beam frame__beam--a"><span class="mc mc-sh">Home &#183; <b data-sim="wp-a">143m</b></span></div>
-            <div class="frame__beam frame__beam--b"><span class="mc mc-sh">Mine &#183; <b data-sim="wp-b">402m</b></span></div>
-          </div>
-
-          <!-- Step 0: the loading screen (rings + grain + wordmark + bar) -->
-          <div class="frame__layer frame__layer--loading">
-            <svg class="load__rings" viewBox="0 0 200 200" aria-hidden="true">
-              <ellipse cx="100" cy="100" rx="90" ry="32"/>
-              <ellipse cx="100" cy="100" rx="75" ry="27" transform="rotate(60 100 100)"/>
-              <ellipse cx="100" cy="100" rx="60" ry="22" transform="rotate(120 100 100)"/>
-            </svg>
-            <span class="load__wordmark">ORIGIN</span>
-            <div class="load__bar"><i></i></div>
-          </div>
-
-          <!-- Steps 1–3: the HUD, exactly as HudElements draws it -->
-          <div class="frame__layer frame__layer--hud">
-            <div class="hudel hudel--fps"><span class="mc mc-sh">FPS: <b data-sim="fps">1487</b></span>
-              <i class="hudel__handle"></i><i class="hudel__x mc">&#10005;</i></div>
-            <div class="hudel hudel--coords"><span class="mc mc-sh">X: <b data-sim="cx">142</b><br>Y: <b>74</b><br>Z: <b data-sim="cz">-308</b><br>Biome: Plains</span>
-              <i class="hudel__handle"></i><i class="hudel__x mc">&#10005;</i></div>
-            <div class="hudel hudel--keys">
-              <span class="hudel__key mc" data-key="w">W</span>
-              <span class="hudel__keyrow">
-                <span class="hudel__key mc" data-key="a">A</span>
-                <span class="hudel__key mc" data-key="s">S</span>
-                <span class="hudel__key mc" data-key="d">D</span>
-              </span>
-              <i class="hudel__handle"></i><i class="hudel__x mc">&#10005;</i></div>
-            <div class="hudel hudel--armor">
-              <span class="hudel__slot"></span><span class="hudel__slot"></span>
-              <span class="hudel__slot"></span><span class="hudel__slot"></span>
-              <i class="hudel__handle"></i><i class="hudel__x mc">&#10005;</i></div>
-            <div class="hudel hudel--potion"><span class="mc mc-sh">Speed II <b data-sim="potion">1:32</b></span>
-              <i class="hudel__handle"></i><i class="hudel__x mc">&#10005;</i></div>
-          </div>
-
-          <!-- Step 1 furniture: the Right-Shift editor (logo + wordmark + MODS) -->
-          <div class="frame__layer frame__layer--editor">
-            <span class="editor__close mc">&#10005;</span>
-            <div class="editor__center">
-              <svg class="editor__logo" viewBox="0 0 200 200" aria-hidden="true">
-                <ellipse cx="100" cy="100" rx="90" ry="32"/>
-                <ellipse cx="100" cy="100" rx="75" ry="27" transform="rotate(60 100 100)"/>
-                <ellipse cx="100" cy="100" rx="60" ry="22" transform="rotate(120 100 100)"/>
-              </svg>
-              <span class="editor__word">ORIGIN</span>
-              <span class="frost frost--btn mc mc-sh editor__mods">MODS</span>
-            </div>
-          </div>
-
-          <!-- Step 2: locator bar -->
-          <div class="frame__layer frame__layer--locator">
-            <div class="locator">
-              <span class="locator__dot" style="left: 32%"></span>
-              <span class="locator__dot locator__dot--far" style="left: 71%"></span>
-            </div>
-          </div>
-
-          <!-- Step 3: Color Saturation panel (real switch + pill sliders) -->
-          <div class="frame__layer frame__layer--grade">
-            <div class="gradeui">
-              <div class="gradeui__row"><span class="mc">Saturation</span><span class="pill"><i class="pill__fill" id="gradeFill"></i><i class="pill__knob" id="gradeKnob"></i></span><b class="mc" data-sim="sat">1.00x</b></div>
-              <div class="gradeui__row gradeui__row--dim"><span class="mc">Brightness</span><span class="pill"><i class="pill__fill" style="width:50%"></i><i class="pill__knob" style="left:50%"></i></span><b class="mc">1.00x</b></div>
-              <div class="gradeui__row gradeui__row--dim"><span class="mc">Contrast</span><span class="pill"><i class="pill__fill" style="width:50%"></i><i class="pill__knob" style="left:50%"></i></span><b class="mc">1.00x</b></div>
-            </div>
-          </div>
-
-          <span class="frame__crosshair" aria-hidden="true"></span>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ============ THE MOD MENU — a working recreation ============ -->
-  <section class="section section--wide" id="mods">
+  <!-- THE CLIENT -->
+  <section class="section" id="client">
     <div class="section__head reveal">
-      <p class="eyebrow">RIGHT SHIFT — IN GAME</p>
-      <h2><span class="accent" data-count-to="24">24</span> mods. One menu.</h2>
-      <p class="section__lede">This is the actual Origin mod menu, rebuilt for your browser — search it,
-      toggle it, pin favourites with the star. Every card is a real mod, live in 1.21.1 today.</p>
+      <p class="eyebrow">THE CLIENT</p>
+      <h2>No loaders. No configs. Just play.</h2>
+      <p class="section__lede">
+        The launcher installs the right stack for whatever version you pick —
+        Fabric on modern versions, Forge + OptiFine on the legacy ones — and
+        pre-configures it. You never see a loader menu.
+      </p>
     </div>
 
-    <div class="menuwrap reveal">
-      <div class="menu__backdrop" aria-hidden="true"></div>
-
-      <div class="menu" id="menuPanel">
-        <div class="menu__head">
-          <svg class="menu__logo" viewBox="0 0 200 200" aria-hidden="true">
-            <ellipse cx="100" cy="100" rx="90" ry="32"/>
-            <ellipse cx="100" cy="100" rx="75" ry="27" transform="rotate(60 100 100)"/>
-            <ellipse cx="100" cy="100" rx="60" ry="22" transform="rotate(120 100 100)"/>
-          </svg>
-          <div class="menu__tabs">
-            <button class="menu__tab mc mc-sh is-active" id="tabMods" type="button">MODS</button>
-            <button class="menu__tab mc mc-sh" id="tabSettings" type="button">SETTINGS</button>
-          </div>
-          <div class="menu__chips">
-            <span class="frost frost--chip" data-toast="Toggles the panel between opaque and see-through in game." aria-hidden="true">
-              <svg viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="1"/><path d="M8 6l-2 3M12 6l-4 6M16 6l-6 9"/></svg>
-            </span>
-            <span class="frost frost--chip frost--chip-label mc mc-sh" data-toast="The drag-anywhere HUD editor — see the tour above.">HUD Editor</span>
-          </div>
-        </div>
-
-        <div class="menu__search frost" id="searchBox">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21"/></svg>
-          <input class="mc" id="searchInput" type="text" placeholder="Search mods" autocomplete="off" spellcheck="false" aria-label="Search mods">
-        </div>
-
-        <!-- MODS tab: the card grid. Card anatomy is 1:1 with renderCard():
-             ★ pin, icon, name, OPTIONS, ENABLED/DISABLED. -->
-        <div class="menu__grid" id="menuGrid">
-
-          <div class="mcard frost" data-name="FPS" data-desc="Frames-per-second readout." style="--mc:#e0e0e0">
-            <button class="mcard__star mc" type="button" aria-label="Pin FPS">&#9733;</button>
-            <span class="mcard__icon"><svg viewBox="0 0 24 24"><path d="M4 16a8 8 0 0 1 16 0"/><path d="M12 16l4.5-4.5"/></svg></span>
-            <span class="mcard__name mc mc-sh">FPS</span>
-            <button class="mcard__opt frost mc" type="button">OPTIONS</button>
-            <button class="mcard__tog mc" type="button" data-on="false">DISABLED</button>
-          </div>
-
-          <div class="mcard frost" data-name="CPS" data-desc="Clicks per second." style="--mc:#9ad1ff">
-            <button class="mcard__star mc" type="button" aria-label="Pin CPS">&#9733;</button>
-            <span class="mcard__icon"><svg viewBox="0 0 24 24"><rect x="8" y="4" width="8" height="17" rx="4"/><path d="M12 4v5M4.5 4.5L7 7M19.5 4.5L17 7"/></svg></span>
-            <span class="mcard__name mc mc-sh">CPS</span>
-            <button class="mcard__opt frost mc" type="button">OPTIONS</button>
-            <button class="mcard__tog mc" type="button" data-on="false">DISABLED</button>
-          </div>
-
-          <div class="mcard frost" data-name="Toggle Sneak/Sprint" data-desc="Hands-free sprint and sneak." style="--mc:#d8d8d8">
-            <button class="mcard__star mc" type="button" aria-label="Pin Toggle Sneak/Sprint">&#9733;</button>
-            <span class="mcard__icon"><svg viewBox="0 0 24 24"><path d="M5 6l6 6-6 6M13 6l6 6-6 6"/></svg></span>
-            <span class="mcard__name mc mc-sh">Toggle Sneak/Sprint</span>
-            <button class="mcard__opt frost mc" type="button">OPTIONS</button>
-            <button class="mcard__tog mc" type="button" data-on="false">DISABLED</button>
-          </div>
-
-          <div class="mcard frost" data-name="Zoom" data-desc="Smooth, configurable zoom." style="--mc:#c9a86a">
-            <button class="mcard__star mc" type="button" aria-label="Pin Zoom">&#9733;</button>
-            <span class="mcard__icon"><svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21"/></svg></span>
-            <span class="mcard__name mc mc-sh">Zoom</span>
-            <button class="mcard__opt frost mc" type="button">OPTIONS</button>
-            <button class="mcard__tog mc" type="button" data-on="true">ENABLED</button>
-          </div>
-
-          <div class="mcard frost" data-name="Armor Status" data-desc="Armor pieces and durability." style="--mc:#6ee7d8">
-            <button class="mcard__star mc" type="button" aria-label="Pin Armor Status">&#9733;</button>
-            <span class="mcard__icon"><svg viewBox="0 0 24 24"><path d="M12 3l7 3v5c0 5-3.5 8.5-7 10-3.5-1.5-7-5-7-10V6z"/></svg></span>
-            <span class="mcard__name mc mc-sh">Armor Status</span>
-            <button class="mcard__opt frost mc" type="button">OPTIONS</button>
-            <button class="mcard__tog mc" type="button" data-on="false">DISABLED</button>
-          </div>
-
-          <div class="mcard frost" data-name="Key Strokes" data-desc="On-screen key display." style="--mc:#e0e0e0">
-            <button class="mcard__star mc" type="button" aria-label="Pin Key Strokes">&#9733;</button>
-            <span class="mcard__icon"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 9l1.5 6L12 10l2.5 5L16 9"/></svg></span>
-            <span class="mcard__name mc mc-sh">Key Strokes</span>
-            <button class="mcard__opt frost mc" type="button">OPTIONS</button>
-            <button class="mcard__tog mc" type="button" data-on="false">DISABLED</button>
-          </div>
-
-          <div class="mcard frost" data-name="Coordinates" data-desc="Position, direction, and biome." style="--mc:#e05555">
-            <button class="mcard__star mc" type="button" aria-label="Pin Coordinates">&#9733;</button>
-            <span class="mcard__icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M15.5 8.5l-2 5-5 2 2-5z"/></svg></span>
-            <span class="mcard__name mc mc-sh">Coordinates</span>
-            <button class="mcard__opt frost mc" type="button">OPTIONS</button>
-            <button class="mcard__tog mc" type="button" data-on="true">ENABLED</button>
-          </div>
-
-          <div class="mcard frost" data-name="Potion Effects" data-desc="Active status effects." style="--mc:#c77dff">
-            <button class="mcard__star mc" type="button" aria-label="Pin Potion Effects">&#9733;</button>
-            <span class="mcard__icon"><svg viewBox="0 0 24 24"><path d="M9 3h6M10 3v6l-4.5 7A4 4 0 0 0 9 22h6a4 4 0 0 0 3.5-6L14 9V3"/></svg></span>
-            <span class="mcard__name mc mc-sh">Potion Effects</span>
-            <button class="mcard__opt frost mc" type="button">OPTIONS</button>
-            <button class="mcard__tog mc" type="button" data-on="false">DISABLED</button>
-          </div>
-
-          <div class="mcard frost" data-name="Server Address" data-desc="Current server IP." style="--mc:#a0a0a0">
-            <button class="mcard__star mc" type="button" aria-label="Pin Server Address">&#9733;</button>
-            <span class="mcard__icon"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="7" rx="2"/><rect x="4" y="13" width="16" height="7" rx="2"/><path d="M8 7.5h.01M8 16.5h.01"/></svg></span>
-            <span class="mcard__name mc mc-sh">Server Address</span>
-            <button class="mcard__opt frost mc" type="button">OPTIONS</button>
-            <button class="mcard__tog mc" type="button" data-on="false">DISABLED</button>
-          </div>
-
-          <div class="mcard frost" data-name="Scoreboard" data-desc="Server scoreboard styling." style="--mc:#d8b46a">
-            <button class="mcard__star mc" type="button" aria-label="Pin Scoreboard">&#9733;</button>
-            <span class="mcard__icon"><svg viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h4"/></svg></span>
-            <span class="mcard__name mc mc-sh">Scoreboard</span>
-            <button class="mcard__opt frost mc" type="button">OPTIONS</button>
-            <button class="mcard__tog mc" type="button" data-on="false">DISABLED</button>
-          </div>
-
-          <div class="mcard frost" data-name="Freelook" data-desc="Look around without turning." style="--mc:#7fe08f">
-            <button class="mcard__star mc" type="button" aria-label="Pin Freelook">&#9733;</button>
-            <span class="mcard__icon"><svg viewBox="0 0 24 24"><path d="M2 12s4-6 10-6 10 6 10 6-4 6-10 6S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></span>
-            <span class="mcard__name mc mc-sh">Freelook</span>
-            <button class="mcard__opt frost mc" type="button">OPTIONS</button>
-            <button class="mcard__tog mc" type="button" data-on="true">ENABLED</button>
-          </div>
-
-          <div class="mcard frost" data-name="Lighting" data-desc="Full-bright and brightness boost." style="--mc:#ffd855">
-            <button class="mcard__star mc" type="button" aria-label="Pin Lighting">&#9733;</button>
-            <span class="mcard__icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9L7 7M17 17l2.1 2.1M19.1 4.9L17 7M7 17l-2.1 2.1"/></svg></span>
-            <span class="mcard__name mc mc-sh">Lighting</span>
-            <button class="mcard__opt frost mc" type="button">OPTIONS</button>
-            <button class="mcard__tog mc" type="button" data-on="false">DISABLED</button>
-          </div>
-
-          <div class="mcard frost" data-name="Block Outline" data-desc="Selection outline and overlay." style="--mc:#e0e0e0">
-            <button class="mcard__star mc" type="button" aria-label="Pin Block Outline">&#9733;</button>
-            <span class="mcard__icon"><svg viewBox="0 0 24 24"><path d="M12 2l8 4.5v9L12 20l-8-4.5v-9z"/><path d="M12 11L4 6.5M12 11l8-4.5M12 11v9"/></svg></span>
-            <span class="mcard__name mc mc-sh">Block Outline</span>
-            <button class="mcard__opt frost mc" type="button">OPTIONS</button>
-            <button class="mcard__tog mc" type="button" data-on="false">DISABLED</button>
-          </div>
-
-          <div class="mcard frost" data-name="Chunk Borders" data-desc="Visualize chunk boundaries." style="--mc:#55dddd">
-            <button class="mcard__star mc" type="button" aria-label="Pin Chunk Borders">&#9733;</button>
-            <span class="mcard__icon"><svg viewBox="0 0 24 24"><path d="M9 3v18M15 3v18M3 9h18M3 15h18"/></svg></span>
-            <span class="mcard__name mc mc-sh">Chunk Borders</span>
-            <button class="mcard__opt frost mc" type="button">OPTIONS</button>
-            <button class="mcard__tog mc" type="button" data-on="false">DISABLED</button>
-          </div>
-
-          <div class="mcard frost" data-name="Hitbox" data-desc="Entity hitbox rendering." style="--mc:#7fa98f">
-            <button class="mcard__star mc" type="button" aria-label="Pin Hitbox">&#9733;</button>
-            <span class="mcard__icon"><svg viewBox="0 0 24 24"><path d="M4 8V4h4M16 4h4v4M20 16v4h-4M8 20H4v-4"/><circle cx="12" cy="12" r="2"/></svg></span>
-            <span class="mcard__name mc mc-sh">Hitbox</span>
-            <button class="mcard__opt frost mc" type="button">OPTIONS</button>
-            <button class="mcard__tog mc" type="button" data-on="false">DISABLED</button>
-          </div>
-
-          <div class="mcard frost" data-name="Nametags" data-desc="Name tag rendering tweaks." style="--mc:#e0c060">
-            <button class="mcard__star mc" type="button" aria-label="Pin Nametags">&#9733;</button>
-            <span class="mcard__icon"><svg viewBox="0 0 24 24"><path d="M13 3l8 8-10 10-8-8 2-8z"/><circle cx="8.5" cy="8.5" r="1.5"/></svg></span>
-            <span class="mcard__name mc mc-sh">Nametags</span>
-            <button class="mcard__opt frost mc" type="button">OPTIONS</button>
-            <button class="mcard__tog mc" type="button" data-on="false">DISABLED</button>
-          </div>
-
-          <div class="mcard frost" data-name="Weather Changer" data-desc="Force a client weather mode." style="--mc:#6ec6e0">
-            <button class="mcard__star mc" type="button" aria-label="Pin Weather Changer">&#9733;</button>
-            <span class="mcard__icon"><svg viewBox="0 0 24 24"><path d="M7 15a4.5 4.5 0 1 1 .8-8.9A5.5 5.5 0 0 1 18 8a4 4 0 0 1-1 7.9H7z"/><path d="M8 18l-1 3M12 18l-1 3M16 18l-1 3"/></svg></span>
-            <span class="mcard__name mc mc-sh">Weather Changer</span>
-            <button class="mcard__opt frost mc" type="button">OPTIONS</button>
-            <button class="mcard__tog mc" type="button" data-on="false">DISABLED</button>
-          </div>
-
-          <div class="mcard frost" data-name="Time Changer" data-desc="Set a fixed client time of day." style="--mc:#ffd855">
-            <button class="mcard__star mc" type="button" aria-label="Pin Time Changer">&#9733;</button>
-            <span class="mcard__icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg></span>
-            <span class="mcard__name mc mc-sh">Time Changer</span>
-            <button class="mcard__opt frost mc" type="button">OPTIONS</button>
-            <button class="mcard__tog mc" type="button" data-on="false">DISABLED</button>
-          </div>
-
-          <div class="mcard frost" data-name="Motion Blur" data-desc="Frame-blend motion blur." style="--mc:#b0a8c0">
-            <button class="mcard__star mc" type="button" aria-label="Pin Motion Blur">&#9733;</button>
-            <span class="mcard__icon"><svg viewBox="0 0 24 24"><circle cx="14" cy="12" r="6"/><path d="M2 8h6M2 12h4M2 16h6"/></svg></span>
-            <span class="mcard__name mc mc-sh">Motion Blur</span>
-            <button class="mcard__opt frost mc" type="button">OPTIONS</button>
-            <button class="mcard__tog mc" type="button" data-on="false">DISABLED</button>
-          </div>
-
-          <div class="mcard frost" data-name="Color Saturation" data-desc="Grade the whole screen's colour." style="--mc:#ff9944">
-            <button class="mcard__star mc" type="button" aria-label="Pin Color Saturation">&#9733;</button>
-            <span class="mcard__icon"><svg viewBox="0 0 24 24"><path d="M12 3s6 7 6 11a6 6 0 0 1-12 0c0-4 6-11 6-11z"/><path d="M12 20a6 6 0 0 0 6-6c0-1-.4-2.2-1-3.5"/></svg></span>
-            <span class="mcard__name mc mc-sh">Color Saturation</span>
-            <button class="mcard__opt frost mc" type="button">OPTIONS</button>
-            <button class="mcard__tog mc" type="button" data-on="false">DISABLED</button>
-          </div>
-
-          <div class="mcard frost" data-name="Chat" data-desc="Chat behavior and appearance." style="--mc:#d0d0d0">
-            <button class="mcard__star mc" type="button" aria-label="Pin Chat">&#9733;</button>
-            <span class="mcard__icon"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/></svg></span>
-            <span class="mcard__name mc mc-sh">Chat</span>
-            <button class="mcard__opt frost mc" type="button">OPTIONS</button>
-            <button class="mcard__tog mc" type="button" data-on="false">DISABLED</button>
-          </div>
-
-          <div class="mcard frost" data-name="Particle Changer" data-desc="Per-particle visibility and styling." style="--mc:#cc66ff">
-            <button class="mcard__star mc" type="button" aria-label="Pin Particle Changer">&#9733;</button>
-            <span class="mcard__icon"><svg viewBox="0 0 24 24"><path d="M12 3l1.5 4L18 8.5 13.5 10 12 14l-1.5-4L6 8.5 10.5 7z"/><circle cx="19" cy="16" r="1"/><circle cx="6" cy="17" r="1.4"/></svg></span>
-            <span class="mcard__name mc mc-sh">Particle Changer</span>
-            <button class="mcard__opt frost mc" type="button">OPTIONS</button>
-            <button class="mcard__tog mc" type="button" data-on="false">DISABLED</button>
-          </div>
-
-          <div class="mcard frost" data-name="Waypoints" data-desc="In-world markers with beams, labels, and distance." style="--mc:#8fb8ff">
-            <button class="mcard__star mc" type="button" aria-label="Pin Waypoints">&#9733;</button>
-            <span class="mcard__icon"><svg viewBox="0 0 24 24"><path d="M9 3h6M10 3l1 13h2l1-13"/><ellipse cx="12" cy="19" rx="5" ry="2.5"/></svg></span>
-            <span class="mcard__name mc mc-sh">Waypoints</span>
-            <button class="mcard__opt frost mc" type="button">OPTIONS</button>
-            <button class="mcard__tog mc" type="button" data-on="false">DISABLED</button>
-          </div>
-
-          <div class="mcard frost" data-name="JEI" data-desc="Item and recipe viewer." style="--mc:#55e055">
-            <button class="mcard__star mc" type="button" aria-label="Pin JEI">&#9733;</button>
-            <span class="mcard__icon"><svg viewBox="0 0 24 24"><path d="M4 5a3 3 0 0 1 3-3h13v18H7a3 3 0 0 0-3 3z"/><path d="M20 16H7a3 3 0 0 0-3 3"/></svg></span>
-            <span class="mcard__name mc mc-sh">JEI</span>
-            <button class="mcard__opt frost mc" type="button">OPTIONS</button>
-            <button class="mcard__tog mc" type="button" data-on="false">DISABLED</button>
-          </div>
-
-          <p class="menu__empty mc" id="menuEmpty" hidden>No mods match your search.</p>
-        </div>
-
-        <!-- SETTINGS tab: the real GENERAL / PERFORMANCE rows -->
-        <div class="menu__settings" id="menuSettings" hidden>
-          <div class="menu__subtabs">
-            <button class="menu__tab mc mc-sh is-active" data-sub="general" type="button">GENERAL</button>
-            <button class="menu__tab mc mc-sh" data-sub="performance" type="button">PERFORMANCE</button>
-          </div>
-
-          <div class="srows" id="subGeneral">
-            <div class="srow"><span class="mc mc-sh">Borderless Fullscreen</span><button class="sw" type="button" data-on="false" aria-label="Toggle Borderless Fullscreen"><i></i></button></div>
-            <div class="srow"><span class="mc mc-sh">Raw Mouse Input</span><button class="sw" type="button" data-on="true" aria-label="Toggle Raw Mouse Input"><i></i></button></div>
-            <div class="srow" data-tip="Ask for confirmation before leaving a world or server."><span class="mc mc-sh">Smart Disconnect</span><button class="sw" type="button" data-on="true" aria-label="Toggle Smart Disconnect"><i></i></button></div>
-            <div class="srow"><span class="mc mc-sh">Disable Hotbar Scrolling</span><button class="sw" type="button" data-on="false" aria-label="Toggle Disable Hotbar Scrolling"><i></i></button></div>
-            <div class="srow"><span class="mc mc-sh">Main Menu Style</span><button class="frost frost--dd mc mc-sh" type="button" data-modes="Origin,Vanilla">Origin &#9662;</button></div>
-            <div class="srow" data-tip="Show the advancement toast pop-ups."><span class="mc mc-sh">Show Achievements</span><button class="sw" type="button" data-on="true" aria-label="Toggle Show Achievements"><i></i></button></div>
-          </div>
-
-          <div class="srows" id="subPerformance" hidden>
-            <div class="srow" data-tip="Any shader you load renders shadows at half distance for a big FPS gain. Turn off for full quality; applies instantly."><span class="mc mc-sh">Shader Performance Mode</span><button class="sw" type="button" data-on="true" aria-label="Toggle Shader Performance Mode"><i></i></button></div>
-            <div class="srow"><span class="mc mc-sh">Limit Unfocused FPS</span><button class="sw" type="button" data-on="true" aria-label="Toggle Limit Unfocused FPS"><i></i></button></div>
-            <div class="srow"><span class="mc mc-sh">Max Unfocused FPS</span><span class="sl" data-min="5" data-max="60" data-step="5" data-value="30" data-fmt=""><span class="pill"><i class="pill__fill"></i><i class="pill__knob"></i></span><b class="mc">30</b></span></div>
-            <div class="srow"><span class="mc mc-sh">Max Main Menu FPS</span><span class="sl" data-min="30" data-max="260" data-step="10" data-value="120" data-fmt=""><span class="pill"><i class="pill__fill"></i><i class="pill__knob"></i></span><b class="mc">120</b></span></div>
-            <div class="srow"><span class="mc mc-sh">Entity Distance</span><span class="sl" data-min="10" data-max="100" data-step="5" data-value="100" data-fmt="%"><span class="pill"><i class="pill__fill"></i><i class="pill__knob"></i></span><b class="mc">100%</b></span></div>
-            <div class="srow"><span class="mc mc-sh">Tile Entity Distance</span><span class="sl" data-min="10" data-max="100" data-step="5" data-value="100" data-fmt="%"><span class="pill"><i class="pill__fill"></i><i class="pill__knob"></i></span><b class="mc">100%</b></span></div>
-          </div>
-        </div>
-
-        <span class="menu__version mc">Origin Client 0.4.2</span>
-      </div>
-    </div>
-
-    <div class="menu__tooltip mc" id="menuTooltip" hidden></div>
-
-    <p class="mods-note reveal">
-      In game this opens with <b>Right Shift</b> — the grid floats over a live HUD preview,
-      pinned mods jump to the front, and every option row is backed by real behaviour.
-      Nothing here is a do-nothing switch.
-    </p>
-  </section>
-
-  <!-- ============ PERFORMANCE ============ -->
-  <section class="section section--alt" id="performance">
-    <div class="section__head reveal">
-      <p class="eyebrow">PERFORMANCE</p>
-      <h2>The stack installs itself.</h2>
-      <p class="section__lede">Eight performance and shader mods, pinned to versions verified against each Minecraft release — bundled into the client so you never touch a mods folder.</p>
-    </div>
-
-    <div class="stat reveal">
-      <span class="stat__prefix mc">UP TO</span>
-      <span class="stat__number mc" data-count-to="3" data-suffix="x">1x</span>
-      <span class="stat__suffix">FPS OVER VANILLA WITH THE SODIUM STACK</span>
-    </div>
-
-    <ul class="stack" aria-label="Bundled performance mods">
-      <li class="stack__chip frost reveal"><b class="mc mc-sh">Sodium</b><span>rendering engine</span></li>
-      <li class="stack__chip frost reveal"><b class="mc mc-sh">Lithium</b><span>game-logic optimizer</span></li>
-      <li class="stack__chip frost reveal"><b class="mc mc-sh">Iris</b><span>shader loader</span></li>
-      <li class="stack__chip frost reveal"><b class="mc mc-sh">FerriteCore</b><span>memory usage</span></li>
-      <li class="stack__chip frost reveal"><b class="mc mc-sh">Krypton</b><span>networking</span></li>
-      <li class="stack__chip frost reveal"><b class="mc mc-sh">ImmediatelyFast</b><span>HUD batching</span></li>
-      <li class="stack__chip frost reveal"><b class="mc mc-sh">ModernFix</b><span>startup + memory</span></li>
-      <li class="stack__chip frost reveal"><b class="mc mc-sh">Indium</b><span>rendering compat</span></li>
-      <li class="stack__chip frost stack__chip--extra reveal"><b class="mc mc-sh">JEI</b><span>recipe viewer</span></li>
-      <li class="stack__chip frost stack__chip--extra reveal"><b class="mc mc-sh">Mod Menu</b><span>mods list</span></li>
+    <ul class="feature-grid">
+      <li class="feature-card reveal">
+        <h3>Performance, pre-tuned</h3>
+        <p>Sodium, Lithium and FerriteCore ship bundled and configured. Smoother
+          frames and faster chunk loading, out of the box.</p>
+      </li>
+      <li class="feature-card reveal">
+        <h3>Shaders that just work</h3>
+        <p>Iris + Sodium on modern versions, OptiFine on the legacy pair. Drop in
+          a shader pack from the built-in browser and go.</p>
+      </li>
+      <li class="feature-card reveal">
+        <h3>One custom look</h3>
+        <p>A restyled title screen, menus and HUD in a single dark, monochrome
+          theme — consistent on every supported version.</p>
+      </li>
+      <li class="feature-card reveal">
+        <h3>Curated, not bloated</h3>
+        <p>A hand-picked set of QoL mods — zoom, freelook, fullbright, JEI and
+          more. Toggle any of them from one menu. Nothing you didn't ask for.</p>
+      </li>
     </ul>
-
-    <p class="section__copy reveal">
-      Shaders work day one — Iris ships with every version, and Origin's
-      <b>Shader Performance Mode</b> halves shadow cost on any pack for a
-      big FPS win you can toggle off any time. Every pin is boot-verified
-      per version; if a mod isn't stable on a version, it doesn't ship there.
-    </p>
   </section>
 
-  <!-- ============ VERSIONS ============ -->
+  <!-- HUD -->
+  <section class="section section--alt" id="hud">
+    <div class="section__head reveal">
+      <p class="eyebrow">THE HUD</p>
+      <h2>A HUD that's actually yours.</h2>
+      <p class="section__lede">
+        Every element is movable, resizable and recolorable from the in-game
+        editor. Turn on only what you want.
+      </p>
+    </div>
+
+    <div class="hud-demo reveal">
+      <div class="hud-demo__item">
+        <div class="ocard ocard--coords">
+          <div class="ocoord"><span class="ocoord__ax">X</span><b>583</b></div>
+          <div class="ocoord"><span class="ocoord__ax">Y</span><b>74</b></div>
+          <div class="ocoord"><span class="ocoord__ax">Z</span><b>-594</b></div>
+          <div class="ocard__sub">NE · Plains</div>
+        </div>
+        <span class="hud-demo__label">Coordinates + biome</span>
+      </div>
+
+      <div class="hud-demo__item">
+        <div class="ocard ocard--sprint">[Sprinting (Toggled)]</div>
+        <div class="showcase__keys hud-demo__keys">
+          <span class="okey">W</span>
+          <div class="okey-row">
+            <span class="okey okey--on">A</span>
+            <span class="okey">S</span>
+            <span class="okey">D</span>
+          </div>
+        </div>
+        <span class="hud-demo__label">Keystrokes + sprint state</span>
+      </div>
+
+      <div class="hud-demo__item">
+        <div class="ocard ocard--wp"><span class="odiamond"></span> Base · <b>340m</b></div>
+        <div class="olocator hud-demo__locator">
+          <span class="olocator__tick"></span>
+          <span class="olocator__dot" style="left: 30%"></span>
+          <span class="olocator__dot" style="left: 55%"></span>
+          <span class="olocator__dot olocator__dot--far" style="left: 78%"></span>
+        </div>
+        <span class="hud-demo__label">Waypoints + locator bar</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- VERSIONS -->
   <section class="section" id="versions">
     <div class="section__head reveal">
-      <p class="eyebrow">VERSIONS</p>
-      <h2><span data-count-to="21">21</span> versions, one look.</h2>
-      <p class="section__lede">Whatever you pick, Origin installs the right stack for that version silently — no loader choice, ever.</p>
+      <p class="eyebrow">COMPATIBILITY</p>
+      <h2>From 1.8.9 to the latest.</h2>
+      <p class="section__lede">
+        Eighteen supported versions and counting — each one gets the full Origin
+        experience, built for its own era.
+      </p>
     </div>
 
-    <div class="flagship frost reveal">
-      <div class="flagship__badge mc">FLAGSHIP</div>
-      <span class="flagship__num mc mc-sh">1.21.1</span>
-      <p>The lead build. Everything on this page is live here today —
-      the newest mods, menus and HUD land on 1.21.1 first, then roll out
-      to every other version. <b>Every other version updates soon.</b></p>
+    <div class="versions reveal">
+      <div class="versions__group">
+        <span class="versions__tag">Legacy · Forge + OptiFine</span>
+        <div class="chips">
+          <span class="chip">1.8.9</span>
+          <span class="chip">1.12.2</span>
+        </div>
+      </div>
+      <div class="versions__group">
+        <span class="versions__tag">Fabric</span>
+        <div class="chips">
+          <span class="chip">1.16.5</span><span class="chip">1.17.1</span>
+          <span class="chip">1.18.2</span><span class="chip">1.19.2</span>
+          <span class="chip">1.19.4</span><span class="chip">1.20.1</span>
+          <span class="chip">1.20.4</span><span class="chip">1.21</span>
+          <span class="chip">1.21.1</span><span class="chip">1.21.5</span>
+          <span class="chip">1.21.8</span><span class="chip">1.21.11</span>
+        </div>
+      </div>
     </div>
-
-    <ul class="versions reveal" aria-label="Supported Minecraft versions">
-      <li class="frost mc">1.21.11</li><li class="frost mc">1.21.10</li><li class="frost mc">1.21.8</li><li class="frost mc">1.21.6&ndash;7</li>
-      <li class="frost mc">1.21.5</li><li class="frost mc">1.21.2&ndash;4</li><li class="frost mc versions__flag">1.21.1</li><li class="frost mc">1.21</li>
-      <li class="frost mc">1.20.4</li><li class="frost mc">1.20.2</li><li class="frost mc">1.20&ndash;1.20.1</li><li class="frost mc">1.19.4</li>
-      <li class="frost mc">1.19.3</li><li class="frost mc">1.19.2</li><li class="frost mc">1.18.2</li><li class="frost mc">1.17.1</li>
-      <li class="frost mc">1.16.5</li>
-      <li class="frost mc versions__soon">1.21.9 soon</li>
-      <li class="frost mc versions__soon">1.12.2 soon</li>
-      <li class="frost mc versions__soon">1.8.9 soon</li>
-    </ul>
-
-    <p class="section__copy reveal">
-      Each version gets its own build, engineered for that version's internals
-      and boot-verified before it ships — and if anything ever goes wrong,
-      Origin degrades safely to vanilla instead of crashing your game.
-    </p>
-  </section>
-
-  <!-- ============ WHY ============ -->
-  <section class="section section--alt" id="compare">
-    <div class="section__head reveal">
-      <p class="eyebrow">THE COMPARISON</p>
-      <h2>Why switch?</h2>
-    </div>
-
-    <table class="compare-table reveal">
-      <thead>
-        <tr>
-          <th scope="col"><span class="sr-only">What</span></th>
-          <th scope="col">Doing it yourself</th>
-          <th scope="col" class="compare-table__highlight mc">Origin</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <th scope="row">Loader + mods setup</th>
-          <td>Pick a loader, hunt versions, pray</td>
-          <td class="compare-table__highlight">Automatic, per version</td>
-        </tr>
-        <tr>
-          <th scope="row">Performance stack</th>
-          <td>8 downloads, compat roulette</td>
-          <td class="compare-table__highlight">Bundled &amp; pinned</td>
-        </tr>
-        <tr>
-          <th scope="row">Shaders</th>
-          <td>Separate install per version</td>
-          <td class="compare-table__highlight">Iris built in, day one</td>
-        </tr>
-        <tr>
-          <th scope="row">HUD &amp; QoL mods</th>
-          <td>A dozen configs in a dozen menus</td>
-          <td class="compare-table__highlight">24 mods, one menu</td>
-        </tr>
-        <tr>
-          <th scope="row">When something breaks</th>
-          <td>Crash log spelunking</td>
-          <td class="compare-table__highlight">Falls back to vanilla, names the culprit</td>
-        </tr>
-      </tbody>
-    </table>
   </section>
 
 </main>
@@ -634,11 +243,10 @@
   <div class="footer__links">
     <a href="terms.html">Terms</a>
   </div>
-  <p class="footer__copy">Origin Client — not affiliated with Mojang or Microsoft.
-  Pixel text set in Monocraft (SIL OFL) — see assets/fonts.</p>
+  <p class="footer__copy">Origin Client — not affiliated with Mojang or Microsoft.</p>
 </footer>
 
-<div class="toast frost mc" id="toast" role="status" aria-live="polite"></div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script src="js/main.js"></script>
 </body>
