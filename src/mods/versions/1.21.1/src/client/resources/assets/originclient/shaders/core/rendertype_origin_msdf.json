@@ -10,8 +10,8 @@
     "fragment": "originclient:rendertype_origin_msdf",
     "attributes": [
         "Position",
-        "Color",
-        "UV0"
+        "UV0",
+        "Color"
     ],
     "samplers": [
         { "name": "Sampler0" }

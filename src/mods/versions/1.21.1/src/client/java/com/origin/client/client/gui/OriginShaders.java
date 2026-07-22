@@ -50,7 +50,7 @@ public final class OriginShaders {
 		OriginClient.LOGGER.info("Origin: registering scalable core shaders (MSDF text + rounded-box SDF)…");
 		CoreShaderRegistrationCallback.EVENT.register(context -> {
 			context.register(ResourceLocation.fromNamespaceAndPath("originclient", "rendertype_origin_msdf"),
-					DefaultVertexFormat.POSITION_COLOR_TEX, shader -> {
+					DefaultVertexFormat.POSITION_TEX_COLOR, shader -> {
 						MSDF = shader;
 						OriginClient.LOGGER.info("Origin: MSDF text shader compiled + loaded OK.");
 					});

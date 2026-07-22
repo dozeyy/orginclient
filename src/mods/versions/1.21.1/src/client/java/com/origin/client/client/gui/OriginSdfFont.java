@@ -171,7 +171,7 @@ public final class OriginSdfFont {
 			a = 255;
 		}
 		Matrix4f m = g.pose().last().pose();
-		BufferBuilder bb = Tesselator.getInstance().begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_COLOR_TEX);
+		BufferBuilder bb = Tesselator.getInstance().begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_TEX_COLOR);
 		float pen = x;
 		boolean any = false;
 		for (int i = 0; i < text.length(); i++) {
