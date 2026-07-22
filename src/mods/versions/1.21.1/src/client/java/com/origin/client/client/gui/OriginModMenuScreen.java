@@ -412,7 +412,17 @@ public class OriginModMenuScreen extends Screen {
 				withAlpha(hover ? (clear ? 0xE0242424 : OriginTheme.BOX_FILL_HOVER) : (clear ? 0xC0141414 : OriginTheme.BOX_FILL), alpha),
 				withAlpha(hover ? OriginTheme.STROKE_HOVER : OriginTheme.BOX_BORDER, alpha));
 		int col = danger && hover ? 0xFFE0736C : (hover ? OriginTheme.TEXT : OriginTheme.TEXT_DIM);
-		OriginText.draw(g, font, label, x + (w - OriginText.width(font, label)) / 2, y + 8, withAlpha(col, alpha), clear);
+		// icon (× for Close, pencil for Edit HUD) + label, centered as one group
+		int icon = 11, g2 = 6;
+		int tw = OriginText.width(font, label);
+		int startX = x + (w - (icon + g2 + tw)) / 2;
+		int iy = y + (24 - icon) / 2;
+		if (danger) {
+			OriginUi.iconClose(g, startX, iy, icon, withAlpha(col, alpha));
+		} else {
+			OriginUi.iconEdit(g, startX, iy, icon, withAlpha(col, alpha));
+		}
+		OriginText.draw(g, font, label, startX + icon + g2, y + 8, withAlpha(col, alpha), clear);
 	}
 
 	private boolean clickSidebar(double mx, double my) {

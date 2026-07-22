@@ -172,6 +172,71 @@ public final class OriginUi {
 		return v < 0 ? 0 : (v > 1 ? 1 : v);
 	}
 
+	// ---- anti-aliased vector icons ----
+
+	/**
+	 * A smooth stroked line from (ax,ay) to (bx,by), `half` px to each side of
+	 * the centre. Per-pixel coverage = distance-to-segment, so the stroke is
+	 * anti-aliased and round-capped — the same coverage trick the rounded
+	 * corners use, reused for crisp little glyphs (the sidebar's edit/close
+	 * icons) instead of blocky diagonals.
+	 */
+	public static void aaLine(GuiGraphics g, double ax, double ay, double bx, double by, double half, int color) {
+		int base = (color >>> 24) & 0xFF;
+		if (base == 0) {
+			return;
+		}
+		int rgb = color & 0xFFFFFF;
+		int x0 = (int) Math.floor(Math.min(ax, bx) - half - 1);
+		int x1 = (int) Math.ceil(Math.max(ax, bx) + half + 1);
+		int y0 = (int) Math.floor(Math.min(ay, by) - half - 1);
+		int y1 = (int) Math.ceil(Math.max(ay, by) + half + 1);
+		double abx = bx - ax, aby = by - ay;
+		double len2 = abx * abx + aby * aby;
+		for (int py = y0; py < y1; py++) {
+			int runStart = -1, runArgb = 0;
+			for (int px = x0; px <= x1; px++) {
+				int argb = 0;
+				if (px < x1) {
+					double dpx = px + 0.5 - ax, dpy = py + 0.5 - ay;
+					double t = len2 <= 1e-6 ? 0 : clamp01((dpx * abx + dpy * aby) / len2);
+					double cxp = ax + t * abx, cyp = ay + t * aby;
+					double dx = px + 0.5 - cxp, dy = py + 0.5 - cyp;
+					double dist = Math.sqrt(dx * dx + dy * dy);
+					double cov = clamp01(half - dist + 0.5);
+					int a = cov <= 0.001 ? 0 : (int) Math.round(base * cov);
+					argb = a <= 0 ? 0 : (a << 24) | rgb;
+				}
+				if (argb != runArgb) {
+					if (runStart >= 0 && runArgb != 0) {
+						g.fill(runStart, py, px, py + 1, runArgb);
+					}
+					runStart = px;
+					runArgb = argb;
+				}
+			}
+		}
+	}
+
+	/** A clean × mark filling a size×size box at (x,y). */
+	public static void iconClose(GuiGraphics g, int x, int y, int size, int color) {
+		double h = Math.max(0.9, size * 0.10);
+		double in = size * 0.22;
+		aaLine(g, x + in, y + in, x + size - in, y + size - in, h, color);
+		aaLine(g, x + size - in, y + in, x + in, y + size - in, h, color);
+	}
+
+	/** A pencil (edit) glyph filling a size×size box at (x,y): a tapered shaft
+	 *  from the eraser end down to a graphite point. */
+	public static void iconEdit(GuiGraphics g, int x, int y, int size, int color) {
+		double s = size;
+		double ex = x + s * 0.80, ey = y + s * 0.20;   // eraser end (top-right)
+		double mx = x + s * 0.36, my = y + s * 0.64;   // where the shaft meets the tip
+		double tx = x + s * 0.16, ty = y + s * 0.84;   // graphite point (bottom-left)
+		aaLine(g, ex, ey, mx, my, s * 0.12, color);    // shaft (thicker)
+		aaLine(g, mx, my, tx, ty, s * 0.055, color);   // tip (tapers to a point)
+	}
+
 	/**
 	 * Apple iOS-style toggle (Will's redesign spec): a fully-rounded pill track
 	 * that is GREEN when on and RED when off, with a pure-white circular knob
