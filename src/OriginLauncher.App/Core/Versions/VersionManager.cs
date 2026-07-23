@@ -418,6 +418,13 @@ public sealed class VersionManager
             irisPresent = perfProfile.Iris != null;
         }
 
+        // Simple Voice Chat — auto-added to every Fabric instance (henkelmax),
+        // downloaded standalone for the EXACT MC version from Modrinth. Skipped for
+        // builds that already bundle it jar-in-jar (1.21.1, via originBundlesPerfStack)
+        // so Fabric never sees two copies of the mod id. Fail-soft on its own.
+        if (!originBundlesPerfStack)
+            await SimpleVoiceChatInstaller.InstallAsync(version, modsFolder, progress, ct);
+
         // Iris's own "a new version is available, click to update" nag
         // (net.coderbot.iris.UpdateChecker) has no in-launcher equivalent
         // and would send the player out to a browser mid-session — off by
