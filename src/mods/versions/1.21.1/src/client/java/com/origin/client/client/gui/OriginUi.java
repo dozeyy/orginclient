@@ -284,6 +284,19 @@ public final class OriginUi {
 		aaLine(g, mx, my, tx, ty, s * 0.055, color);   // tip (tapers to a point)
 	}
 
+	/** A chevron ("<" when left, ">" when right) filling a size×size box at (x,y),
+	 *  drawn as two anti-aliased strokes meeting at the point. Replaces the
+	 *  font-glyph back/dropdown/cycle arrows so all menu chrome is vector. */
+	public static void iconChevron(GuiGraphics g, int x, int y, int size, int color, boolean left) {
+		double h = Math.max(0.9, size * 0.10);
+		double midY = y + size * 0.5;
+		double pointX = x + size * (left ? 0.34 : 0.66);   // the vertex
+		double armX = x + size * (left ? 0.66 : 0.34);     // the two open ends
+		double topY = y + size * 0.24, botY = y + size * 0.76;
+		aaLine(g, pointX, midY, armX, topY, h, color);
+		aaLine(g, pointX, midY, armX, botY, h, color);
+	}
+
 	/**
 	 * Apple iOS-style toggle (Will's redesign spec): a fully-rounded pill track
 	 * that is GREEN when on and RED when off, with a pure-white circular knob

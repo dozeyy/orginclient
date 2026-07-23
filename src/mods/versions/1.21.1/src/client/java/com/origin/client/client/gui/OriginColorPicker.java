@@ -166,7 +166,7 @@ public final class OriginColorPicker {
 		// header
 		g.drawString(font, title == null ? "Color" : title, px + 12, py + 10, OriginTheme.TEXT, false);
 		boolean closeHover = in(mx, my, px + PW - 26, py + 8, px + PW - 8, py + 24);
-		g.drawString(font, "✕", px + PW - 22, py + 10, closeHover ? OriginTheme.TEXT : OriginTheme.MUTED, false);
+		OriginUi.iconClose(g, px + PW - 22, py + 9, 10, closeHover ? OriginTheme.TEXT : OriginTheme.MUTED);
 
 		// chroma switch + label (hidden for non-animatable consumers)
 		if (allowChroma) {
@@ -227,9 +227,9 @@ public final class OriginColorPicker {
 			String type = chromaType();
 			boolean tHover = in(mx, my, typeX(), typeY(), typeX() + 92, typeY() + 18);
 			OriginUi.panel(g, typeX(), typeY(), 92, 18, 7, tHover ? 0x24FFFFFF : 0x14FFFFFF, OriginTheme.STROKE);
-			g.drawString(font, "<", typeX() + 6, typeY() + 5, OriginTheme.TEXT_DIM, false);
+			OriginUi.iconChevron(g, typeX() + 5, typeY() + 4, 9, OriginTheme.TEXT_DIM, true);
 			g.drawString(font, type, typeX() + (92 - font.width(type)) / 2, typeY() + 5, OriginTheme.TEXT, false);
-			g.drawString(font, ">", typeX() + 92 - 6 - font.width(">"), typeY() + 5, OriginTheme.TEXT_DIM, false);
+			OriginUi.iconChevron(g, typeX() + 92 - 14, typeY() + 4, 9, OriginTheme.TEXT_DIM, false);
 		}
 
 		// preset palette + hex

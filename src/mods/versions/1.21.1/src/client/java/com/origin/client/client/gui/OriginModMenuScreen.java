@@ -846,7 +846,7 @@ public class OriginModMenuScreen extends Screen {
 		OriginUi.panel(g, x0, hy, 24, 20, 6,
 				withAlpha(backHover ? 0x2EFFFFFF : 0x16FFFFFF, alpha),
 				withAlpha(backHover ? OriginTheme.STROKE_HOVER : OriginTheme.STROKE, alpha));
-		g.drawString(font, "<", x0 + 9, hy + 6, withAlpha(OriginTheme.TEXT, alpha), false);
+		OriginUi.iconChevron(g, x0 + 7, hy + 5, 10, withAlpha(OriginTheme.TEXT, alpha), true);
 
 		OriginUi.icon(g, mod.id(), x0 + 32, hy - 3, 26, withAlpha(OriginTheme.TEXT, alpha));
 		OriginText.drawBold(g, font, mod.name(), x0 + 64, hy + 2, withAlpha(OriginTheme.TEXT, alpha), false);
@@ -998,9 +998,9 @@ public class OriginModMenuScreen extends Screen {
 				boolean dHover = in(mx, my, bx, y + 4, bx + bw, y + 22);
 				OriginUi.panel(g, bx, y + 4, bw, 18, 6, withAlpha(0x1EFFFFFF, alpha),
 						withAlpha(dHover ? OriginTheme.STROKE_HOVER : OriginTheme.STROKE, alpha));
-				g.drawString(font, "<", bx + 6, y + 9, withAlpha(OriginTheme.TEXT_DIM, alpha), false);
+				OriginUi.iconChevron(g, bx + 5, y + 6, 9, withAlpha(OriginTheme.TEXT_DIM, alpha), true);
 				OriginText.draw(g, font, v, bx + (bw - OriginText.width(font, v)) / 2, y + 9, withAlpha(OriginTheme.TEXT, alpha), false);
-				g.drawString(font, ">", bx + bw - 6 - font.width(">"), y + 9, withAlpha(OriginTheme.TEXT_DIM, alpha), false);
+				OriginUi.iconChevron(g, bx + bw - 14, y + 6, 9, withAlpha(OriginTheme.TEXT_DIM, alpha), false);
 			}
 			case MULTISELECT -> {
 				java.util.List<String> sel = splitCsv(vMulti(modId, o.key));
