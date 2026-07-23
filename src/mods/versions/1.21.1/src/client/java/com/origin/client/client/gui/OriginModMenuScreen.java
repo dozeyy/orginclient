@@ -504,11 +504,10 @@ public class OriginModMenuScreen extends Screen {
 
 	private void drawSidebarButton(GuiGraphics g, int x, int y, int w, String label, boolean hover, float alpha, boolean danger) {
 		// No box (Will): a small vector icon + label. The icon is LEFT-anchored at a
-		// fixed x so Edit HUD's pencil and Close's × stack in a clean vertical line
-		// (labels may differ in length); each icon is vertically CENTERED on its own
-		// label's mid-line. Edit HUD highlights YELLOW on hover, Close RED.
-		int accent = danger ? 0xFFE0736C : 0xFFF2C744;   // red / yellow
-		int col = hover ? accent : OriginTheme.MUTED;
+		// fixed x so Edit's pencil and Close's × stack in a clean vertical line (labels
+		// may differ in length); each icon is vertically CENTERED on its own label's
+		// mid-line. WHITE like the rest of the menu (Will), brightening on hover.
+		int col = hover ? 0xFFFFFFFF : 0xCCFFFFFF;
 		int icon = 11, gap = 6;
 		int iconX = x + 4;                               // same x for both buttons
 		int textX = iconX + icon + gap;
