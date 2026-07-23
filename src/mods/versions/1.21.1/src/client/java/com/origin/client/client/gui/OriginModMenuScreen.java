@@ -118,9 +118,11 @@ public class OriginModMenuScreen extends Screen {
 		return (int) (height * 0.76);
 	}
 
-	/** Sidebar width — clamped so it never eats the content on small windows. */
+	/** Sidebar width — HALVED from the old 104–150px rail (Will: "make the left
+	 *  part 50% smaller"). Still clamped so it never eats content on small windows;
+	 *  the 3 nav labels stay centered in the narrower rail (drawNavItem). */
 	private int sbW() {
-		return Math.max(104, Math.min(150, pw() * 30 / 100));
+		return Math.max(52, Math.min(76, pw() * 15 / 100));
 	}
 
 	/** Content-region left edge (the divider sits here). */
@@ -449,9 +451,12 @@ public class OriginModMenuScreen extends Screen {
 		int x = px() + 14;
 		int w = sbW() - 28;
 
-		// brand: Origin mark + wordmark, top-left
-		OriginUi.logo(g, px() + 26, py() + 26, 22, alpha);
-		OriginText.drawBold(g, font, "ORIGIN", px() + 42, py() + 22, withAlpha(OriginTheme.TEXT, alpha), clear);
+		// brand: Origin mark + wordmark, CENTERED at the top of the narrow rail
+		// (the old left-anchored logo + "ORIGIN" no longer fits the halved width).
+		int railCx = x + w / 2;
+		OriginUi.logo(g, railCx, py() + 24, 20, alpha);
+		int brandW = OriginText.widthBold(font, "ORIGIN");
+		OriginText.drawBold(g, font, "ORIGIN", x + (w - brandW) / 2, py() + 38, withAlpha(OriginTheme.TEXT, alpha), clear);
 
 		// divider between sidebar and content
 		g.fill(contentX(), py() + 10, contentX() + 1, py() + ph() - 10, withAlpha(OriginTheme.STROKE, alpha));
@@ -462,50 +467,60 @@ public class OriginModMenuScreen extends Screen {
 		int y = py() + 64;
 		for (int i = 0; i < labels.length; i++) {
 			boolean active = nav == navs[i] && page == null || (navs[i] == Nav.MODS && page != null);
-			boolean hover = in(mx, my, x, y, x + w, y + 28);
+			boolean hover = in(mx, my, x, y, x + w, y + NAV_H);
 			drawNavItem(g, x, y, w, labels[i], active, hover, alpha);
-			y += 32;
+			y += NAV_STEP;
 		}
 
-		// bottom actions: Edit HUD + Close
-		int by2 = py() + ph() - 30;
-		int by1 = by2 - 30;
-		drawSidebarButton(g, x, by1, w, "Edit HUD", in(mx, my, x, by1, x + w, by1 + 24), alpha, false);
-		drawSidebarButton(g, x, by2, w, "Close", in(mx, my, x, by2, x + w, by2 + 24), alpha, true);
+		// bottom actions: Edit + Close, pinned bottom with a TIGHT gap (Will). "Edit"
+		// (not "Edit HUD") so the label fits the halved rail without clipping.
+		int by2 = py() + ph() - 26;
+		int by1 = by2 - 20;
+		drawSidebarButton(g, x, by1, w, "Edit", in(mx, my, x, by1, x + w, by1 + 18), alpha, false);
+		drawSidebarButton(g, x, by2, w, "Close", in(mx, my, x, by2, x + w, by2 + 18), alpha, true);
 	}
 
+	// Sidebar nav rows: a short box that HUGS the label (text ~8px + small padding)
+	// rather than a tall block (Will). NAV_STEP leaves a slim gap between rows.
+	private static final int NAV_H = 20, NAV_STEP = 24;
+
 	private void drawNavItem(GuiGraphics g, int x, int y, int w, String label, boolean active, boolean hover, float alpha) {
-		if (active) {
-			OriginUi.panel(g, x, y, w, 28, 7, withAlpha(clear ? 0xE0202020 : OriginTheme.BOX_FILL_HOVER, alpha),
-					withAlpha(OriginTheme.STROKE_STRONG, alpha));
-		} else if (hover) {
-			OriginUi.panel(g, x, y, w, 28, 7, withAlpha(clear ? 0xB0181818 : OriginTheme.BOX_FILL, alpha), 0);
+		// Faint hover feedback only; the active state now reads through the UNDERLINE
+		// (Will), not a filled selection panel.
+		if (hover && !active) {
+			OriginUi.panel(g, x, y, w, NAV_H, 7, withAlpha(clear ? 0xB0181818 : OriginTheme.BOX_FILL, alpha), 0);
 		}
-		// No leading accent bar (Will) — selection reads through the filled panel
-		// alone. Label centered horizontally in the button.
-		int col = active ? OriginTheme.TEXT : (hover ? OriginTheme.TEXT_DIM : OriginTheme.MUTED);
+		// Text is always WHITE (matching the Origin mark) — selection is shown by the
+		// underline, never by colour. Label centered both ways in the short button.
 		int tw = OriginText.widthBold(font, label);
-		OriginText.drawBold(g, font, label, x + (w - tw) / 2, y + 10, withAlpha(col, alpha), clear);
+		int lx = x + (w - tw) / 2;
+		OriginText.drawBold(g, font, label, lx, y + NAV_H / 2 - 4, withAlpha(0xFFFFFFFF, alpha), clear);
+		// Underline placeholder: ALWAYS present under the label — bright white when
+		// this is the active section, dimmed grey otherwise.
+		int uy = y + NAV_H - 2;
+		int uCol = active ? 0xFFFFFFFF : 0x40FFFFFF;
+		g.fill(lx, uy, lx + tw, uy + 1, withAlpha(uCol, alpha));
 	}
 
 	private void drawSidebarButton(GuiGraphics g, int x, int y, int w, String label, boolean hover, float alpha, boolean danger) {
-		// No box (Will): just a small vector icon + smaller label, left-anchored so
-		// the pair sits neatly in the bottom-left. Edit HUD highlights YELLOW on
-		// hover, Close highlights RED; both sit muted otherwise.
+		// No box (Will): a small vector icon + label. The icon is LEFT-anchored at a
+		// fixed x so Edit HUD's pencil and Close's × stack in a clean vertical line
+		// (labels may differ in length); each icon is vertically CENTERED on its own
+		// label's mid-line. Edit HUD highlights YELLOW on hover, Close RED.
 		int accent = danger ? 0xFFE0736C : 0xFFF2C744;   // red / yellow
 		int col = hover ? accent : OriginTheme.MUTED;
-		var pose = g.pose();
-		pose.pushPose();
-		pose.translate(x + 2, y + 7, 0);
-		pose.scale(0.85f, 0.85f, 1f);                    // smaller than the nav labels
-		int icon = 10, g2 = 5;
+		int icon = 11, gap = 6;
+		int iconX = x + 4;                               // same x for both buttons
+		int textX = iconX + icon + gap;
+		// label optical centre sits ~4px below its draw-top (after the MATCH_DY
+		// re-centre); centre the icon box on that so the × no longer rides high.
+		int iconY = y + 4 - icon / 2;
 		if (danger) {
-			OriginUi.iconClose(g, 0, 0, icon, withAlpha(col, alpha));
+			OriginUi.iconClose(g, iconX, iconY, icon, withAlpha(col, alpha));
 		} else {
-			OriginUi.iconEdit(g, 0, 0, icon, withAlpha(col, alpha));
+			OriginUi.iconEdit(g, iconX, iconY, icon, withAlpha(col, alpha));
 		}
-		OriginText.draw(g, font, label, icon + g2, 1, withAlpha(col, alpha), clear);
-		pose.popPose();
+		OriginText.draw(g, font, label, textX, y, withAlpha(col, alpha), clear);
 	}
 
 	private boolean clickSidebar(double mx, double my) {
@@ -515,7 +530,7 @@ public class OriginModMenuScreen extends Screen {
 		Nav[] navs = {Nav.MODS, Nav.PROFILES, Nav.SETTINGS};
 		int y = py() + 64;
 		for (int i = 0; i < labels.length; i++) {
-			if (in(mx, my, x, y, x + w, y + 28)) {
+			if (in(mx, my, x, y, x + w, y + NAV_H)) {
 				nav = navs[i];
 				page = null;
 				pageChangedAt = System.currentTimeMillis();
@@ -524,15 +539,15 @@ public class OriginModMenuScreen extends Screen {
 				scrollTarget = scroll = 0;
 				return true;
 			}
-			y += 32;
+			y += NAV_STEP;
 		}
-		int by2 = py() + ph() - 30;
-		int by1 = by2 - 30;
-		if (in(mx, my, x, by1, x + w, by1 + 24)) {
+		int by2 = py() + ph() - 26;
+		int by1 = by2 - 20;
+		if (in(mx, my, x, by1, x + w, by1 + 18)) {
 			Minecraft.getInstance().setScreen(new HudEditorScreen());
 			return true;
 		}
-		if (in(mx, my, x, by2, x + w, by2 + 24)) {
+		if (in(mx, my, x, by2, x + w, by2 + 18)) {
 			beginClose();
 			return true;
 		}
@@ -596,13 +611,18 @@ public class OriginModMenuScreen extends Screen {
 		OriginUi.icon(g, mod.id(), cx + (cellW - iconSize) / 2, cy + (iconAreaH - iconSize) / 2 - 1, iconSize,
 				withAlpha(OriginTheme.TEXT, alpha));
 
-		// name bar (bottom) — sage when enabled, gray when disabled; click toggles
+		// name bar (bottom) — sage when enabled, gray when disabled; click toggles.
+		// INSET 1px inside the card so its rounded bottom corners nest INSIDE the
+		// card's radius-7 corners (concentric, radius 6) instead of poking past the
+		// card outline — that overhang was the "bulging" corners. The card's 1px
+		// border then frames the bar cleanly on every side.
 		boolean barHover = inBand && in(mx, my, cx, barY, x2, y2);
 		int barFill = on ? (barHover ? BAR_ON_HOVER : BAR_ON) : (barHover ? BAR_OFF_HOVER : BAR_OFF);
-		OriginUi.panel(g, cx, barY, cellW, BAR_H, 7, withAlpha(barFill, alpha), 0);
+		int inX = cx + 1, inW = cellW - 2;
+		OriginUi.panel(g, inX, barY, inW, BAR_H - 1, 6, withAlpha(barFill, alpha), 0);
 		// square off the bar's TOP corners so it reads as a bar seated in the card,
 		// not a floating pill — redraw the top strip flat over the rounded fill.
-		g.fill(cx + 1, barY, x2 - 1, barY + 6, withAlpha(barFill, alpha));
+		g.fill(inX, barY, inX + inW, barY + 6, withAlpha(barFill, alpha));
 
 		String name = OriginText.ellipsize(font, mod.name(), cellW - 20);
 		OriginText.draw(g, font, name, cx + 6, barY + (BAR_H - 8) / 2,
@@ -791,11 +811,12 @@ public class OriginModMenuScreen extends Screen {
 	}
 
 	private void drawTab(GuiGraphics g, int tx, int ty, int w, int h, String label, boolean active, boolean hover, float alpha) {
-		int textColor = active ? OriginTheme.TEXT : (hover ? OriginTheme.TEXT_DIM : OriginTheme.MUTED);
+		// White text always; the underline is the sole active indicator — white when
+		// active, a dimmed grey placeholder otherwise (always present).
 		OriginText.drawBold(g, font, label, tx + (w - OriginText.widthBold(font, label)) / 2, ty + (h - 8) / 2,
-				withAlpha(textColor, alpha), clear);
+				withAlpha(0xFFFFFFFF, alpha), clear);
 		int underY = ty + h - 2;
-		int under = active ? OriginTheme.ACCENT : (hover ? OriginTheme.STROKE_HOVER : OriginTheme.STROKE);
+		int under = active ? 0xFFFFFFFF : (hover ? 0x80FFFFFF : 0x40FFFFFF);
 		g.fill(tx + 4, underY, tx + w - 4, underY + 2, withAlpha(under, alpha));
 	}
 
@@ -967,7 +988,9 @@ public class OriginModMenuScreen extends Screen {
 				double tt = (v - o.min) / (o.max - o.min);
 				int tw = Math.min(140, (x1 - x0) / 3);
 				int tx = x1 - 10 - tw;
-				OriginUi.slider(g, tx, y + 11, tw, tt, modId.equals(dragMod) && o.key.equals(dragKey));
+				// pill top y+10 → knob centers on the row mid-line (y+13), matching
+				// the toggle / swatch / dropdown controls for one consistent baseline.
+				OriginUi.slider(g, tx, y + 10, tw, tt, modId.equals(dragMod) && o.key.equals(dragKey));
 				boolean pctOfFraction = o.format.contains("%%") && o.max <= 1.0;
 				String val = pctOfFraction ? String.format(o.format, v * 100) : String.format(o.format, v);
 				OriginText.draw(g, font, val, tx - OriginText.width(font, val) - 10, y + 9, withAlpha(OriginTheme.TEXT, alpha), false);
@@ -998,9 +1021,9 @@ public class OriginModMenuScreen extends Screen {
 				boolean dHover = in(mx, my, bx, y + 4, bx + bw, y + 22);
 				OriginUi.panel(g, bx, y + 4, bw, 18, 6, withAlpha(0x1EFFFFFF, alpha),
 						withAlpha(dHover ? OriginTheme.STROKE_HOVER : OriginTheme.STROKE, alpha));
-				OriginUi.iconChevron(g, bx + 5, y + 6, 9, withAlpha(OriginTheme.TEXT_DIM, alpha), true);
+				OriginUi.iconChevron(g, bx + 5, y + 8, 9, withAlpha(OriginTheme.TEXT_DIM, alpha), true);
 				OriginText.draw(g, font, v, bx + (bw - OriginText.width(font, v)) / 2, y + 9, withAlpha(OriginTheme.TEXT, alpha), false);
-				OriginUi.iconChevron(g, bx + bw - 14, y + 6, 9, withAlpha(OriginTheme.TEXT_DIM, alpha), false);
+				OriginUi.iconChevron(g, bx + bw - 14, y + 8, 9, withAlpha(OriginTheme.TEXT_DIM, alpha), false);
 			}
 			case MULTISELECT -> {
 				java.util.List<String> sel = splitCsv(vMulti(modId, o.key));
@@ -1098,6 +1121,8 @@ public class OriginModMenuScreen extends Screen {
 				// icon area → open the mod's page (waypoints has its own screen)
 				if (mod.id().equals("waypoints")) {
 					Minecraft.getInstance().setScreen(new com.origin.client.client.waypoints.WaypointScreen());
+				} else if (mod.id().equals("itemsize")) {
+					Minecraft.getInstance().setScreen(new OriginItemSizeScreen());
 				} else {
 					page = mod.id();
 					pageChangedAt = System.currentTimeMillis();

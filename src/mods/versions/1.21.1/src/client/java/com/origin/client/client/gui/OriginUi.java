@@ -265,12 +265,81 @@ public final class OriginUi {
 		}
 	}
 
+	/**
+	 * A stroke from (ax,ay)→(bx,by), `half` px to each side, drawn as a rounded-box
+	 * SDF CAPSULE through the {@link OriginShaders#ROUND} shader so it anti-aliases
+	 * in SCREEN space — exactly the vector crispness of the menu text and panels,
+	 * instead of the logical-pixel coverage {@link #aaLine} produces (which read a
+	 * step lower-res than everything else). The capsule is a thin horizontal
+	 * rounded rect (corner = half → round caps) rotated into place by the pose, so
+	 * the SDF resolves the edge per device-pixel at any GUI scale. Falls back to
+	 * {@link #aaLine} when the SDF shader isn't available (crash safety).
+	 */
+	public static void capsule(GuiGraphics g, double ax, double ay, double bx, double by, double half, int color) {
+		if (((color >>> 24) & 0xFF) == 0) {
+			return;
+		}
+		if (!OriginShaders.roundActive() || OriginShaders.ROUND == null) {
+			aaLine(g, ax, ay, bx, by, half, color);
+			return;
+		}
+		double dx = bx - ax, dy = by - ay;
+		double len = Math.sqrt(dx * dx + dy * dy);
+		double cxp = (ax + bx) / 2.0, cyp = (ay + by) / 2.0;
+		double ang = Math.toDegrees(Math.atan2(dy, dx));
+		// FLOAT-precise capsule: a rounded box whose half-extents keep the true
+		// stroke half-width as the corner radius, so thin/tapered strokes (the
+		// pencil's tip) stay exactly their intended sub-pixel weight instead of
+		// being quantised up to a 2px min. Round caps land on the endpoints.
+		float H = (float) half;
+		float halfX = (float) (len / 2.0) + H;
+		var pose = g.pose();
+		pose.pushPose();
+		pose.translate((float) cxp, (float) cyp, 0);
+		pose.mulPose(com.mojang.math.Axis.ZP.rotationDegrees((float) ang));
+		roundShaderF(g, halfX, H, H, color, 0);
+		pose.popPose();
+	}
+
+	/** Float-precise rounded box centred on the current pose origin (half-extents
+	 *  halfX×halfY, corner radius r). Same SDF path as {@link #roundShader} but
+	 *  without the integer quantisation, for crisp small vector icons. */
+	private static void roundShaderF(GuiGraphics g, float halfX, float halfY, float r, int fill, int border) {
+		var sh = OriginShaders.ROUND;
+		if (sh == null) {
+			return;
+		}
+		boolean hasBorder = ((border >>> 24) & 0xFF) > 0;
+		Matrix4f m = g.pose().last().pose();
+		BufferBuilder bb = Tesselator.getInstance().begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_TEX);
+		bb.addVertex(m, -halfX, -halfY, 0).setUv(-halfX, -halfY);
+		bb.addVertex(m, -halfX, halfY, 0).setUv(-halfX, halfY);
+		bb.addVertex(m, halfX, halfY, 0).setUv(halfX, halfY);
+		bb.addVertex(m, halfX, -halfY, 0).setUv(halfX, -halfY);
+		MeshData mesh = bb.build();
+		if (mesh == null) {
+			return;
+		}
+		RenderSystem.enableBlend();
+		RenderSystem.defaultBlendFunc();
+		RenderSystem.setShader(() -> sh);
+		sh.safeGetUniform("RectHalf").set(halfX, halfY);
+		sh.safeGetUniform("Radius").set(Math.min(r, Math.min(halfX, halfY)));
+		sh.safeGetUniform("Border").set(hasBorder ? 1.0f : 0.0f);
+		sh.safeGetUniform("FillColor").set(((fill >> 16) & 0xFF) / 255f, ((fill >> 8) & 0xFF) / 255f,
+				(fill & 0xFF) / 255f, ((fill >>> 24) & 0xFF) / 255f);
+		sh.safeGetUniform("BorderColor").set(((border >> 16) & 0xFF) / 255f, ((border >> 8) & 0xFF) / 255f,
+				(border & 0xFF) / 255f, ((border >>> 24) & 0xFF) / 255f);
+		BufferUploader.drawWithShader(mesh);
+		OriginShaders.restoreState();
+	}
+
 	/** A clean × mark filling a size×size box at (x,y). */
 	public static void iconClose(GuiGraphics g, int x, int y, int size, int color) {
 		double h = Math.max(0.9, size * 0.10);
 		double in = size * 0.22;
-		aaLine(g, x + in, y + in, x + size - in, y + size - in, h, color);
-		aaLine(g, x + size - in, y + in, x + in, y + size - in, h, color);
+		capsule(g, x + in, y + in, x + size - in, y + size - in, h, color);
+		capsule(g, x + size - in, y + in, x + in, y + size - in, h, color);
 	}
 
 	/** A pencil (edit) glyph filling a size×size box at (x,y): a tapered shaft
@@ -280,12 +349,12 @@ public final class OriginUi {
 		double ex = x + s * 0.80, ey = y + s * 0.20;   // eraser end (top-right)
 		double mx = x + s * 0.36, my = y + s * 0.64;   // where the shaft meets the tip
 		double tx = x + s * 0.16, ty = y + s * 0.84;   // graphite point (bottom-left)
-		aaLine(g, ex, ey, mx, my, s * 0.12, color);    // shaft (thicker)
-		aaLine(g, mx, my, tx, ty, s * 0.055, color);   // tip (tapers to a point)
+		capsule(g, ex, ey, mx, my, s * 0.12, color);   // shaft (thicker)
+		capsule(g, mx, my, tx, ty, s * 0.055, color);  // tip (tapers to a point)
 	}
 
 	/** A chevron ("<" when left, ">" when right) filling a size×size box at (x,y),
-	 *  drawn as two anti-aliased strokes meeting at the point. Replaces the
+	 *  drawn as two SDF-capsule strokes meeting at the point. Replaces the
 	 *  font-glyph back/dropdown/cycle arrows so all menu chrome is vector. */
 	public static void iconChevron(GuiGraphics g, int x, int y, int size, int color, boolean left) {
 		double h = Math.max(0.9, size * 0.10);
@@ -293,8 +362,8 @@ public final class OriginUi {
 		double pointX = x + size * (left ? 0.34 : 0.66);   // the vertex
 		double armX = x + size * (left ? 0.66 : 0.34);     // the two open ends
 		double topY = y + size * 0.24, botY = y + size * 0.76;
-		aaLine(g, pointX, midY, armX, topY, h, color);
-		aaLine(g, pointX, midY, armX, botY, h, color);
+		capsule(g, pointX, midY, armX, topY, h, color);
+		capsule(g, pointX, midY, armX, botY, h, color);
 	}
 
 	/**

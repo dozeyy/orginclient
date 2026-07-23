@@ -1,6 +1,7 @@
 package com.origin.client.client.hud;
 
 import com.origin.client.client.gui.OriginModMenuScreen;
+import com.origin.client.client.gui.OriginText;
 import com.origin.client.client.gui.OriginUi;
 import com.origin.client.client.mods.Mods;
 import com.origin.client.client.render.OriginScreenRenderer;
@@ -232,7 +233,7 @@ public class HudEditorScreen extends Screen {
 			// wordmark drawn AFTER the logo, so the logo emerges from behind it
 			if (!OriginScreenRenderer.renderWordmarkAt(g, cx, wordY, 13, in)) {
 				String o = "ORIGIN";
-				g.drawString(font, o, cx - font.width(o) / 2, wordY - 4, withAlpha(OriginTheme.TEXT, in), false);
+				OriginText.drawBold(g, font, o, cx - OriginText.widthBold(font, o) / 2, wordY - 4, withAlpha(OriginTheme.TEXT, in), false);
 			}
 
 			// MODS button — the SAME style as every other menu button (Will): the
@@ -242,7 +243,7 @@ public class HudEditorScreen extends Screen {
 			OriginUi.bevelPanel(g, btnX(), bt, BTN_W, BTN_H, 3,
 					withAlpha(hoverBtn ? OriginTheme.BOX_FILL_HOVER : OriginTheme.BOX_FILL, in),
 					withAlpha(hoverBtn ? OriginTheme.STROKE_HOVER : OriginTheme.BOX_BORDER, in));
-			g.drawString(font, "MODS", cx - font.width("MODS") / 2, bt + 10,
+			OriginText.drawBold(g, font, "MODS", cx - OriginText.widthBold(font, "MODS") / 2, bt + 10,
 					withAlpha(OriginTheme.TEXT, in), false);
 		}
 	}

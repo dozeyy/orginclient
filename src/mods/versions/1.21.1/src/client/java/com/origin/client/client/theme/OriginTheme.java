@@ -24,7 +24,7 @@ public final class OriginTheme {
 	// button (mod menu, HUD editor MODS button, tabs, chips) highlights to full
 	// white, not the old light-gray. One shared value drives them all.
 	public static final int STROKE_HOVER = 0xFFFFFFFF;
-	public static final int TEXT = 0xFFF5F5F5;
+	public static final int TEXT = 0xFFFFFFFF;
 	public static final int TEXT_DIM = 0xFF9A9A9A;
 	public static final int MUTED = 0xFF616161;
 	// The one accent — stays white/mono everywhere, no new hue (confirmed

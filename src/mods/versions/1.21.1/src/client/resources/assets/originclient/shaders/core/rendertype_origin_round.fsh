@@ -23,12 +23,19 @@ float sdRoundBox(vec2 p, vec2 b, float r) {
 void main() {
     float d = sdRoundBox(localPos, RectHalf, Radius);
     float aa = max(fwidth(d), 0.0001);
-    float outer = 1.0 - smoothstep(-aa, aa, d);          // whole shape coverage
-    float inner = 1.0 - smoothstep(-aa, aa, d + Border); // shape minus the border ring
-    vec4 base = mix(BorderColor, FillColor, inner);
-    float a = base.a * outer;
-    if (a < 0.001) {
+    float outer = 1.0 - smoothstep(-aa, aa, d);          // whole shape coverage (AA)
+    // Fill-vs-border SELECTION, kept independent of the edge AA. borderSel is 0 in
+    // the interior fill and 1 in the outer `Border`-px ring; with no border it is a
+    // constant 0 (all fill). The previous code reused `inner` (= outer when Border=0)
+    // as the mix, which multiplied the edge coverage a SECOND time in the alpha
+    // (a = fillA * outer * outer) — squaring it pinched/darkened every borderless
+    // rounded end (the "clipped" toggle fill). Selecting the colour separately and
+    // applying `outer` exactly once fixes that for every SDF surface.
+    float borderSel = Border > 0.0 ? smoothstep(-aa, aa, d + Border) : 0.0;
+    vec3 rgb = mix(FillColor.rgb, BorderColor.rgb, borderSel);
+    float alpha = mix(FillColor.a, BorderColor.a, borderSel) * outer;
+    if (alpha < 0.001) {
         discard;
     }
-    fragColor = vec4(base.rgb, a);
+    fragColor = vec4(rgb, alpha);
 }

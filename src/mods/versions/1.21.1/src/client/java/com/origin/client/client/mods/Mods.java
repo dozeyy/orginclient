@@ -311,15 +311,52 @@ public final class Mods {
 				ModOption.toggle("monsters", "Monsters", true),
 				ModOption.toggle("other", "Other Entities", true));
 
-		add("nametags", "Nametags", "Name tag rendering tweaks.", false,
-				ModOption.toggle("textShadow", "Nametag Text Shadow", true),
+		add("nametags", "Nametags", "Customize name tag rendering.", false,
+				ModOption.toggle("textShadow", "Text Shadow", true),
 				ModOption.toggle("thirdPerson", "Third Person Nametag", true),
-				ModOption.toggle("displayToggleMessage", "Display Toggle Nametags Message", true),
+				ModOption.toggle("hideInF1", "Hide Nametags in F1", true),
+				ModOption.slider("opacity", "Opacity", 0.1, 1.0, 0.05, 1.0, "%.0f%%"),
+				ModOption.color("backgroundColor", "Background Color", 0x66000000)
+						.tip("The tint + opacity of the box behind every nametag."),
+				ModOption.toggle("overrideColor", "Custom Text Color", false)
+						.tip("Recolour every player nametag's text to a colour you pick."),
+				ModOption.color("textColor", "Text Color", 0xFFFFFFFF).under("overrideColor"),
+				ModOption.header("Your Nametag"),
+				ModOption.toggle("ownOverride", "Override Your Own Nametag", false)
+						.tip("Give your own tag a different colour from everyone else's."),
+				ModOption.color("ownTextColor", "Your Text Color", 0xFFFFFFFF).under("ownOverride"),
+				ModOption.color("ownBackgroundColor", "Your Background Color", 0x66000000).under("ownOverride"),
+				ModOption.header("Toggle Keybinds"),
 				ModOption.keybind("toggleAll", "Toggle All Nametags", -1),
 				ModOption.keybind("togglePlayers", "Toggle Player Nametags Only", -1),
-				ModOption.toggle("hideInF1", "Hide Nametags in F1", true),
-				ModOption.slider("opacity", "Nametag Opacity", 0.1, 1.0, 0.05, 1.0, "%.0f%%"),
-				ModOption.toggle("replaceOwnColor", "Replace Own Nametag Color", false));
+				ModOption.toggle("displayToggleMessage", "Show Toggle Message", true));
+
+		// Item Size Customizer — the per-item scales live in ItemSizes (its own file);
+		// this entry is just the on/off switch + the card that opens the grid screen.
+		add("itemsize", "Item Size", "Set custom dropped-item render sizes per item.", false);
+
+		add("tablist", "Tab Editor", "Customize the player list overlay.", false,
+				ModOption.toggle("stickyToggle", "Sticky Tab", true)
+						.tip("Tap the list key to lock it open; hold and release for vanilla peek."),
+				ModOption.keybind("tabKey", "Tab Keybind", GLFW.GLFW_KEY_TAB)
+						.tip("Two-way synced with Minecraft's Player List key in Controls."),
+				ModOption.header("Players"),
+				ModOption.toggle("displayHeads", "Display Player Heads", true),
+				ModOption.toggle("hideNpcs", "Hide NPCs", false)
+						.tip("Hide fake players — offline-UUID entities like Citizens NPCs."),
+				ModOption.toggle("moveSelfTop", "Move Yourself to Top", false),
+				ModOption.toggle("highlightSelf", "Highlight Your Name", false),
+				ModOption.color("selfColor", "Your Name Color", 0xFFFFD700).under("highlightSelf"),
+				ModOption.header("Ping"),
+				ModOption.toggle("hidePing", "Hide Ping", false),
+				ModOption.toggle("pingAsNumber", "Show Ping as a Number", false),
+				ModOption.header("Header & Footer"),
+				ModOption.toggle("disableHeader", "Disable Header", false),
+				ModOption.toggle("disableFooter", "Disable Footer", false),
+				ModOption.color("headerColor", "Header Color", 0xFFFFFFFF),
+				ModOption.color("footerColor", "Footer Color", 0xFFFFFFFF),
+				ModOption.header("Background"),
+				ModOption.color("backgroundColor", "Background Color", 0x80000000));
 
 		add("weather", "Weather Changer", "Force a client weather mode.", false,
 				ModOption.dropdown("mode", "Weather Mode", "Clear", "Rain", "Thunder", "Snow"),

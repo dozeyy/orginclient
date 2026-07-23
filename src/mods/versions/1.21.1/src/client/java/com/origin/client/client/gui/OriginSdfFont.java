@@ -40,10 +40,52 @@ public final class OriginSdfFont {
 	// scales a glyph's advance/box down to roughly match vanilla ~9px text.
 	// TUNE THIS live if the menu text reads a touch large/small next to layouts.
 	public static final float EM_PX = 9.0f;
-	// Vertical nudge so the SDF baseline lines up with where drawString put text.
-	public static final float MATCH_DY = -0.5f;
+	// Vertical nudge so the SDF text sits where callers' box offsets expect. The
+	// atlas' optical centre lands ~5.6px below the draw-top; layout offsets assume
+	// ~4px (vanilla-like), which made every centred label render ~1.5px LOW. Pulling
+	// the baseline up here re-centres ALL menu text at once (Will: "not vertically
+	// centered"). TUNE THIS if labels read a hair high/low after a rebuild.
+	public static final float MATCH_DY = -2.0f;
 
 	private static final Gson GSON = new Gson();
+
+	// Typographic characters the bundled Inter atlas does NOT carry, mapped to
+	// glyphs it DOES — otherwise each renders as a blank space-width GAP (the "on
+	// [wide gap] a" the em-dash caused in "On — a solid backdrop…"). One place, so
+	// every label/tooltip/description is spaced correctly by construction.
+	private static final Map<Character, Character> SUBS = new HashMap<>();
+	static {
+		SUBS.put('—', '-');   // — em dash  → hyphen
+		SUBS.put('–', '-');   // – en dash  → hyphen
+		SUBS.put('‘', '\'');  // ' left single quote  → apostrophe
+		SUBS.put('’', '\'');  // ' right single quote → apostrophe
+		SUBS.put('“', '"');   // " left double quote  → straight quote
+		SUBS.put('”', '"');   // " right double quote → straight quote
+		SUBS.put('＋', '+');   // ＋ fullwidth plus → plus
+		SUBS.put('✕', '×'); // ✕ heavy multiply → × (which IS in the atlas)
+		SUBS.put(' ', ' ');   // non-breaking space → space
+	}
+
+	/** Swap any atlas-missing typographic char for a present equivalent so it
+	 *  never renders as a blank gap. Cheap: allocates only when a sub is needed. */
+	private static String normalize(String s) {
+		boolean needs = false;
+		for (int i = 0; i < s.length(); i++) {
+			if (SUBS.containsKey(s.charAt(i))) {
+				needs = true;
+				break;
+			}
+		}
+		if (!needs) {
+			return s;
+		}
+		StringBuilder b = new StringBuilder(s.length());
+		for (int i = 0; i < s.length(); i++) {
+			Character r = SUBS.get(s.charAt(i));
+			b.append(r == null ? s.charAt(i) : r);
+		}
+		return b.toString();
+	}
 
 	private record Glyph(float x, float y, float w, float h, float ox, float oy, float adv) {
 	}
@@ -140,6 +182,7 @@ public final class OriginSdfFont {
 	/** Advance width of `text` in GUI px, matching what {@link #draw} lays out. */
 	public static int width(String text, boolean bold) {
 		ensureLoaded();
+		text = normalize(text);
 		Face f = face(bold);
 		float s = EM_PX / f.size, w = 0;
 		for (int i = 0; i < text.length(); i++) {
@@ -154,6 +197,7 @@ public final class OriginSdfFont {
 		if (!ready() || text.isEmpty()) {
 			return;
 		}
+		text = normalize(text);
 		Face f = face(bold);
 		if (shadow) {
 			int sa = (argb >>> 24) & 0xFF;

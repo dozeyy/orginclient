@@ -33,6 +33,9 @@ import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 public final class OriginShaders {
 	public static ShaderInstance MSDF;
 	public static ShaderInstance ROUND;
+	/** Fullscreen scene color-grade (Color Saturation), invoked by ColorGrade with
+	 *  our own GL-state discipline instead of a vanilla PostChain. */
+	public static ShaderInstance GRADE;
 
 	private static boolean registered = false;
 	private static boolean warnedTextFallback = false;
@@ -58,6 +61,11 @@ public final class OriginShaders {
 					DefaultVertexFormat.POSITION_TEX, shader -> {
 						ROUND = shader;
 						OriginClient.LOGGER.info("Origin: rounded-box SDF shader compiled + loaded OK.");
+					});
+			context.register(ResourceLocation.fromNamespaceAndPath("originclient", "rendertype_origin_grade"),
+					DefaultVertexFormat.POSITION_TEX, shader -> {
+						GRADE = shader;
+						OriginClient.LOGGER.info("Origin: fullscreen color-grade shader compiled + loaded OK.");
 					});
 		});
 	}
